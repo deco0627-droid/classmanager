@@ -1884,40 +1884,68 @@ function renderTimetable(){
   html += '</tbody>';
   document.getElementById('timetableEl').innerHTML = html;
 }
+function normalizeTimetableCell(value){
+  return String(value ?? '')
+    .replace(/[\u200b\u00a0]/g, '')
+    .replace(/&nbsp;/gi, '')
+    .replace(/\r/g, '')
+    .trim();
+}
+function splitCsvLikeLine(line){
+  if (!line) return [];
+  let result = [];
+  let current = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      if (inQuotes && line[i + 1] === '"') {
+        current += '"';
+        i += 1;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if ((ch === ',' || ch === ';' || ch === '\t') && !inQuotes) {
+      result.push(current);
+      current = '';
+    } else {
+      current += ch;
+    }
+  }
+  result.push(current);
+  return result.map(v => normalizeTimetableCell(v).replace(/^"|"$/g, '').replace(/""/g, '"'));
+}
 function downloadTimetableTemplate(){
   const rows = [['교시', '월', '화', '수', '목', '금']];
   PERIODS.forEach(p => rows.push([String(p), '', '', '', '', '']));
-  const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = '주간시간표_템플릿.csv';
-  a.click();
-  URL.revokeObjectURL(url);
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '시간표');
+  XLSX.writeFile(wb, '주간시간표_템플릿.xlsx');
 }
 async function handleTimetableFileUpload(e){
   const file = e.target.files[0]; if (!file) return;
   try {
-    const isCsv = file.name.toLowerCase().endsWith('.csv');
     const raw = await file.arrayBuffer();
     let rows = [];
-    if (isCsv) {
+    const name = file.name.toLowerCase();
+    if (name.endsWith('.csv')) {
       const text = new TextDecoder('utf-8').decode(raw);
-      rows = text.split(/\r?\n/).map(line => line.split(',').map(v => v.trim().replace(/^"|"$/g, '').replace(/""/g, '"'))).filter(r => r.some(v => v !== ''));
+      const lines = text.split(/\r?\n/).map(line => splitCsvLikeLine(line)).filter(line => line.some(v => v !== ''));
+      rows = lines;
     } else {
       const wb = XLSX.read(raw, { type: 'array' });
       const ws = wb.Sheets[wb.SheetNames[0]];
-      rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false });
+      rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: '' });
     }
     const extracted = parseTimetableUploadRows(rows);
-    if (!Object.keys(extracted).length) return alert('시간표 형식을 다시 확인해주세요. 다운로드한 템플릿을 그대로 올려주세요.');
+    if (!Object.keys(extracted).length) return alert('시간표 형식을 다시 확인해주세요. 다운로드한 엑셀 템플릿을 그대로 올려주세요.');
     settingsCache.timetable = { ...(settingsCache.timetable || {}), ...extracted };
     db.collection('settings').doc('general').set({ timetable: settingsCache.timetable }, { merge: true });
     renderTimetable();
-    alert('시간표 파일을 반영했습니다.');
+    alert('엑셀 시간표 파일을 반영했습니다.');
   } catch (err) {
-    alert('시간표 파일을 읽지 못했습니다. 템플릿 형식에 맞춰 다시 업로드해 주세요.');
+    alert('시간표 파일을 읽지 못했습니다. 엑셀(.xlsx/.xls) 또는 CSV 파일을 템플릿 형식에 맞춰 다시 업로드해 주세요.');
   } finally {
     e.target.value = '';
   }
@@ -1925,22 +1953,31 @@ async function handleTimetableFileUpload(e){
 function parseTimetableUploadRows(rows){
   const result = {};
   if (!rows || !rows.length) return result;
-  const dayNames = ['월','화','수','목','금'];
-  const headerIndex = rows.findIndex(r => Array.isArray(r) && r.some(v => /교시|월|화|수|목|금/.test(String(v))));
-  const header = headerIndex >= 0 ? rows[headerIndex] : rows[0];
-  const periodIdx = header.findIndex(v => /교시/.test(String(v || '')));
-  const dayIndexes = header.map((v, i) => dayNames.includes(String(v || '').trim()) ? i : -1).filter(i => i >= 0);
-  if (periodIdx === -1 || !dayIndexes.length) return result;
-  const dataRows = rows.slice(headerIndex >= 0 ? headerIndex + 1 : 1);
+  const cleanRows = rows
+    .filter(Array.isArray)
+    .map(row => row.map(v => normalizeTimetableCell(v)))
+    .filter(row => row.some(v => v !== ''));
+  if (!cleanRows.length) return result;
+  const dayNames = ['월', '화', '수', '목', '금'];
+  const headerIndex = cleanRows.findIndex(row => row.some(v => /교시|월|화|수|목|금|요일/.test(v)));
+  const header = headerIndex >= 0 ? cleanRows[headerIndex] : cleanRows[0];
+  const periodIdx = header.findIndex(v => /교시|시간/.test(String(v || '')));
+  const dayIndexes = header.map((v, i) => {
+    const value = String(v || '');
+    return dayNames.some(day => value.includes(day)) ? i : -1;
+  }).filter(i => i >= 0);
+  if (periodIdx === -1 && dayIndexes.length === 0) return result;
+  const dataRows = headerIndex >= 0 ? cleanRows.slice(headerIndex + 1) : cleanRows.slice(1);
   dataRows.forEach(row => {
     if (!Array.isArray(row) || !row.length) return;
-    const periodToken = row[periodIdx] || row[0];
-    const p = Number(String(periodToken || '').replace(/[^0-9]/g, ''));
-    if (!p || p < 1 || p > 7) return;
+    const periodCell = row[periodIdx] ?? row[0] ?? '';
+    const periodValue = Number(String(periodCell).replace(/[^0-9]/g, ''));
+    if (!Number.isFinite(periodValue) || periodValue < 1 || periodValue > 8) return;
     dayIndexes.forEach(idx => {
-      const day = header[idx];
-      const val = String(row[idx] || '').trim();
-      if (val) result[`${day}-${p}`] = val;
+      const rawKey = header[idx];
+      const day = String(rawKey || '').replace(/요일$/, '').trim();
+      const val = normalizeTimetableCell(row[idx] || '');
+      if (day && val) result[`${day}-${periodValue}`] = val;
     });
   });
   return result;
@@ -2723,12 +2760,22 @@ function commitStudentBulk(){
 ============================================================ */
 let currentStudentId = null;
 let currentModalTab = 'consult';
+const HEALTH_EDIT_PASSWORD = 'health1234';
 const MODAL_TABS = [
   { key: 'consult', label: '상담 일지' }, { key: 'health', label: '건강 상태' },
   { key: 'elective', label: '고교학점제' }, { key: 'cert', label: '자격증' },
   { key: 'cleaning', label: '청소 구역' }, { key: 'club', label: '동아리' },
   { key: 'awards', label: '수상 실적' },
 ];
+function requireHealthPassword(){
+  const input = window.prompt('건강 정보 수정 비밀번호를 입력하세요.');
+  if (input === null) return false;
+  if (String(input).trim() !== HEALTH_EDIT_PASSWORD) {
+    alert('건강 비밀번호가 올바르지 않습니다.');
+    return false;
+  }
+  return true;
+}
 function openStudentEditor(id){
   if (!isTeacher || !id) return;
   currentStudentId = id;
@@ -2780,7 +2827,17 @@ function renderModal(){
   ).join('');
   renderModalContent();
 }
-function switchModalTab(key){ currentModalTab = key; renderModal(); }
+function switchModalTab(key){
+  if (key === 'health') {
+    if (!requireHealthPassword()) {
+      currentModalTab = 'consult';
+      renderModal();
+      return;
+    }
+  }
+  currentModalTab = key;
+  renderModal();
+}
 document.getElementById('modalStudentName').addEventListener('input', (e) => {
   const s = getCurrentStudent(); if (!s) return;
   s.name = e.target.value; persistStudent(s);
@@ -2889,7 +2946,13 @@ function addConsultLog(){
   s.consultLogs.push({ date, content }); persistStudent(s); renderModalContent();
 }
 function deleteConsultLog(i){ const s = getCurrentStudent(); s.consultLogs.splice(i,1); persistStudent(s); renderModalContent(); }
-function saveHealth(){ const s = getCurrentStudent(); s.health = document.getElementById('healthField').value; persistStudent(s); alert('건강 정보가 저장되었습니다.'); }
+function saveHealth(){
+  if (!requireHealthPassword()) return;
+  const s = getCurrentStudent();
+  s.health = document.getElementById('healthField').value;
+  persistStudent(s);
+  alert('건강 정보가 저장되었습니다.');
+}
 function addElective(){
   const s = getCurrentStudent(); const val = document.getElementById('electiveInput').value.trim();
   if (!val) return; s.electiveCourses.push(val); persistStudent(s); renderModalContent();
