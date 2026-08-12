@@ -1984,7 +1984,14 @@ function parseTimetableUploadRows(rows){
 }
 function clearTimetableFromPhoto(){
   settingsCache.timetable = {};
-  db.collection('settings').doc('general').set({ timetable: {} }, { merge: true });
+  const generalRef = db.collection('settings').doc('general');
+  if (firebase && firebase.firestore && firebase.firestore.FieldValue) {
+    generalRef.update({ timetable: firebase.firestore.FieldValue.delete() }).catch(() => {
+      generalRef.set({ timetable: {} }, { merge: true });
+    });
+  } else {
+    generalRef.set({ timetable: {} }, { merge: true });
+  }
   renderTimetable();
 }
 function parseTimetableText(text){
