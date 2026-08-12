@@ -3260,12 +3260,12 @@ function renderAdmin(){
     unlockTrigger.classList.toggle('hidden', !isAdminView);
     unlockTrigger.classList.toggle('pointer-events-none', !isAdminView);
     unlockTrigger.classList.toggle('pointer-events-auto', isAdminView);
-    unlockTrigger.classList.toggle('cursor-default', !isAdminView);
-    unlockTrigger.classList.toggle('cursor-pointer', isAdminView);
+    unlockTrigger.classList.toggle('cursor-default', true);
+    unlockTrigger.classList.remove('cursor-pointer');
     unlockTrigger.onclick = isAdminView ? () => unlockHealthPasswordPanel() : null;
     unlockTrigger.onselectstart = () => false;
     unlockTrigger.setAttribute('unselectable', 'on');
-
+    unlockTrigger.style.cursor = 'default';
   }
   const copyrightNotice = document.getElementById('healthCopyrightNotice');
   if (copyrightNotice) {
