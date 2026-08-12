@@ -280,7 +280,17 @@ service cloud.firestore {
     <h1 class="font-display text-2xl mt-1 mb-5">시간표 &amp; 학사일정</h1>
     <div class="grid grid-cols-1 xl:grid-cols-3 gap-5">
       <div class="xl:col-span-2 bg-card border border-gray-200 rounded-xl p-5 overflow-x-auto">
-        <h2 class="font-display text-lg mb-3 text-forest-dark">주간 시간표 <span class="text-xs font-body text-gray-400 font-normal teacher-only-hint hidden">(칸을 클릭해 편집)</span></h2>
+        <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between mb-3">
+          <h2 class="font-display text-lg text-forest-dark">주간 시간표 <span class="text-xs font-body text-gray-400 font-normal teacher-only-hint hidden">(칸을 클릭해 편집)</span></h2>
+          <div class="flex flex-wrap justify-end gap-2">
+            <button onclick="downloadTimetableTemplate()" class="text-xs border border-gray-300 bg-white px-3 py-1.5 rounded-lg hover:bg-gray-50">다운로드</button>
+            <label class="inline-flex items-center gap-1.5 text-xs bg-white border border-gray-300 rounded-lg px-3 py-1.5 cursor-pointer hover:bg-gray-50">
+              업로드
+              <input type="file" accept=".csv,.xlsx,.xls" class="hidden" onchange="handleTimetableFileUpload(event)">
+            </label>
+            <button onclick="clearTimetableFromPhoto()" class="text-xs border border-gray-300 bg-white px-3 py-1.5 rounded-lg hover:bg-gray-50">초기화</button>
+          </div>
+        </div>
         <table class="w-full text-sm border-collapse min-w-[520px]" id="timetableEl"></table>
       </div>
       <div class="bg-card border border-gray-200 rounded-xl p-5">
@@ -311,17 +321,6 @@ service cloud.firestore {
       <div id="scheduleCalendarGrid" class="grid grid-cols-7 gap-1"></div>
     </div>
 
-    <div class="bg-card border border-gray-200 rounded-xl p-5 mt-5">
-      <h2 class="font-display text-lg mb-3 text-forest-dark">🖼 시간표 사진 업로드로 자동 반영</h2>
-      <div class="flex flex-wrap gap-2 items-center">
-        <label class="inline-flex items-center gap-1.5 text-xs bg-white border border-gray-300 rounded-lg px-3 py-1.5 cursor-pointer hover:bg-gray-50">
-          📷 시간표 사진 선택
-          <input type="file" accept="image/*" class="hidden" onchange="handleTimetablePhotoUpload(event)">
-        </label>
-        <button id="timetableDeletePhotoBtn" onclick="clearTimetableFromPhoto()" class="hidden text-xs border border-gray-300 bg-white px-3 py-1.5 rounded-lg hover:bg-gray-50">사진 삭제</button>
-      </div>
-      <div id="timetablePhotoPreview" class="mt-3 hidden rounded-lg border border-dashed border-gray-300 bg-white p-3"></div>
-    </div>
 
     <div id="dayDetailModal" class="hidden fixed inset-0 bg-ink/60 z-50 flex items-center justify-center p-4">
       <div class="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl">
@@ -1885,33 +1884,68 @@ function renderTimetable(){
   html += '</tbody>';
   document.getElementById('timetableEl').innerHTML = html;
 }
-async function handleTimetablePhotoUpload(e){
+function downloadTimetableTemplate(){
+  const rows = [['교시', '월', '화', '수', '목', '금']];
+  PERIODS.forEach(p => rows.push([String(p), '', '', '', '', '']));
+  const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = '주간시간표_템플릿.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+async function handleTimetableFileUpload(e){
   const file = e.target.files[0]; if (!file) return;
-  const dataUrl = await compressImageFile(file, 1400, 0.75);
-  const preview = document.getElementById('timetablePhotoPreview');
-  const deleteBtn = document.getElementById('timetableDeletePhotoBtn');
-  preview.classList.remove('hidden');
-  deleteBtn.classList.remove('hidden');
-  preview.innerHTML = `<img src="${dataUrl}" class="max-h-52 rounded-md mx-auto block">`;
-  if (!window.Tesseract) return alert('OCR 라이브러리를 불러오지 못했습니다.');
   try {
-    const result = await Tesseract.recognize(dataUrl, 'kor+eng', { logger: () => {} });
-    const extracted = parseTimetableText(result.data.text);
-    if (!extracted.length) return alert('시간표를 인식하지 못했습니다. 사진을 다시 찍어 주세요.');
+    const isCsv = file.name.toLowerCase().endsWith('.csv');
+    const raw = await file.arrayBuffer();
+    let rows = [];
+    if (isCsv) {
+      const text = new TextDecoder('utf-8').decode(raw);
+      rows = text.split(/\r?\n/).map(line => line.split(',').map(v => v.trim().replace(/^"|"$/g, '').replace(/""/g, '"'))).filter(r => r.some(v => v !== ''));
+    } else {
+      const wb = XLSX.read(raw, { type: 'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false });
+    }
+    const extracted = parseTimetableUploadRows(rows);
+    if (!Object.keys(extracted).length) return alert('시간표 형식을 다시 확인해주세요. 다운로드한 템플릿을 그대로 올려주세요.');
     settingsCache.timetable = { ...(settingsCache.timetable || {}), ...extracted };
     db.collection('settings').doc('general').set({ timetable: settingsCache.timetable }, { merge: true });
     renderTimetable();
-    alert('시간표 사진을 기반으로 표를 반영했습니다.');
+    alert('시간표 파일을 반영했습니다.');
   } catch (err) {
-    alert('시간표 사진 인식에 실패했습니다. 다시 시도해 주세요.');
+    alert('시간표 파일을 읽지 못했습니다. 템플릿 형식에 맞춰 다시 업로드해 주세요.');
+  } finally {
+    e.target.value = '';
   }
 }
+function parseTimetableUploadRows(rows){
+  const result = {};
+  if (!rows || !rows.length) return result;
+  const dayNames = ['월','화','수','목','금'];
+  const headerIndex = rows.findIndex(r => Array.isArray(r) && r.some(v => /교시|월|화|수|목|금/.test(String(v))));
+  const header = headerIndex >= 0 ? rows[headerIndex] : rows[0];
+  const periodIdx = header.findIndex(v => /교시/.test(String(v || '')));
+  const dayIndexes = header.map((v, i) => dayNames.includes(String(v || '').trim()) ? i : -1).filter(i => i >= 0);
+  if (periodIdx === -1 || !dayIndexes.length) return result;
+  const dataRows = rows.slice(headerIndex >= 0 ? headerIndex + 1 : 1);
+  dataRows.forEach(row => {
+    if (!Array.isArray(row) || !row.length) return;
+    const periodToken = row[periodIdx] || row[0];
+    const p = Number(String(periodToken || '').replace(/[^0-9]/g, ''));
+    if (!p || p < 1 || p > 7) return;
+    dayIndexes.forEach(idx => {
+      const day = header[idx];
+      const val = String(row[idx] || '').trim();
+      if (val) result[`${day}-${p}`] = val;
+    });
+  });
+  return result;
+}
 function clearTimetableFromPhoto(){
-  const deleteBtn = document.getElementById('timetableDeletePhotoBtn');
-  const preview = document.getElementById('timetablePhotoPreview');
-  if (deleteBtn) deleteBtn.classList.add('hidden');
-  if (preview) preview.classList.add('hidden');
-  if (preview) preview.innerHTML = '';
   settingsCache.timetable = {};
   db.collection('settings').doc('general').set({ timetable: {} }, { merge: true });
   renderTimetable();
