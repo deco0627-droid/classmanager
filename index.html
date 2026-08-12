@@ -1985,12 +1985,26 @@ function parseTimetableUploadRows(rows){
 function clearTimetableFromPhoto(){
   settingsCache.timetable = {};
   const generalRef = db.collection('settings').doc('general');
-  if (firebase && firebase.firestore && firebase.firestore.FieldValue) {
-    generalRef.update({ timetable: firebase.firestore.FieldValue.delete() }).catch(() => {
+  const clearSavedTimetable = () => {
+    generalRef.get().then(doc => {
+      const data = doc.exists ? { ...(doc.data() || {}) } : {};
+      delete data.timetable;
+      data.timetable = {};
+      generalRef.set(data, { merge: true });
+    }).catch(() => {
       generalRef.set({ timetable: {} }, { merge: true });
     });
-  } else {
-    generalRef.set({ timetable: {} }, { merge: true });
+  };
+  try {
+    if (firebase && firebase.firestore && firebase.firestore.FieldValue) {
+      generalRef.update({ timetable: firebase.firestore.FieldValue.delete() }).then(() => {
+        generalRef.set({ timetable: {} }, { merge: true });
+      }).catch(clearSavedTimetable);
+    } else {
+      clearSavedTimetable();
+    }
+  } catch (err) {
+    clearSavedTimetable();
   }
   renderTimetable();
 }
