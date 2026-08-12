@@ -49,20 +49,21 @@
     font-style: normal;
     font-display: swap;
   }
-  :root { --app-font-scale: 1; }
-  html { font-size: calc(16px * var(--app-font-scale)); }
+  :root { font-size: 16px; }
   body { background-color: #EEF2EE; font-family: 'ElectricalSafety', sans-serif; color: #1E2A38; }
   .font-display { font-family: 'ElectricalSafety', serif; }
   .font-mono { font-family: 'JetBrains Mono', monospace; }
-  .weather-detail-text { font-size: calc(0.78rem * var(--app-font-scale)); }
-  .font-scale-btn { font-size: 0.7rem; line-height: 1; }
+  .weather-detail-text { font-size: 0.78rem; }
 
   .tab-btn {
-    position: relative; padding: 0.55rem 1.1rem 0.6rem; font-size: 0.92rem; font-weight: 600;
-    color: #5b6b63; border-radius: 10px 10px 0 0; transition: all .15s ease; top: 2px;
+    position: relative; display: inline-flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 0.22rem; min-width: 120px; min-height: 72px; padding: 0.6rem 0.9rem 0.7rem; font-size: 0.9rem; font-weight: 700;
+    color: #dfe9e2; border-radius: 12px 12px 0 0; transition: all .15s ease; top: 2px; line-height: 1.1;
   }
-  .tab-btn:hover { color: #20503B; background: #E3ECE3; }
-  .tab-btn.active { color: #20503B; background: #F8F9F5; box-shadow: 0 -2px 0 0 #2F6F52 inset; }
+  .tab-btn:hover { color: #ffffff; background: rgba(255,255,255,0.08); }
+  .tab-btn.active { color: #ffffff; background: rgba(255,255,255,0.08); box-shadow: inset 0 -2px 0 0 #E9F0EA; }
+  .tab-btn .tab-icon { font-size: 1.1rem; line-height: 1; }
+  .tab-btn .tab-label { font-size: 0.78rem; letter-spacing: -0.02em; }
 
   .stamp {
     border: 3px solid #B5533F; color: #B5533F; border-radius: 9999px; transform: rotate(-8deg);
@@ -144,10 +145,6 @@ service cloud.firestore {
     </div>
     <nav class="hidden md:flex items-end gap-1" id="mainNav"></nav>
     <div class="flex items-center gap-2">
-      <div class="flex items-center gap-1 bg-white/10 border border-white/20 rounded-full px-1 py-0.5">
-        <button onclick="adjustGlobalFontScale(-0.1)" class="font-scale-btn w-7 h-7 rounded-full hover:bg-white/10 text-white/90" title="글자 작게">A-</button>
-        <button onclick="adjustGlobalFontScale(0.1)" class="font-scale-btn w-7 h-7 rounded-full hover:bg-white/10 text-white/90" title="글자 크게">A+</button>
-      </div>
       <div class="relative">
         <button id="userBtn" class="flex items-center gap-2 bg-white/10 hover:bg-white/20 transition rounded-full pl-2 pr-3 py-1.5 text-sm">
           <span id="userAvatar" class="w-6 h-6 rounded-full bg-amber flex items-center justify-center text-[11px] font-bold text-white">?</span>
@@ -1237,7 +1234,6 @@ let statsCache = { total: 0, dailyDate: '', dailyCount: 0 };
 function bootstrapApp(){
   db = firebase.firestore();
   auth = firebase.auth();
-  applyGlobalFontScale(getGlobalFontScale());
 
   // 공개 데이터 실시간 구독
   db.collection('schedules').onSnapshot(snap => {
@@ -1416,33 +1412,20 @@ function withTitleIcon(label){
   return icon ? `${icon} ${text}` : text;
 }
 
-const GLOBAL_FONT_SCALE_KEY = 'classManager.globalFontScale';
-const DEFAULT_GLOBAL_FONT_SCALE = 1;
-
-function getGlobalFontScale(){
-  try {
-    const value = Number(localStorage.getItem(GLOBAL_FONT_SCALE_KEY) || DEFAULT_GLOBAL_FONT_SCALE);
-    if (Number.isFinite(value)) return Math.min(1.6, Math.max(0.85, value));
-  } catch {
-    return DEFAULT_GLOBAL_FONT_SCALE;
-  }
-  return DEFAULT_GLOBAL_FONT_SCALE;
-}
-
-function applyGlobalFontScale(nextValue){
-  const value = Math.min(1.6, Math.max(0.85, Number(nextValue) || DEFAULT_GLOBAL_FONT_SCALE));
-  document.documentElement.style.setProperty('--app-font-scale', String(value));
-  localStorage.setItem(GLOBAL_FONT_SCALE_KEY, String(value));
-}
-
-function adjustGlobalFontScale(delta){
-  const next = getGlobalFontScale() + delta;
-  applyGlobalFontScale(next);
+function renderTabLabel(label){
+  const text = String(label || '').trim();
+  if (!text) return '';
+  const match = Object.entries(TITLE_ICONS).find(([key]) => text.includes(key));
+  const icon = match ? match[1] : '';
+  const safeText = escapeHtml(text);
+  return icon
+    ? `<span class="tab-icon">${icon}</span><span class="tab-label">${safeText}</span>`
+    : `<span class="tab-label">${safeText}</span>`;
 }
 
 function renderNav(){
   const html = visibleNavItems().map(item =>
-    `<button class="tab-btn ${currentView===item.key?'active':''}" onclick="switchView('${item.key}')">${escapeHtml(withTitleIcon(item.label))}</button>`
+    `<button class="tab-btn ${currentView===item.key?'active':''}" onclick="switchView('${item.key}')">${renderTabLabel(item.label)}</button>`
   ).join('');
   document.getElementById('mainNav').innerHTML = html;
   document.getElementById('mainNavMobile').innerHTML = html;
