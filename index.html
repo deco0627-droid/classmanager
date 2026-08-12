@@ -49,9 +49,13 @@
     font-style: normal;
     font-display: swap;
   }
+  :root { --app-font-scale: 1; }
+  html { font-size: calc(16px * var(--app-font-scale)); }
   body { background-color: #EEF2EE; font-family: 'ElectricalSafety', sans-serif; color: #1E2A38; }
   .font-display { font-family: 'ElectricalSafety', serif; }
   .font-mono { font-family: 'JetBrains Mono', monospace; }
+  .weather-detail-text { font-size: calc(0.78rem * var(--app-font-scale)); }
+  .font-scale-btn { font-size: 0.7rem; line-height: 1; }
 
   .tab-btn {
     position: relative; padding: 0.55rem 1.1rem 0.6rem; font-size: 0.92rem; font-weight: 600;
@@ -139,12 +143,17 @@ service cloud.firestore {
       </div>
     </div>
     <nav class="hidden md:flex items-end gap-1" id="mainNav"></nav>
-    <div class="relative">
-      <button id="userBtn" class="flex items-center gap-2 bg-white/10 hover:bg-white/20 transition rounded-full pl-2 pr-3 py-1.5 text-sm">
-        <span id="userAvatar" class="w-6 h-6 rounded-full bg-amber flex items-center justify-center text-[11px] font-bold text-white">?</span>
-        <span id="userLabel" class="font-mono text-xs">교사 로그인</span>
-      </button>
-      <div id="userPanel" class="hidden absolute right-0 mt-2 w-56 bg-white text-ink rounded-xl shadow-2xl p-4 border border-gray-100">
+    <div class="flex items-center gap-2">
+      <div class="flex items-center gap-1 bg-white/10 border border-white/20 rounded-full px-1 py-0.5">
+        <button onclick="adjustGlobalFontScale(-0.1)" class="font-scale-btn w-7 h-7 rounded-full hover:bg-white/10 text-white/90" title="글자 작게">A-</button>
+        <button onclick="adjustGlobalFontScale(0.1)" class="font-scale-btn w-7 h-7 rounded-full hover:bg-white/10 text-white/90" title="글자 크게">A+</button>
+      </div>
+      <div class="relative">
+        <button id="userBtn" class="flex items-center gap-2 bg-white/10 hover:bg-white/20 transition rounded-full pl-2 pr-3 py-1.5 text-sm">
+          <span id="userAvatar" class="w-6 h-6 rounded-full bg-amber flex items-center justify-center text-[11px] font-bold text-white">?</span>
+          <span id="userLabel" class="font-mono text-xs">교사 로그인</span>
+        </button>
+        <div id="userPanel" class="hidden absolute right-0 mt-2 w-56 bg-white text-ink rounded-xl shadow-2xl p-4 border border-gray-100">
         <p class="text-xs text-gray-500 mb-1">로그인 계정</p>
         <p class="text-sm font-semibold mb-3" id="loggedInEmail"></p>
         <button onclick="logoutTeacher()" class="w-full text-xs text-brick font-semibold hover:underline">로그아웃</button>
@@ -182,7 +191,7 @@ service cloud.firestore {
           <p class="text-2xl leading-none" id="dashWeatherIcon">🌡</p>
           <p class="font-mono text-sm font-semibold mt-1" id="dashWeatherTemp">-</p>
           <p class="text-[10px] text-gray-400" id="dashWeatherDesc">불러오는 중</p>
-          <p class="text-[9px] text-gray-400 mt-1 font-mono">🌅<span id="dashSunrise">-</span> 🌇<span id="dashSunset">-</span></p>
+          <p class="weather-detail-text text-gray-400 mt-1 font-mono">🌅<span id="dashSunrise">-</span> 🌇<span id="dashSunset">-</span></p>
         </div>
         <div class="stamp w-24 h-24 flex flex-col items-center justify-center text-center text-xs font-bold shrink-0">
           <span id="dashStampMonth">-</span>
@@ -209,8 +218,7 @@ service cloud.firestore {
         <p class="text-xs font-semibold text-forest-dark" id="dashBlogName">배움꿈나무 선생님</p>
         <p class="text-[11px] text-gray-400" id="dashBlogDesc">학급 소식 외에 더 많은 이야기가 궁금하다면?</p>
       </div>
-      <a href="#" target="_blank" id="dashBlogLink" class="text-xs bg-forest-light text-forest-dark px-3 py-1.5 rounded-full hover:opacity-80 shrink-0">📝 블로그</a>
-      <a href="#" target="_blank" id="dashYoutubeLink" class="text-xs bg-brick-light text-brick px-3 py-1.5 rounded-full hover:opacity-80 shrink-0">▶️ 유튜브</a>
+      <div id="dashBadgeLinks" class="flex items-center gap-2 flex-wrap justify-end"></div>
       <button id="dashBlogEditBtn" onclick="switchView('admin')" class="hidden text-gray-300 hover:text-forest-dark text-sm shrink-0" title="이 배지 수정하기">✏️</button>
     </div>
 
@@ -670,7 +678,17 @@ service cloud.firestore {
             <input id="youtubeUrlField" class="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm">
           </div>
         </div>
-        <button onclick="saveBlogBadge()" class="bg-forest text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-forest-dark">저장</button>
+        <div class="mt-4 pt-4 border-t border-gray-200">
+          <label class="text-xs font-semibold text-gray-500">추가 버튼</label>
+          <p class="text-[11px] text-gray-400 mb-2">블로그·유튜브 외에 더 자주 쓰는 링크를 자유롭게 추가할 수 있어요.</p>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-2">
+            <input id="extraBadgeLabel" placeholder="버튼 이름" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+            <input id="extraBadgeUrl" placeholder="https://..." class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+            <button onclick="addExtraBadgeLink()" class="bg-amber text-white px-4 rounded-lg text-sm font-semibold hover:opacity-90">추가</button>
+          </div>
+          <div id="extraBadgeLinkList" class="space-y-1"></div>
+        </div>
+        <button onclick="saveBlogBadge()" class="mt-4 bg-forest text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-forest-dark">저장</button>
       </div>
       <div class="bg-card border border-gray-200 rounded-xl p-5">
         <h2 class="font-display text-lg mb-2 text-forest-dark">🌤 날씨 위치 설정</h2>
@@ -1186,6 +1204,7 @@ function defaultSettings(){
       blogLabel: '📝 블로그',
       youtubeUrl: 'https://www.youtube.com/@deco0627',
       youtubeLabel: '▶️ 유튜브',
+      links: [],
     },
   };
 }
@@ -1218,6 +1237,7 @@ let statsCache = { total: 0, dailyDate: '', dailyCount: 0 };
 function bootstrapApp(){
   db = firebase.firestore();
   auth = firebase.auth();
+  applyGlobalFontScale(getGlobalFontScale());
 
   // 공개 데이터 실시간 구독
   db.collection('schedules').onSnapshot(snap => {
@@ -1276,6 +1296,7 @@ function bootstrapApp(){
     if (currentView.startsWith('custom_')) renderCustomPage(currentView.slice(7));
     if (currentView === 'admin') renderAdmin();
   });
+  applyBrandLogo();
   db.collection('certExams').onSnapshot(snap => {
     certExamsCache = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => (a.date||'').localeCompare(b.date||''));
     if (currentView === 'certinfo') renderCertInfo();
@@ -1367,12 +1388,113 @@ function visibleNavItems(){
   return [...withLabels(orderedPub), ...custom, ...withLabels(priv)];
 }
 
+const TITLE_ICONS = {
+  '대나무': '🌿',
+  '대나무숲': '🌿',
+  '담벼락': '🧱',
+  'AI': '🤖',
+  '검색엔진': '🔎',
+  '디자인': '🎨',
+  '음악': '🎵',
+  '배움': '📚',
+  '자격': '🏅',
+  '자격증': '🏅',
+  '대시보드': '🏠',
+  '시간표': '🗓️',
+  '학사일정': '🗓️',
+  '청소': '🧽',
+  '동아리': '🎶',
+  '공지': '📢',
+  '학생': '🧑‍🎓',
+  '관리자': '⚙️',
+};
+function withTitleIcon(label){
+  const text = String(label || '').trim();
+  if (!text) return '';
+  const match = Object.entries(TITLE_ICONS).find(([key]) => text.includes(key));
+  const icon = match ? match[1] : '';
+  return icon ? `${icon} ${text}` : text;
+}
+
+const GLOBAL_FONT_SCALE_KEY = 'classManager.globalFontScale';
+const DEFAULT_GLOBAL_FONT_SCALE = 1;
+
+function getGlobalFontScale(){
+  try {
+    const value = Number(localStorage.getItem(GLOBAL_FONT_SCALE_KEY) || DEFAULT_GLOBAL_FONT_SCALE);
+    if (Number.isFinite(value)) return Math.min(1.6, Math.max(0.85, value));
+  } catch {
+    return DEFAULT_GLOBAL_FONT_SCALE;
+  }
+  return DEFAULT_GLOBAL_FONT_SCALE;
+}
+
+function applyGlobalFontScale(nextValue){
+  const value = Math.min(1.6, Math.max(0.85, Number(nextValue) || DEFAULT_GLOBAL_FONT_SCALE));
+  document.documentElement.style.setProperty('--app-font-scale', String(value));
+  localStorage.setItem(GLOBAL_FONT_SCALE_KEY, String(value));
+}
+
+function adjustGlobalFontScale(delta){
+  const next = getGlobalFontScale() + delta;
+  applyGlobalFontScale(next);
+}
+
 function renderNav(){
   const html = visibleNavItems().map(item =>
-    `<button class="tab-btn ${currentView===item.key?'active':''}" onclick="switchView('${item.key}')">${escapeHtml(item.label)}</button>`
+    `<button class="tab-btn ${currentView===item.key?'active':''}" onclick="switchView('${item.key}')">${escapeHtml(withTitleIcon(item.label))}</button>`
   ).join('');
   document.getElementById('mainNav').innerHTML = html;
   document.getElementById('mainNavMobile').innerHTML = html;
+}
+
+function applyBrandLogo(){
+  const bambooSvg = `
+    <svg viewBox="0 0 64 64" class="w-8 h-8" aria-label="배움꿈나무 로고" role="img">
+      <rect width="64" height="64" rx="16" fill="#E7F5E2"/>
+      <g stroke-linecap="round" stroke-linejoin="round">
+        <rect x="28" y="12" width="7" height="34" rx="3" fill="#3A7C45"/>
+        <path d="M15 22 C22 18, 26 15, 28 22 C24 27, 17 31, 15 22Z" fill="#5DB56D"/>
+        <path d="M49 22 C41 18, 37 15, 35 22 C39 27, 46 31, 49 22Z" fill="#5DB56D"/>
+        <path d="M18 34 C25 30, 29 28, 31 34 C27 39, 20 42, 18 34Z" fill="#70C77F"/>
+        <path d="M46 34 C39 30, 35 28, 33 34 C37 39, 44 42, 46 34Z" fill="#70C77F"/>
+        <path d="M23 50 C26 38, 29 33, 32 50" stroke="#2F6E3B" stroke-width="2.6" fill="none"/>
+        <path d="M41 50 C38 38, 35 33, 32 50" stroke="#2F6E3B" stroke-width="2.6" fill="none"/>
+      </g>
+    </svg>
+  `;
+
+  const brandWrap = document.querySelector('header .flex.items-center.gap-3');
+  if (brandWrap) {
+    brandWrap.setAttribute('onclick', "switchView('dashboard')");
+    brandWrap.setAttribute('title', '대시보드로 이동');
+    brandWrap.classList.add('cursor-pointer');
+    const oldLogo = brandWrap.querySelector('img');
+    if (oldLogo) {
+      oldLogo.replaceWith(new DOMParser().parseFromString(bambooSvg, 'image/svg+xml').documentElement);
+    } else {
+      const container = document.createElement('div');
+      container.className = 'w-10 h-10 rounded-full bg-white/10 border border-white/20 flex items-center justify-center shadow-inner overflow-hidden';
+      container.innerHTML = bambooSvg;
+      brandWrap.prepend(container);
+    }
+  }
+
+  const modalLogo = document.querySelector('#loginModal svg[aria-label="배움꿈나무 로고"]');
+  if (!modalLogo) {
+    const modalWrap = document.querySelector('#loginModal .bg-white');
+    if (modalWrap) {
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.setAttribute('viewBox', '0 0 64 64');
+      svg.setAttribute('class', 'w-14 h-14 mx-auto mb-3');
+      svg.setAttribute('aria-label', '배움꿈나무 로고');
+      svg.setAttribute('role', 'img');
+      svg.innerHTML = '<rect width="64" height="64" rx="18" fill="#E7F5E2"/><g stroke-linecap="round" stroke-linejoin="round"><rect x="28" y="12" width="7" height="34" rx="3" fill="#3A7C45"/><path d="M15 22 C22 18, 26 15, 28 22 C24 27, 17 31, 15 22Z" fill="#5DB56D"/><path d="M49 22 C41 18, 37 15, 35 22 C39 27, 46 31, 49 22Z" fill="#5DB56D"/><path d="M18 34 C25 30, 29 28, 31 34 C27 39, 20 42, 18 34Z" fill="#70C77F"/><path d="M46 34 C39 30, 35 28, 33 34 C37 39, 44 42, 46 34Z" fill="#70C77F"/><path d="M23 50 C26 38, 29 33, 32 50" stroke="#2F6E3B" stroke-width="2.6" fill="none"/><path d="M41 50 C38 38, 35 33, 32 50" stroke="#2F6E3B" stroke-width="2.6" fill="none"/></g>';
+      const existing = modalWrap.querySelector('img');
+      if (existing) existing.replaceWith(svg);
+      else modalWrap.prepend(svg);
+    }
+  }
 }
 
 let currentView = 'dashboard';
@@ -1533,10 +1655,15 @@ function renderDashboard(){
   const bb = settingsCache.blogBadge || defaultSettings().blogBadge;
   document.getElementById('dashBlogName').textContent = bb.name;
   document.getElementById('dashBlogDesc').textContent = bb.desc;
-  document.getElementById('dashBlogLink').textContent = bb.blogLabel;
-  document.getElementById('dashBlogLink').href = bb.blogUrl;
-  document.getElementById('dashYoutubeLink').textContent = bb.youtubeLabel;
-  document.getElementById('dashYoutubeLink').href = bb.youtubeUrl;
+  const extraLinks = bb.links || [];
+  const primaryLinks = [
+    { label: bb.blogLabel, url: bb.blogUrl },
+    { label: bb.youtubeLabel, url: bb.youtubeUrl },
+    ...extraLinks,
+  ].filter(link => link && link.label && link.url);
+  document.getElementById('dashBadgeLinks').innerHTML = primaryLinks.map(link => `
+    <a href="${escapeAttr(link.url)}" target="_blank" class="text-xs rounded-full px-3 py-1.5 hover:opacity-80 shrink-0 ${link.label.includes('유튜브') ? 'bg-brick-light text-brick' : link.label.includes('블로그') ? 'bg-forest-light text-forest-dark' : 'bg-white border border-gray-200 text-ink'}">${escapeHtml(link.label)}</a>
+  `).join('');
 }
 
 /* ============================================================
@@ -2853,6 +2980,13 @@ function renderAdmin(){
   document.getElementById('blogUrlField').value = bb.blogUrl;
   document.getElementById('youtubeLabelField').value = bb.youtubeLabel;
   document.getElementById('youtubeUrlField').value = bb.youtubeUrl;
+  document.getElementById('extraBadgeLinkList').innerHTML = (bb.links || []).length
+    ? (bb.links || []).map((link,i) => `
+      <div class="flex items-center justify-between bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-xs">
+        <span>${escapeHtml(link.label)} <span class="text-gray-400">— ${escapeHtml(link.url)}</span></span>
+        <button onclick="removeExtraBadgeLink(${i})" class="text-gray-300 hover:text-brick text-base leading-none shrink-0 ml-2">&times;</button>
+      </div>`).join('')
+    : '<p class="text-gray-400 text-xs">추가된 버튼이 없습니다.</p>';
   document.getElementById('weatherCurrentLocation').textContent = settingsCache.weatherLocation?.name || '서울(기본값)';
   document.getElementById('weatherNameField').value = settingsCache.weatherLocation?.name || '';
   document.getElementById('weatherLatField').value = settingsCache.weatherLocation?.lat ?? '';
@@ -2889,15 +3023,36 @@ function saveClassName(){
 }
 function saveBlogBadge(){
   settingsCache.blogBadge = {
+    ...(settingsCache.blogBadge || {}),
     name: document.getElementById('blogNameField').value.trim(),
     desc: document.getElementById('blogDescField').value.trim(),
     blogLabel: document.getElementById('blogLabelField').value.trim(),
     blogUrl: document.getElementById('blogUrlField').value.trim(),
     youtubeLabel: document.getElementById('youtubeLabelField').value.trim(),
     youtubeUrl: document.getElementById('youtubeUrlField').value.trim(),
+    links: (settingsCache.blogBadge && settingsCache.blogBadge.links) || [],
   };
   db.collection('settings').doc('general').set({ blogBadge: settingsCache.blogBadge }, { merge: true });
   alert('저장되었습니다.');
+}
+function addExtraBadgeLink(){
+  const label = document.getElementById('extraBadgeLabel').value.trim();
+  const url = document.getElementById('extraBadgeUrl').value.trim();
+  if (!label || !url) return alert('버튼 이름과 링크 주소를 모두 입력해주세요.');
+  settingsCache.blogBadge = settingsCache.blogBadge || defaultSettings().blogBadge;
+  settingsCache.blogBadge.links = settingsCache.blogBadge.links || [];
+  settingsCache.blogBadge.links.push({ label, url });
+  document.getElementById('extraBadgeLabel').value = '';
+  document.getElementById('extraBadgeUrl').value = '';
+  renderAdmin();
+  db.collection('settings').doc('general').set({ blogBadge: settingsCache.blogBadge }, { merge: true });
+}
+function removeExtraBadgeLink(i){
+  settingsCache.blogBadge = settingsCache.blogBadge || defaultSettings().blogBadge;
+  settingsCache.blogBadge.links = settingsCache.blogBadge.links || [];
+  settingsCache.blogBadge.links.splice(i,1);
+  renderAdmin();
+  db.collection('settings').doc('general').set({ blogBadge: settingsCache.blogBadge }, { merge: true });
 }
 function addCertTypeAdmin(){
   const val = document.getElementById('newCertTypeAdmin').value.trim();
