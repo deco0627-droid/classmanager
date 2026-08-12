@@ -866,6 +866,7 @@ function handleCleaningPhotoUpload(e){
     if (dataUrl.length > 900000) return alert('이미지 용량이 너무 큽니다. 더 작거나 단순한 사진으로 다시 시도해주세요.');
     db.collection('settings').doc('cleaningPhoto').set({ data: dataUrl });
     cleaningPhotoCache = dataUrl;
+    syncAssignmentPhotoButtons();
     renderPhotosView();
   }).catch(() => alert('사진을 처리하는 중 문제가 발생했습니다.'));
 }
@@ -875,6 +876,7 @@ function handleClubPhotoUpload(e){
     if (dataUrl.length > 900000) return alert('이미지 용량이 너무 큽니다. 더 작거나 단순한 사진으로 다시 시도해주세요.');
     db.collection('settings').doc('clubPhoto').set({ data: dataUrl });
     clubPhotoCache = dataUrl;
+    syncAssignmentPhotoButtons();
     renderPhotosView();
   }).catch(() => alert('사진을 처리하는 중 문제가 발생했습니다.'));
 }
@@ -1019,8 +1021,8 @@ async function rebuildAssignmentTable(kind){
 function syncAssignmentPhotoButtons(){
   const cleaningBtn = document.getElementById('cleaningDeletePhotoBtn');
   const clubBtn = document.getElementById('clubDeletePhotoBtn');
-  if (cleaningBtn) cleaningBtn.classList.toggle('hidden', !cleaningPhotoCache);
-  if (clubBtn) clubBtn.classList.toggle('hidden', !clubPhotoCache);
+  if (cleaningBtn) cleaningBtn.classList.toggle('hidden', !(cleaningPhotoCache || document.getElementById('cleaningPhotoView')?.querySelector('img')));
+  if (clubBtn) clubBtn.classList.toggle('hidden', !(clubPhotoCache || document.getElementById('clubPhotoView')?.querySelector('img')));
 }
 function renderPhotosView(){
   document.getElementById('cleaningPhotoView').innerHTML = cleaningPhotoCache
