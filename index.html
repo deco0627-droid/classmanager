@@ -65,6 +65,13 @@
   .tab-btn .tab-icon { font-size: 1.1rem; line-height: 1; }
   .tab-btn .tab-label { font-size: 0.78rem; letter-spacing: -0.02em; }
 
+  #cleaningAssignmentTable td, #timetableEl td { text-align: center; vertical-align: middle; }
+  #cleaningAssignmentTable input, #timetableEl input[data-timetable-key] {
+    width: 42px; height: 42px; border-radius: 9999px; background: #F4F8F4; border: 1px solid #dfe7df;
+    text-align: center; margin: 0 auto; display: block; font-size: 11px; line-height: 1; color: #1E2A38;
+  }
+  #cleaningAssignmentTable input:focus, #timetableEl input[data-timetable-key]:focus { background: #fff; }
+
   .stamp {
     border: 3px solid #B5533F; color: #B5533F; border-radius: 9999px; transform: rotate(-8deg);
     font-family: 'Gowun Batang', serif; box-shadow: 0 0 0 3px rgba(181,83,63,0.08);
@@ -299,7 +306,6 @@ service cloud.firestore {
 
     <div class="bg-card border border-gray-200 rounded-xl p-5 mt-5">
       <h2 class="font-display text-lg mb-3 text-forest-dark">🖼 시간표 사진 업로드로 자동 반영</h2>
-      <p class="text-xs text-gray-500 mb-3">사진으로 찍은 시간표를 올리면 OCR로 읽어 현재 시간표를 바로 반영해요.</p>
       <div class="flex flex-wrap gap-2 items-center">
         <label class="inline-flex items-center gap-1.5 text-xs bg-white border border-gray-300 rounded-lg px-3 py-1.5 cursor-pointer hover:bg-gray-50">
           📷 시간표 사진 선택
@@ -390,7 +396,6 @@ service cloud.firestore {
   <section id="view-photos" class="view hidden fade-in">
     <span class="badge-public">전체 공개</span>
     <h1 class="font-display text-2xl mt-1 mb-5">청소구역·동아리 배정표</h1>
-    <p class="text-xs text-gray-400 mb-4">배정표를 사진으로 찍어 올려두면, 학생 하나하나 입력하지 않아도 전체 배정 현황을 한눈에 볼 수 있어요.</p>
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
       <div class="assignment-layout-card p-5">
         <h2 class="font-display text-lg mb-3 text-forest-dark">🧹 청소구역 배정표</h2>
@@ -882,7 +887,7 @@ function renderAssignmentTable(kind){
   const el = document.getElementById(kind === 'cleaning' ? 'cleaningAssignmentTable' : 'clubAssignmentTable');
   if (!el) return;
   if (!rows.length || rows.every(r => r.every(v => !String(v).trim()))) {
-    el.innerHTML = `<p class="text-xs text-gray-400">아직 표로 재구성된 데이터가 없습니다. 사진을 올리고 “표로 재구성”을 눌러주세요.</p>`;
+    el.innerHTML = '';
     return;
   }
   el.innerHTML = `
@@ -955,20 +960,52 @@ function deleteAssignmentPhoto(kind){
 }
 function parseAssignmentTableText(text){
   const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
-  const table = [];
+  const candidateRows = [];
+
   lines.forEach(line => {
-    const parts = line.split(/\s{2,}|\t|\|/).map(p => p.replace(/[\u200b\u00a0]/g,'').trim()).filter(Boolean);
-    const row = parts.slice(0,5);
-    if (row.length) table.push(row.map(v => v || ''));
+    const cleaned = line
+      .replace(/\s*[:：]\s*/g, ' ')
+      .replace(/[|｜]+/g, ' ')
+      .replace(/[\u200b\u00a0]/g, '')
+      .replace(/\s{2,}/g, ' ')
+      .trim();
+    if (!cleaned) return;
+
+    const rawParts = cleaned.split(/\s+/).filter(Boolean);
+    if (!rawParts.length) return;
+
+    const parts = rawParts.map(p => p.replace(/[^가-힣A-Za-z0-9()\-_/]/g, '').trim()).filter(Boolean);
+    if (!parts.length) return;
+
+    if (parts.length <= 5) {
+      candidateRows.push(parts.slice(0, 5));
+      return;
+    }
+
+    const compact = [];
+    for (let i = 0; i < parts.length; i += 5) {
+      const chunk = parts.slice(i, i + 5);
+      if (chunk.some(v => v)) compact.push(chunk);
+    }
+    if (compact.length) candidateRows.push(...compact);
   });
-  return table.length ? table : [['', '', '', '', '']];
+
+  const table = candidateRows.filter(row => row.some(v => /[가-힣A-Za-z]/.test(v)));
+  if (!table.length) return [['', '', '', '', '']];
+
+  const maxCols = Math.max(...table.map(row => row.length));
+  return table.map(row => {
+    const padded = [...row];
+    while (padded.length < maxCols) padded.push('');
+    return padded.slice(0, 5);
+  });
 }
 async function rebuildAssignmentTable(kind){
   const photo = kind === 'cleaning' ? cleaningPhotoCache : clubPhotoCache;
   if (!photo) return alert('먼저 사진을 올려주세요.');
   if (!window.Tesseract) return alert('OCR 기능을 불러오지 못했습니다.');
   try {
-    const result = await Tesseract.recognize(photo, 'kor+eng');
+    const result = await Tesseract.recognize(photo, 'kor+eng', { logger: () => {} });
     assignmentTableState[kind] = parseAssignmentTableText(result.data.text);
     renderAssignmentTable(kind);
   } catch (err) {
@@ -1844,7 +1881,7 @@ async function handleTimetablePhotoUpload(e){
   preview.innerHTML = `<img src="${dataUrl}" class="max-h-52 rounded-md mx-auto block">`;
   if (!window.Tesseract) return alert('OCR 라이브러리를 불러오지 못했습니다.');
   try {
-    const result = await Tesseract.recognize(dataUrl, 'kor+eng');
+    const result = await Tesseract.recognize(dataUrl, 'kor+eng', { logger: () => {} });
     const extracted = parseTimetableText(result.data.text);
     if (!extracted.length) return alert('시간표를 인식하지 못했습니다. 사진을 다시 찍어 주세요.');
     settingsCache.timetable = { ...(settingsCache.timetable || {}), ...extracted };
@@ -1863,11 +1900,19 @@ function clearTimetableFromPhoto(){
 function parseTimetableText(text){
   const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
   const result = {};
-  const dayMap = { '월': '월', '화': '화', '수': '수', '목': '목', '금': '금' };
   const allDays = ['월','화','수','목','금'];
+
   for (const line of lines) {
-    const cells = line.split(/\s{2,}|\t|\||,|\s+/).map(v => v.trim()).filter(Boolean);
-    if (!cells.length) continue;
+    const normalized = line
+      .replace(/\s*[:：]\s*/g, ' ')
+      .replace(/[|｜]+/g, ' ')
+      .replace(/\s{2,}/g, ' ')
+      .trim();
+    if (!normalized) continue;
+
+    const cells = normalized.split(/\s+/).filter(Boolean);
+    if (cells.length < 2) continue;
+
     let dayName = null;
     for (const d of allDays) {
       if (cells.some(c => c.includes(d))) {
@@ -1875,11 +1920,17 @@ function parseTimetableText(text){
       }
     }
     if (!dayName) continue;
+
     const period = cells.find(c => /^\d+$/.test(c.replace(/[^0-9]/g,'')) || /^\d+교시?$/.test(c));
     if (!period) continue;
     const p = Number(String(period).replace(/[^0-9]/g,''));
     if (!p || p < 1 || p > 7) continue;
-    const lesson = cells.filter(c => c !== period && !allDays.includes(c)).join(' ');
+
+    const lesson = cells
+      .filter(c => c !== period && !allDays.includes(c) && !/^\d+(:?\d+)?$/.test(c.replace(/[^0-9]/g,'')))
+      .join(' ')
+      .replace(/[^가-힣A-Za-z0-9()\-_/\s]/g, '')
+      .trim();
     if (lesson) result[`${dayName}-${p}`] = lesson;
   }
   return result;
