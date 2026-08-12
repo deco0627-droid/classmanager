@@ -395,7 +395,7 @@ service cloud.firestore {
             📷 사진 올리기·변경
             <input type="file" accept="image/*" class="hidden" onchange="handleCleaningPhotoUpload(event)">
           </label>
-          <button onclick="deleteAssignmentPhoto('cleaning')" class="text-xs border border-gray-300 bg-white px-3 py-1.5 rounded-lg hover:bg-gray-50">사진 삭제</button>
+          <button id="cleaningDeletePhotoBtn" onclick="deleteAssignmentPhoto('cleaning')" class="hidden text-xs border border-gray-300 bg-white px-3 py-1.5 rounded-lg hover:bg-gray-50">사진 삭제</button>
         </div>
         <div id="cleaningAssignmentTable" class="mt-4 overflow-x-auto"></div>
       </div>
@@ -407,7 +407,7 @@ service cloud.firestore {
             📷 사진 올리기·변경
             <input type="file" accept="image/*" class="hidden" onchange="handleClubPhotoUpload(event)">
           </label>
-          <button onclick="deleteAssignmentPhoto('club')" class="text-xs border border-gray-300 bg-white px-3 py-1.5 rounded-lg hover:bg-gray-50">사진 삭제</button>
+          <button id="clubDeletePhotoBtn" onclick="deleteAssignmentPhoto('club')" class="hidden text-xs border border-gray-300 bg-white px-3 py-1.5 rounded-lg hover:bg-gray-50">사진 삭제</button>
         </div>
         <div id="clubAssignmentTable" class="mt-4 overflow-x-auto"></div>
       </div>
@@ -474,14 +474,44 @@ service cloud.firestore {
     <span class="badge-private">교사만 열람 가능</span>
     <div class="flex flex-wrap items-center justify-between gap-3 mb-5 mt-1">
       <h1 class="font-display text-2xl">학생 명단</h1>
-      <div class="flex items-center gap-2">
+      <div class="flex items-center gap-2 flex-wrap">
         <input id="studentSearch" oninput="renderStudents()" placeholder="이름 검색..." class="border border-gray-300 rounded-lg px-3 py-1.5 text-sm w-40">
         <div class="flex bg-white border border-gray-300 rounded-lg overflow-hidden text-xs">
           <button onclick="setStudentView('card')" id="viewBtnCard" class="px-3 py-1.5 font-semibold bg-forest text-white">카드형</button>
           <button onclick="setStudentView('table')" id="viewBtnTable" class="px-3 py-1.5 font-semibold">표형</button>
         </div>
+        <button onclick="toggleStudentTextSizePanel()" class="bg-white border border-gray-300 text-forest-dark px-3 py-1.5 rounded-lg text-sm font-semibold hover:bg-gray-50">수정</button>
         <button onclick="exportStudentsExcel()" class="bg-white border border-gray-300 text-forest-dark px-3 py-1.5 rounded-lg text-sm font-semibold hover:bg-gray-50">📊 전체 엑셀 내보내기</button>
         <button onclick="openAddStudentPrompt()" class="bg-amber text-white px-3 py-1.5 rounded-lg text-sm font-semibold hover:opacity-90">+ 학생 추가</button>
+      </div>
+    </div>
+
+    <div id="studentTextSizePanel" class="hidden bg-white border border-gray-200 rounded-xl p-4 mb-5 shadow-sm">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="font-display text-lg text-forest-dark">학생 카드 글자 크기 수정</h2>
+        <button onclick="toggleStudentTextSizePanel()" class="text-xs text-gray-500 hover:text-forest-dark">닫기</button>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <label class="text-xs text-gray-600">
+          <span class="block mb-1 font-semibold">이름</span>
+          <input id="studentFontNameScale" type="range" min="0.8" max="1.6" step="0.05" value="1" class="w-full">
+        </label>
+        <label class="text-xs text-gray-600">
+          <span class="block mb-1 font-semibold">번호</span>
+          <input id="studentFontNumberScale" type="range" min="0.8" max="1.6" step="0.05" value="1" class="w-full">
+        </label>
+        <label class="text-xs text-gray-600">
+          <span class="block mb-1 font-semibold">항목</span>
+          <input id="studentFontMetaScale" type="range" min="0.8" max="1.6" step="0.05" value="1" class="w-full">
+        </label>
+        <label class="text-xs text-gray-600">
+          <span class="block mb-1 font-semibold">태그</span>
+          <input id="studentFontTagScale" type="range" min="0.7" max="1.4" step="0.05" value="1" class="w-full">
+        </label>
+      </div>
+      <div class="flex items-center justify-end gap-2 mt-4">
+        <button onclick="resetStudentCardTextSizes()" class="bg-white border border-gray-300 rounded-lg px-3 py-1.5 text-sm font-semibold text-gray-700 hover:bg-gray-50">초기화</button>
+        <button onclick="applyStudentCardTextSizes()" class="bg-forest text-white rounded-lg px-3 py-1.5 text-sm font-semibold hover:bg-forest-dark">적용</button>
       </div>
     </div>
 
@@ -893,6 +923,10 @@ function clearAssignmentTable(kind){
   renderAssignmentTable(kind);
 }
 function deleteAssignmentPhoto(kind){
+  if (!isTeacher) {
+    alert('교사만 사진을 삭제할 수 있습니다.');
+    return;
+  }
   const key = kind === 'cleaning' ? 'cleaningPhoto' : 'clubPhoto';
   const photoCacheKey = kind === 'cleaning' ? 'cleaningPhotoCache' : 'clubPhotoCache';
   if (!confirm('업로드한 사진을 삭제하시겠습니까?')) return;
@@ -1263,6 +1297,8 @@ function bootstrapApp(){
     document.getElementById('certGuideEditArea').classList.toggle('hidden', !isTeacher);
     document.getElementById('cleaningPhotoUploadLabel').classList.toggle('hidden', !isTeacher);
     document.getElementById('clubPhotoUploadLabel').classList.toggle('hidden', !isTeacher);
+    document.getElementById('cleaningDeletePhotoBtn').classList.toggle('hidden', !isTeacher);
+    document.getElementById('clubDeletePhotoBtn').classList.toggle('hidden', !isTeacher);
     document.getElementById('dashBlogEditBtn').classList.toggle('hidden', !isTeacher);
     if (isTeacher) { startStudentsListener(); startWallPrivateListener(); } else { stopStudentsListener(); stopWallPrivateListener(); }
     const onPrivateCustom = currentView.startsWith('custom_') && (() => {
@@ -1457,9 +1493,9 @@ function renderDashboard(){
   document.getElementById('dashTodayTimetable').innerHTML = (DAYS.includes(dowKr) && todayCols.length)
     ? PERIODS.map(p => {
         const v = settingsCache.timetable[dowKr+'-'+p];
-        return v ? `<div class="flex justify-between"><span class="text-gray-400">${p}교시</span><span>${escapeHtml(v)}</span></div>` : '';
+        return v ? `<div class="flex justify-between items-center py-1.5 border-b border-gray-200 last:border-b-0"><span class="text-[13px] font-semibold text-gray-700">${p}교시</span><span class="text-[14px] font-bold text-gray-800">${escapeHtml(v)}</span></div>` : '';
       }).join('')
-    : `<p class="text-gray-400 font-body">오늘은 등록된 시간표가 없습니다.</p>`;
+    : `<p class="text-gray-500 font-body font-medium">오늘은 등록된 시간표가 없습니다.</p>`;
 
   const allTags = [...new Set(noticesCache.flatMap(n => n.tags || []))];
   document.getElementById('dashTagCloud').innerHTML = allTags.length
@@ -1629,12 +1665,16 @@ function selectMealSchool(i){
    방문자 통계 (같은 IP는 10분 이내 재방문 시 카운트 제외)
 ============================================================ */
 function trackVisit(){
+  if (auth && auth.currentUser && auth.currentUser.email === TEACHER_EMAIL) return;
+  if (isTeacher) return;
   fetch('https://api.ipify.org?format=json')
     .then(r => r.json())
     .then(data => trackVisitWithIp(data.ip))
     .catch(() => trackVisitWithIp(null)); // IP 조회 실패 시 중복 방지 없이 그냥 카운트
 }
 function trackVisitWithIp(ip){
+  if (auth && auth.currentUser && auth.currentUser.email === TEACHER_EMAIL) return;
+  if (isTeacher) return;
   const today = todayStr();
   const now = Date.now();
   const statsRef = db.collection('stats').doc('visits');
@@ -1669,7 +1709,7 @@ function renderTimetable(){
       const key = d+'-'+p;
       const val = (settingsCache.timetable || {})[key] || '';
       html += `<td class="border-t border-gray-100 p-1">
-        <input value="${escapeAttr(val)}" ${isTeacher ? `onchange="updateTimetableCell('${key}', this.value)"` : 'readonly'}
+        <input value="${escapeAttr(val)}" data-timetable-key="${key}" ${isTeacher ? `onchange="updateTimetableCell('${key}', this.value)" onkeydown="handleTimetableKeydown(event, '${key}')"` : 'readonly'}
           class="w-full text-center text-xs py-2 rounded-lg bg-white border border-transparent ${isTeacher ? 'hover:border-gray-200 focus:border-forest' : ''}" placeholder="-">
       </td>`;
     });
@@ -1730,6 +1770,17 @@ function updateTimetableCell(key, val){
   settingsCache.timetable = settingsCache.timetable || {};
   settingsCache.timetable[key] = val;
   db.collection('settings').doc('general').set({ timetable: settingsCache.timetable }, { merge: true });
+}
+
+function handleTimetableKeydown(event, key){
+  if (event.key !== 'Enter') return;
+  event.preventDefault();
+  const [day, period] = key.split('-');
+  const currentIndex = PERIODS.indexOf(period);
+  if (currentIndex === -1 || currentIndex === PERIODS.length - 1) return;
+  const nextKey = `${day}-${PERIODS[currentIndex + 1]}`;
+  const nextInput = document.querySelector(`input[data-timetable-key="${nextKey}"]`);
+  if (nextInput) nextInput.focus();
 }
 
 function addSchedule(){
@@ -2121,7 +2172,9 @@ function exportStudentExcel(){
   infoWs['!cols'] = [{wch:20},{wch:40}];
   XLSX.utils.book_append_sheet(wb, infoWs, '기본정보');
 
-  const consultWs = XLSX.utils.json_to_sheet([...(s.consultLogs||[])].sort((a,b)=>a.date.localeCompare(b.date)).map(c => ({ 날짜: c.date, 내용: c.content })));
+  const consultWs = XLSX.utils.json_to_sheet([...(s.consultLogs||[])]
+    .sort((a,b) => String(b?.date || '').localeCompare(String(a?.date || '')))
+    .map(c => ({ 날짜: c?.date || '', 내용: c?.content || '' })));
   XLSX.utils.book_append_sheet(wb, consultWs, '상담일지');
 
   const electiveWs = XLSX.utils.json_to_sheet((s.electiveCourses||[]).map(e => ({ 과목명: e })));
@@ -2260,6 +2313,57 @@ function renderStudentSummaryPanel(){
   }).join('') : `<p class="text-sm text-gray-400 py-2">조건에 맞는 학생이 없습니다.</p>`;
 }
 
+const STUDENT_CARD_FONT_KEY = 'classManager.studentCardFontScale';
+const DEFAULT_STUDENT_CARD_FONT_SCALE = { name: 1, number: 1, meta: 1, tag: 1 };
+
+function getStudentCardFontScale(){
+  try {
+    const saved = JSON.parse(localStorage.getItem(STUDENT_CARD_FONT_KEY) || '{}');
+    return { ...DEFAULT_STUDENT_CARD_FONT_SCALE, ...saved };
+  } catch {
+    return { ...DEFAULT_STUDENT_CARD_FONT_SCALE };
+  }
+}
+
+function setStudentCardFontScale(next){
+  localStorage.setItem(STUDENT_CARD_FONT_KEY, JSON.stringify({ ...getStudentCardFontScale(), ...next }));
+}
+
+function resetStudentCardTextSizes(){
+  setStudentCardFontScale(DEFAULT_STUDENT_CARD_FONT_SCALE);
+  const panel = document.getElementById('studentTextSizePanel');
+  if (!panel) return;
+  ['name','number','meta','tag'].forEach(key => {
+    const input = document.getElementById(`studentFont${key.charAt(0).toUpperCase() + key.slice(1)}Scale`);
+    if (input) input.value = DEFAULT_STUDENT_CARD_FONT_SCALE[key];
+  });
+  renderStudents();
+}
+
+function applyStudentCardTextSizes(){
+  const values = {
+    name: Number(document.getElementById('studentFontNameScale')?.value || 1),
+    number: Number(document.getElementById('studentFontNumberScale')?.value || 1),
+    meta: Number(document.getElementById('studentFontMetaScale')?.value || 1),
+    tag: Number(document.getElementById('studentFontTagScale')?.value || 1),
+  };
+  setStudentCardFontScale(values);
+  renderStudents();
+}
+
+function toggleStudentTextSizePanel(){
+  const panel = document.getElementById('studentTextSizePanel');
+  if (!panel) return;
+  const scale = getStudentCardFontScale();
+  panel.classList.toggle('hidden');
+  if (!panel.classList.contains('hidden')) {
+    document.getElementById('studentFontNameScale').value = scale.name;
+    document.getElementById('studentFontNumberScale').value = scale.number;
+    document.getElementById('studentFontMetaScale').value = scale.meta;
+    document.getElementById('studentFontTagScale').value = scale.tag;
+  }
+}
+
 function downloadStudentSummaryCsv(){
   const rows = [...studentsCache].sort((a,b)=> (parseInt(a.number)||0)-(parseInt(b.number)||0)).map(s => ({
     번호: s.number || '',
@@ -2287,18 +2391,19 @@ function renderStudents(){
   const list = studentsCache.filter(s => (s.name || '').includes(query))
     .sort((a,b) => (parseInt(a.number) || 0) - (parseInt(b.number) || 0));
 
+  const scale = getStudentCardFontScale();
   document.getElementById('studentCardWrap').innerHTML = list.length ? list.map((s,i) => {
     const nameText = displayStudentName(s.name);
     const tagList = getStudentTagList(s);
     return `
       <div class="student-card p-4 pt-5 cursor-pointer" onclick="openStudentEditor('${s.id}')">
         <div class="corner-tab ${CARD_COLORS[i%3]}"></div>
-        <p class="font-display text-lg">${escapeHtml(nameText)}</p>
-        <p class="font-mono text-[11px] text-gray-400 mb-2">No. ${escapeHtml(s.number||'-')}</p>
-        <div class="flex flex-wrap gap-1 mb-2">
-          ${tagList.length ? tagList.map(tag => `<span class="inline-flex items-center rounded-full bg-forest-light text-[9px] font-semibold px-1.5 py-0.5 text-forest-dark">${tag}</span>`).join('') : '<span class="inline-flex items-center rounded-full bg-gray-100 text-[9px] font-medium px-1.5 py-0.5 text-gray-500">기본</span>'}
+        <p class="font-display" style="font-size:${(1.125 * scale.name).toFixed(2)}rem; line-height:1.2;">${escapeHtml(nameText)}</p>
+        <p class="font-mono text-gray-400 mb-2" style="font-size:${(0.68 * scale.number).toFixed(2)}rem;">No. ${escapeHtml(s.number||'-')}</p>
+        <div class="flex flex-wrap gap-1 mb-2" style="font-size:${(0.58 * scale.tag).toFixed(2)}rem;">
+          ${tagList.length ? tagList.map(tag => `<span class="inline-flex items-center rounded-full bg-forest-light font-semibold px-1.5 py-0.5 text-forest-dark">${tag}</span>`).join('') : '<span class="inline-flex items-center rounded-full bg-gray-100 font-medium px-1.5 py-0.5 text-gray-500">기본</span>'}
         </div>
-        <div class="text-xs text-gray-500 space-y-1">
+        <div class="text-gray-500 space-y-1" style="font-size:${(0.72 * scale.meta).toFixed(2)}rem;">
           <p>🧹 ${escapeHtml(s.cleaningArea)||'미지정'}</p>
           <p>🎨 ${escapeHtml(s.club)||'미가입'}</p>
           <p>🏅 수상 ${(s.awards||[]).length}건 · 📜 자격증 ${(s.certificates||[]).length}건</p>
@@ -2441,9 +2546,9 @@ function renderModalContent(){
         <button onclick="addConsultLog()" class="bg-forest text-white px-4 rounded-lg text-sm font-semibold">기록</button>
       </div>
       <div class="space-y-2">
-        ${s.consultLogs.length ? [...s.consultLogs].sort((a,b)=>b.date.localeCompare(a.date)).map((c,i) => `
+        ${s.consultLogs.length ? [...s.consultLogs].sort((a,b) => String(b?.date || '').localeCompare(String(a?.date || ''))).map((c,i) => `
           <div class="bg-white border border-gray-200 rounded-lg p-3 flex justify-between items-start">
-            <div><p class="font-mono text-xs text-forest-dark mb-1">${c.date}</p><p class="text-sm">${escapeHtml(c.content)}</p></div>
+            <div><p class="font-mono text-xs text-forest-dark mb-1">${c?.date || '날짜 없음'}</p><p class="text-sm">${escapeHtml(c?.content || '')}</p></div>
             <button onclick="deleteConsultLog(${s.consultLogs.indexOf(c)})" class="text-gray-300 hover:text-brick text-lg leading-none">&times;</button>
           </div>`).join('') : `<p class="text-gray-400 text-sm">누적된 상담 기록이 없습니다.</p>`}
       </div>`;
