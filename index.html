@@ -395,8 +395,7 @@ service cloud.firestore {
             📷 사진 올리기·변경
             <input type="file" accept="image/*" class="hidden" onchange="handleCleaningPhotoUpload(event)">
           </label>
-          <button onclick="rebuildAssignmentTable('cleaning')" class="text-xs bg-forest text-white px-3 py-1.5 rounded-lg hover:bg-forest-dark">표로 재구성</button>
-          <button onclick="clearAssignmentTable('cleaning')" class="text-xs border border-gray-300 bg-white px-3 py-1.5 rounded-lg hover:bg-gray-50">삭제</button>
+          <button onclick="deleteAssignmentPhoto('cleaning')" class="text-xs border border-gray-300 bg-white px-3 py-1.5 rounded-lg hover:bg-gray-50">사진 삭제</button>
         </div>
         <div id="cleaningAssignmentTable" class="mt-4 overflow-x-auto"></div>
       </div>
@@ -408,8 +407,7 @@ service cloud.firestore {
             📷 사진 올리기·변경
             <input type="file" accept="image/*" class="hidden" onchange="handleClubPhotoUpload(event)">
           </label>
-          <button onclick="rebuildAssignmentTable('club')" class="text-xs bg-forest text-white px-3 py-1.5 rounded-lg hover:bg-forest-dark">표로 재구성</button>
-          <button onclick="clearAssignmentTable('club')" class="text-xs border border-gray-300 bg-white px-3 py-1.5 rounded-lg hover:bg-gray-50">삭제</button>
+          <button onclick="deleteAssignmentPhoto('club')" class="text-xs border border-gray-300 bg-white px-3 py-1.5 rounded-lg hover:bg-gray-50">사진 삭제</button>
         </div>
         <div id="clubAssignmentTable" class="mt-4 overflow-x-auto"></div>
       </div>
@@ -487,17 +485,7 @@ service cloud.firestore {
       </div>
     </div>
 
-    <div id="studentBulkPanel" class="bg-card border border-amber/40 rounded-xl p-5 mb-5">
-      <h2 class="font-display text-lg mb-2 text-forest-dark">📋 붙여넣기로 학생 명단 일괄 등록</h2>
-      <p class="text-xs text-gray-500 mb-2">한글 출석부나 엑셀 명단을 복사해서 붙여넣으면 번호·이름을 자동 인식합니다. (예: <span class="font-mono">1[탭]김도윤</span>, <span class="font-mono">2 이서연</span>, 표 붙여넣기도 가능)</p>
-      <textarea id="studentBulkInput" oninput="previewStudentBulk()" rows="4" placeholder="여기에 붙여넣기 (Ctrl+V)" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mb-2"></textarea>
-      <label class="inline-flex items-center gap-1.5 text-xs bg-white border border-gray-300 rounded-lg px-3 py-1.5 cursor-pointer hover:bg-gray-50 mb-3">
-        📎 엑셀·CSV 파일 선택
-        <input type="file" accept=".xlsx,.xls,.csv" class="hidden" onchange="handleStudentFileUpload(event)">
-      </label>
-      <div id="studentBulkPreview" class="text-xs text-gray-500 mb-3"></div>
-      <button onclick="commitStudentBulk()" class="bg-amber text-white px-4 py-2 rounded-lg text-sm font-semibold hover:opacity-90">인식된 학생 모두 등록</button>
-    </div>
+    <div id="studentQuickSummary" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3 mb-5"></div>
 
     <div class="grid grid-cols-1 xl:grid-cols-[minmax(0,1.8fr)_minmax(280px,0.8fr)] gap-5">
       <div>
@@ -857,11 +845,14 @@ function renderAssignmentTable(kind){
       <tbody>
         ${rows.map((row, rIdx) => `
           <tr>
-            ${row.map((cell, cIdx) => `
-              <td class="border border-gray-300 p-1 align-top min-w-[60px]">
-                <input value="${escapeAttr(cell)}" data-kind="${kind}" data-row="${rIdx}" data-col="${cIdx}" onchange="updateAssignmentCell('${kind}', ${rIdx}, ${cIdx}, this.value)" class="w-full bg-transparent text-center border-0 p-1 rounded outline-none focus:bg-white focus:border focus:border-gray-200">
-              </td>
-            `).join('')}
+            ${row.map((cell, cIdx) => {
+              const displayCell = isTeacher ? cell : maskPublicText(cell);
+              return `
+                <td class="border border-gray-300 p-1 align-top min-w-[60px]">
+                  <input value="${escapeAttr(displayCell)}" data-kind="${kind}" data-row="${rIdx}" data-col="${cIdx}" onchange="updateAssignmentCell('${kind}', ${rIdx}, ${cIdx}, this.value)" class="w-full bg-transparent text-center border-0 p-1 rounded outline-none focus:bg-white focus:border focus:border-gray-200">
+                </td>
+              `;
+            }).join('')}
           </tr>
         `).join('')}
       </tbody>
@@ -900,6 +891,18 @@ function deleteAssignmentRow(kind){
 function clearAssignmentTable(kind){
   assignmentTableState[kind] = [];
   renderAssignmentTable(kind);
+}
+function deleteAssignmentPhoto(kind){
+  const key = kind === 'cleaning' ? 'cleaningPhoto' : 'clubPhoto';
+  const photoCacheKey = kind === 'cleaning' ? 'cleaningPhotoCache' : 'clubPhotoCache';
+  if (!confirm('업로드한 사진을 삭제하시겠습니까?')) return;
+  if (window.db) {
+    db.collection('settings').doc(key).delete().catch(() => {});
+  }
+  if (photoCacheKey === 'cleaningPhotoCache') cleaningPhotoCache = '';
+  if (photoCacheKey === 'clubPhotoCache') clubPhotoCache = '';
+  assignmentTableState[kind] = [];
+  renderPhotosView();
 }
 function parseAssignmentTableText(text){
   const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
@@ -2140,8 +2143,37 @@ function maskStudentName(name){
   if (chars.length <= 2) return `${chars[0]}○`;
   const first = chars[0];
   const last = chars[chars.length - 1];
-  const hidden = '○';
+  const hidden = '○'.repeat(Math.max(1, chars.length - 2));
   return `${first}${hidden}${last}`;
+}
+
+function displayStudentName(name){
+  const raw = (name || '').trim();
+  if (!raw) return '이름 없음';
+  return isTeacher ? raw : maskStudentName(raw);
+}
+
+function maskPublicText(value){
+  const text = String(value ?? '').trim();
+  if (!text) return '';
+  const cleaned = text.replace(/\s+/g, '');
+  if (!cleaned || cleaned.length <= 1) return text;
+  const isNameLike = /[가-힣]{2,}/.test(cleaned) && !/[0-9]/.test(cleaned);
+  if (!isNameLike) return text;
+  const chars = [...cleaned];
+  if (chars.length <= 2) return `${chars[0]}○`;
+  return `${chars[0]}${'○'.repeat(Math.max(1, chars.length - 2))}${chars[chars.length - 1]}`;
+}
+
+function getStudentTagList(student){
+  const tags = [];
+  if ((student.consultLogs || []).length) tags.push('상담');
+  if ((student.health || '').trim()) tags.push('건강');
+  if ((student.club || '').trim()) tags.push('동아리');
+  if ((student.cleaningArea || '').trim()) tags.push('청소');
+  if ((student.certificates || []).length) tags.push('자격증');
+  if ((student.awards || []).length) tags.push('수상');
+  return tags.slice(0, 4);
 }
 
 let studentSummaryFilter = 'all';
@@ -2156,12 +2188,34 @@ const STUDENT_SUMMARY_TABS = [
   { key: 'awards', label: '수상' },
 ];
 
+function renderStudentQuickSummary(){
+  const root = document.getElementById('studentQuickSummary');
+  if (!root) return;
+
+  const summary = [
+    { key: 'all', title: '전체', count: studentsCache.length },
+    { key: 'consult', title: '상담', count: studentsCache.filter(s => (s.consultLogs || []).length > 0).length },
+    { key: 'health', title: '건강', count: studentsCache.filter(s => !!(s.health || '').trim()).length },
+    { key: 'cert', title: '자격증', count: studentsCache.filter(s => (s.certificates || []).length > 0).length },
+    { key: 'cleaning', title: '청소', count: studentsCache.filter(s => !!(s.cleaningArea || '').trim()).length },
+    { key: 'club', title: '동아리', count: studentsCache.filter(s => !!(s.club || '').trim()).length },
+    { key: 'awards', title: '수상', count: studentsCache.filter(s => (s.awards || []).length > 0).length },
+  ];
+
+  root.innerHTML = summary.map(item => `
+    <button class="student-summary-btn ${studentSummaryFilter === item.key ? 'active' : ''}" onclick="studentSummaryFilter='${item.key}'; renderStudentSummaryPanel(); renderStudentQuickSummary(); renderStudents();">
+      <span class="block text-[10px] text-gray-500">${item.title}</span>
+      <span class="block font-display text-xl leading-none mt-1">${item.count}</span>
+    </button>
+  `).join('');
+}
+
 function renderStudentSummaryPanel(){
   const tabs = document.getElementById('studentSummaryTabs');
   const content = document.getElementById('studentSummaryContent');
   if (!tabs || !content) return;
   tabs.innerHTML = STUDENT_SUMMARY_TABS.map(tab => `
-    <button class="student-summary-btn ${studentSummaryFilter === tab.key ? 'active' : ''}" onclick="studentSummaryFilter='${tab.key}'; renderStudentSummaryPanel();">${tab.label}</button>
+    <button class="student-summary-btn ${studentSummaryFilter === tab.key ? 'active' : ''}" onclick="studentSummaryFilter='${tab.key}'; renderStudentSummaryPanel(); renderStudentQuickSummary(); renderStudents();">${tab.label}</button>
   `).join('');
 
   const list = [...studentsCache].sort((a,b) => (parseInt(a.number) || 0) - (parseInt(b.number) || 0));
@@ -2177,32 +2231,39 @@ function renderStudentSummaryPanel(){
     return true;
   });
 
-  content.innerHTML = filtered.length ? filtered.map(s => `
-    <div class="bg-white border border-gray-200 rounded-xl p-2.5">
-      <div class="flex items-center justify-between mb-2">
-        <div class="flex items-center gap-2">
-          <span class="privacy-chip">${maskStudentName(s.name).slice(1, 2) || '○'}</span>
-          <div>
-            <p class="font-display text-base leading-none">${escapeHtml(maskStudentName(s.name))}</p>
-            <p class="font-mono text-[10px] text-gray-400">No. ${escapeHtml(s.number || '-')}</p>
+  content.innerHTML = filtered.length ? filtered.map(s => {
+    const tags = getStudentTagList(s);
+    const nameLabel = displayStudentName(s.name);
+    return `
+      <div class="bg-white border border-gray-200 rounded-xl p-2.5">
+        <div class="flex items-center justify-between mb-2">
+          <div class="flex items-center gap-2">
+            <span class="privacy-chip">${(nameLabel || '○').slice(0, 1) || '○'}</span>
+            <div>
+              <p class="font-display text-base leading-none">${escapeHtml(nameLabel)}</p>
+              <p class="font-mono text-[10px] text-gray-400">No. ${escapeHtml(s.number || '-')}</p>
+            </div>
           </div>
+          <button onclick="openStudentEditor('${s.id}')" class="text-[10px] text-forest-dark font-semibold hover:underline">상세보기</button>
         </div>
-        <button onclick="openStudentEditor('${s.id}')" class="text-[10px] text-forest-dark font-semibold hover:underline">상세보기</button>
+        <div class="flex flex-wrap gap-1 mt-1 mb-2">
+          ${tags.length ? tags.map(tag => `<span class="inline-flex items-center rounded-full bg-forest-light text-[9px] font-semibold px-1.5 py-0.5 text-forest-dark">${tag}</span>`).join('') : '<span class="inline-flex items-center rounded-full bg-gray-100 text-[9px] font-medium px-1.5 py-0.5 text-gray-500">기본</span>'}
+        </div>
+        <div class="text-[11px] text-gray-600 space-y-1">
+          <div>🧹 ${escapeHtml(s.cleaningArea || '미지정')}</div>
+          <div>🎨 ${escapeHtml(s.club || '미가입')}</div>
+          <div>🏥 ${escapeHtml(s.health || '건강메모 없음')}</div>
+          <div>📜 ${((s.certificates || []).length)}개 · 🏅 ${((s.awards || []).length)}건 · 🧭 ${((s.consultLogs || []).length)}회</div>
+        </div>
       </div>
-      <div class="text-[11px] text-gray-600 space-y-1">
-        <div>🧹 ${escapeHtml(s.cleaningArea || '미지정')}</div>
-        <div>🎨 ${escapeHtml(s.club || '미가입')}</div>
-        <div>🏥 ${escapeHtml(s.health || '건강메모 없음')}</div>
-        <div>📜 ${((s.certificates || []).length)}개 · 🏅 ${((s.awards || []).length)}건 · 🧭 ${((s.consultLogs || []).length)}회</div>
-      </div>
-    </div>
-  `).join('') : `<p class="text-sm text-gray-400 py-2">조건에 맞는 학생이 없습니다.</p>`;
+    `;
+  }).join('') : `<p class="text-sm text-gray-400 py-2">조건에 맞는 학생이 없습니다.</p>`;
 }
 
 function downloadStudentSummaryCsv(){
   const rows = [...studentsCache].sort((a,b)=> (parseInt(a.number)||0)-(parseInt(b.number)||0)).map(s => ({
     번호: s.number || '',
-    이름: maskStudentName(s.name),
+    이름: isTeacher ? s.name : maskStudentName(s.name),
     청소구역: s.cleaningArea || '',
     동아리: s.club || '',
     건강: s.health || '',
@@ -2226,28 +2287,36 @@ function renderStudents(){
   const list = studentsCache.filter(s => (s.name || '').includes(query))
     .sort((a,b) => (parseInt(a.number) || 0) - (parseInt(b.number) || 0));
 
-  document.getElementById('studentCardWrap').innerHTML = list.length ? list.map((s,i) => `
-    <div class="student-card p-4 pt-5 cursor-pointer" onclick="openStudentEditor('${s.id}')">
-      <div class="corner-tab ${CARD_COLORS[i%3]}"></div>
-      <p class="font-display text-lg">${escapeHtml(maskStudentName(s.name))}</p>
-      <p class="font-mono text-[11px] text-gray-400 mb-2">No. ${escapeHtml(s.number||'-')}</p>
-      <div class="text-xs text-gray-500 space-y-1">
-        <p>🧹 ${escapeHtml(s.cleaningArea)||'미지정'}</p>
-        <p>🎨 ${escapeHtml(s.club)||'미가입'}</p>
-        <p>🏅 수상 ${(s.awards||[]).length}건 · 📜 자격증 ${(s.certificates||[]).length}건</p>
-      </div>
-    </div>`).join('') : `<p class="text-gray-400 col-span-full">${studentsCache.length ? '검색 결과가 없습니다.' : '등록된 학생이 없습니다. 위 붙여넣기 도구나 + 학생 추가로 등록해주세요.'}</p>`;
+  document.getElementById('studentCardWrap').innerHTML = list.length ? list.map((s,i) => {
+    const nameText = displayStudentName(s.name);
+    const tagList = getStudentTagList(s);
+    return `
+      <div class="student-card p-4 pt-5 cursor-pointer" onclick="openStudentEditor('${s.id}')">
+        <div class="corner-tab ${CARD_COLORS[i%3]}"></div>
+        <p class="font-display text-lg">${escapeHtml(nameText)}</p>
+        <p class="font-mono text-[11px] text-gray-400 mb-2">No. ${escapeHtml(s.number||'-')}</p>
+        <div class="flex flex-wrap gap-1 mb-2">
+          ${tagList.length ? tagList.map(tag => `<span class="inline-flex items-center rounded-full bg-forest-light text-[9px] font-semibold px-1.5 py-0.5 text-forest-dark">${tag}</span>`).join('') : '<span class="inline-flex items-center rounded-full bg-gray-100 text-[9px] font-medium px-1.5 py-0.5 text-gray-500">기본</span>'}
+        </div>
+        <div class="text-xs text-gray-500 space-y-1">
+          <p>🧹 ${escapeHtml(s.cleaningArea)||'미지정'}</p>
+          <p>🎨 ${escapeHtml(s.club)||'미가입'}</p>
+          <p>🏅 수상 ${(s.awards||[]).length}건 · 📜 자격증 ${(s.certificates||[]).length}건</p>
+        </div>
+      </div>`;
+  }).join('') : `<p class="text-gray-400 col-span-full">${studentsCache.length ? '검색 결과가 없습니다.' : '등록된 학생이 없습니다. 위 붙여넣기 도구나 + 학생 추가로 등록해주세요.'}</p>`;
 
   document.getElementById('studentTableBody').innerHTML = list.length ? list.map(s => `
     <tr class="border-t border-gray-100 hover:bg-forest-light/40 cursor-pointer" onclick="openStudentEditor('${s.id}')">
       <td class="px-4 py-2.5 font-mono text-xs text-gray-400">${escapeHtml(s.number||'-')}</td>
-      <td class="px-4 py-2.5 font-semibold">${escapeHtml(maskStudentName(s.name))}</td>
+      <td class="px-4 py-2.5 font-semibold">${escapeHtml(displayStudentName(s.name))}</td>
       <td class="px-4 py-2.5">${escapeHtml(s.cleaningArea)||'-'}</td>
       <td class="px-4 py-2.5">${escapeHtml(s.club)||'-'}</td>
       <td class="px-4 py-2.5 text-gray-500">${escapeHtml(s.health)||'-'}</td>
       <td class="px-4 py-2.5 text-right text-gray-300">›</td>
     </tr>`).join('') : `<tr><td colspan="6" class="px-4 py-6 text-center text-gray-400">등록된 학생이 없습니다.</td></tr>`;
 
+  renderStudentQuickSummary();
   renderStudentSummaryPanel();
 }
 
