@@ -1481,7 +1481,15 @@ function applyBrandLogo(){
 }
 
 let currentView = 'dashboard';
+function ensureTeacherAccess(){
+  if (!isTeacher) {
+    switchView('dashboard');
+    return false;
+  }
+  return true;
+}
 function switchView(key){
+  if (key === 'admin' && !isTeacher) return;
   if (key.startsWith('custom_')) {
     const page = customPagesCache.find(p => 'custom_'+p.id === key);
     if (page && !page.isPublic && !isTeacher) return;
@@ -2937,6 +2945,7 @@ function wallColumnDrop(e, i){
 }
 
 function renderAdmin(){
+  if (!ensureTeacherAccess()) return;
   const link = location.href.split('#')[0];
   document.getElementById('shareLinkField').value = link;
   document.getElementById('shareQr').src = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(link)}`;
