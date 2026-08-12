@@ -106,8 +106,15 @@
   .photo-card:hover { transform: translateY(-4px); box-shadow: 0 18px 28px rgba(47,111,82,.12); }
   .photo-frame {
     position: relative; overflow: hidden; border-radius: 16px; border: 8px solid #f6f1e6; background: #f1efe8; box-shadow: inset 0 0 0 1px rgba(30,42,56,.05);
+    transition: transform .18s ease, box-shadow .18s ease;
   }
-  .photo-frame img { display:block; width:100%; height:240px; object-fit:cover; }
+  .photo-frame--capture {
+    border-color: rgba(47,111,82,0.2);
+    background: linear-gradient(135deg, #f8f6f0 0%, #f0f4ef 100%);
+    box-shadow: 0 12px 18px rgba(30,42,56,.08), inset 0 0 0 1px rgba(47,111,82,.06);
+  }
+  .photo-frame img { display:block; width:100%; height:240px; object-fit:cover; filter: saturate(1.06) contrast(1.04); }
+  .photo-frame--capture img { border-radius: 12px; }
   .photo-tag {
     position:absolute; left: 12px; top: 12px; padding: 0.32rem 0.7rem; border-radius:9999px;
     background: rgba(33, 49, 39, 0.65); color: #fff; font-size: 10px; font-weight: 700; letter-spacing: .05em; backdrop-filter: blur(2px);
@@ -115,6 +122,10 @@
   .photo-privacy-chip {
     position:absolute; right:12px; top:12px; width: 2rem; height: 2rem; border-radius:9999px; display:flex; align-items:center; justify-content:center;
     background: rgba(255,255,255,0.9); color:#20503B; font-size:0.72rem; font-weight:800; border:2px solid rgba(47,111,82,0.2); box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+  }
+  .photo-capture-badge {
+    position:absolute; left: 12px; bottom: 12px; padding: 0.28rem 0.58rem; border-radius:9999px; background: rgba(255,255,255,.86); color:#20503B;
+    font-size: 9px; font-weight: 800; letter-spacing: .08em; border: 1px solid rgba(47,111,82,.14);
   }
   .delete-photo-btn {
     position:absolute; right:12px; bottom:12px; z-index:2; border-radius:9999px; background: rgba(181,83,63,0.92); color:#fff; padding:0.34rem 0.72rem; font-size:0.65rem; font-weight:700; box-shadow: 0 6px 12px rgba(181,83,63,.2);
@@ -749,11 +760,13 @@ function renderGallery(){
   grid.innerHTML = safeGallery.map(item => {
     const initial = (item.authorInitial || (item.author || '교')[0] || 'A').toUpperCase();
     const safeTag = (item.author && item.author !== '익명') ? '교사' : '익명';
+    const isCapture = !!item.kind || !!(item.caption && /캡처|capture|스크린샷|screenshot/i.test(item.caption));
     return `
       <article class="photo-card">
-        <div class="photo-frame">
+        <div class="photo-frame ${isCapture ? 'photo-frame--capture' : ''}">
           <span class="photo-tag">${escapeHtml(safeTag)}</span>
           <span class="photo-privacy-chip">${escapeHtml(initial)}</span>
+          ${isCapture ? '<span class="photo-capture-badge">CAPTURE</span>' : ''}
           ${isTeacher ? `<button class="delete-photo-btn" onclick="deleteGalleryPhoto('${item.id}')">삭제</button>` : ''}
           <img src="${escapeAttr(item.image || '')}" alt="${escapeAttr(item.caption || '교실 벽 사진')}" onerror="this.src='https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=900&q=80';">
         </div>
@@ -781,12 +794,14 @@ function saveGalleryPhoto(){
   const caption = document.getElementById('galleryCaptionInput').value.trim() || '우리 반의 순간';
   const reader = new FileReader();
   reader.onload = () => {
-    const payload = {
+    const isCapture = /capture|캡처|스크린샷|screenshot/i.test(caption || '');
+  const payload = {
       image: String(reader.result),
       caption,
       author: '익명',
       authorInitial: (currentUserEmail || '교사')[0].toUpperCase(),
       createdAt: Date.now(),
+      kind: isCapture ? 'capture' : 'normal',
     };
     db.collection('gallery').add(payload).then(() => {
       fileInput.value = '';
@@ -1281,9 +1296,15 @@ function renderModalContent(){
   else if (currentModalTab === 'cleaning') {
     el.innerHTML = `
       <label class="text-xs font-semibold text-gray-500">청소 구역 담당 지정</label>
-      <input id="cleaningField" value="${escapeAttr(s.cleaningArea)}" placeholder="예: 교실 뒤편, 복도, 신발장"
-        class="w-full mt-2 border border-gray-300 rounded-lg px-3 py-2 text-sm">
-      <button onclick="saveCleaning()" class="mt-3 bg-forest text-white px-4 py-2 rounded-lg text-sm font-semibold">저장</button>`;
+      <div class="flex gap-2 mt-2">
+        <input id="cleaningField" value="${escapeAttr(s.cleaningArea)}" placeholder="예: 교실 뒤편, 복도, 신발장"
+          class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm">
+        <button onclick="clearCleaningArea()" class="border border-gray-300 rounded-lg px-3 py-2 text-sm font-semibold text-gray-500 hover:bg-gray-50">삭제</button>
+      </div>
+      <div class="mt-3 flex gap-2">
+        <button onclick="saveCleaning()" class="flex-1 bg-forest text-white px-4 py-2 rounded-lg text-sm font-semibold">저장</button>
+        <button onclick="clearCleaningArea(true)" class="flex-1 border border-gray-300 rounded-lg px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-50">비우기</button>
+      </div>`;
   }
   else if (currentModalTab === 'club') {
     el.innerHTML = `
@@ -1341,7 +1362,15 @@ function addCertificate(){
   persistStudent(s); renderModalContent();
 }
 function deleteCertificate(i){ const s = getCurrentStudent(); s.certificates.splice(i,1); persistStudent(s); renderModalContent(); }
-function saveCleaning(){ const s = getCurrentStudent(); s.cleaningArea = document.getElementById('cleaningField').value.trim(); persistStudent(s); alert('청소 구역이 저장되었습니다.'); }
+function clearCleaningArea(showAlert = false){
+  const s = getCurrentStudent();
+  s.cleaningArea = '';
+  persistStudent(s);
+  if (showAlert) alert('청소 구역이 삭제되었습니다.');
+  renderModalContent();
+  renderStudents();
+}
+function saveCleaning(){ const s = getCurrentStudent(); s.cleaningArea = document.getElementById('cleaningField').value.trim(); persistStudent(s); alert('청소 구역이 저장되었습니다.'); renderStudents(); }
 function saveClub(){
   const s = getCurrentStudent();
   s.club = document.getElementById('clubField').value.trim();
