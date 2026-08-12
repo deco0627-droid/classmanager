@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>학급 수첩 · 스마트 학급 경영 대시보드</title>
 <script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <!-- Firebase (Firestore + Auth) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -69,6 +70,11 @@
     transition: transform .15s ease, box-shadow .15s ease; box-shadow: 2px 2px 0 rgba(30,42,56,0.05);
   }
   .student-card:hover { transform: translateY(-3px); box-shadow: 4px 6px 0 rgba(47,111,82,0.12); border-color: #2F6F52; }
+  .student-summary-panel { background: linear-gradient(180deg, #ffffff 0%, #f3f6f2 100%); border: 1px solid #dfe8df; border-radius: 18px; }
+  .student-summary-btn { border: 1px solid #dfe8df; border-radius: 9999px; padding: 0.38rem 0.7rem; font-size: 0.7rem; transition: all .15s ease; }
+  .student-summary-btn.active { background: #DCEAE1; color: #20503B; border-color: #2F6F52; font-weight: 700; }
+  .privacy-chip { display:inline-flex; align-items:center; justify-content:center; width:1.25rem; height:1.25rem; border-radius:9999px; background:#E9F1EC; color:#20503B; font-weight:700; font-size:0.72rem; }
+  .assignment-layout-card { background: linear-gradient(180deg, #ffffff 0%, #f7f9f5 100%); border: 1px solid #e0e8e0; border-radius: 16px; }
   .corner-tab { position: absolute; top: -1px; left: 14px; width: 34px; height: 10px; border-radius: 0 0 4px 4px; }
 
   ::-webkit-scrollbar { width: 8px; height: 8px; }
@@ -286,6 +292,19 @@ service cloud.firestore {
       <div id="scheduleCalendarGrid" class="grid grid-cols-7 gap-1"></div>
     </div>
 
+    <div class="bg-card border border-gray-200 rounded-xl p-5 mt-5">
+      <h2 class="font-display text-lg mb-3 text-forest-dark">🖼 시간표 사진 업로드로 자동 반영</h2>
+      <p class="text-xs text-gray-500 mb-3">사진으로 찍은 시간표를 올리면 OCR로 읽어 현재 시간표를 바로 반영해요.</p>
+      <div class="flex flex-wrap gap-2 items-center">
+        <label class="inline-flex items-center gap-1.5 text-xs bg-white border border-gray-300 rounded-lg px-3 py-1.5 cursor-pointer hover:bg-gray-50">
+          📷 시간표 사진 선택
+          <input type="file" accept="image/*" class="hidden" onchange="handleTimetablePhotoUpload(event)">
+        </label>
+        <button onclick="clearTimetableFromPhoto()" class="text-xs border border-gray-300 bg-white px-3 py-1.5 rounded-lg hover:bg-gray-50">초기화</button>
+      </div>
+      <div id="timetablePhotoPreview" class="mt-3 hidden rounded-lg border border-dashed border-gray-300 bg-white p-3"></div>
+    </div>
+
     <div id="dayDetailModal" class="hidden fixed inset-0 bg-ink/60 z-50 flex items-center justify-center p-4">
       <div class="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl">
         <div class="flex items-center justify-between mb-3">
@@ -368,21 +387,31 @@ service cloud.firestore {
     <h1 class="font-display text-2xl mt-1 mb-5">청소구역·동아리 배정표</h1>
     <p class="text-xs text-gray-400 mb-4">배정표를 사진으로 찍어 올려두면, 학생 하나하나 입력하지 않아도 전체 배정 현황을 한눈에 볼 수 있어요.</p>
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
-      <div class="bg-card border border-gray-200 rounded-xl p-5">
+      <div class="assignment-layout-card p-5">
         <h2 class="font-display text-lg mb-3 text-forest-dark">🧹 청소구역 배정표</h2>
         <div id="cleaningPhotoView" class="rounded-lg overflow-hidden border border-gray-200 bg-white min-h-[160px] flex items-center justify-center"></div>
-        <label id="cleaningPhotoUploadLabel" class="hidden inline-flex items-center gap-1.5 text-xs bg-white border border-gray-300 rounded-lg px-3 py-1.5 cursor-pointer hover:bg-gray-50 mt-3">
-          📷 사진 올리기·변경
-          <input type="file" accept="image/*" class="hidden" onchange="handleCleaningPhotoUpload(event)">
-        </label>
+        <div class="mt-3 flex flex-wrap gap-2">
+          <label id="cleaningPhotoUploadLabel" class="hidden inline-flex items-center gap-1.5 text-xs bg-white border border-gray-300 rounded-lg px-3 py-1.5 cursor-pointer hover:bg-gray-50">
+            📷 사진 올리기·변경
+            <input type="file" accept="image/*" class="hidden" onchange="handleCleaningPhotoUpload(event)">
+          </label>
+          <button onclick="rebuildAssignmentTable('cleaning')" class="text-xs bg-forest text-white px-3 py-1.5 rounded-lg hover:bg-forest-dark">표로 재구성</button>
+          <button onclick="clearAssignmentTable('cleaning')" class="text-xs border border-gray-300 bg-white px-3 py-1.5 rounded-lg hover:bg-gray-50">삭제</button>
+        </div>
+        <div id="cleaningAssignmentTable" class="mt-4 overflow-x-auto"></div>
       </div>
-      <div class="bg-card border border-gray-200 rounded-xl p-5">
+      <div class="assignment-layout-card p-5">
         <h2 class="font-display text-lg mb-3 text-forest-dark">🎨 동아리 배정표</h2>
         <div id="clubPhotoView" class="rounded-lg overflow-hidden border border-gray-200 bg-white min-h-[160px] flex items-center justify-center"></div>
-        <label id="clubPhotoUploadLabel" class="hidden inline-flex items-center gap-1.5 text-xs bg-white border border-gray-300 rounded-lg px-3 py-1.5 cursor-pointer hover:bg-gray-50 mt-3">
-          📷 사진 올리기·변경
-          <input type="file" accept="image/*" class="hidden" onchange="handleClubPhotoUpload(event)">
-        </label>
+        <div class="mt-3 flex flex-wrap gap-2">
+          <label id="clubPhotoUploadLabel" class="hidden inline-flex items-center gap-1.5 text-xs bg-white border border-gray-300 rounded-lg px-3 py-1.5 cursor-pointer hover:bg-gray-50">
+            📷 사진 올리기·변경
+            <input type="file" accept="image/*" class="hidden" onchange="handleClubPhotoUpload(event)">
+          </label>
+          <button onclick="rebuildAssignmentTable('club')" class="text-xs bg-forest text-white px-3 py-1.5 rounded-lg hover:bg-forest-dark">표로 재구성</button>
+          <button onclick="clearAssignmentTable('club')" class="text-xs border border-gray-300 bg-white px-3 py-1.5 rounded-lg hover:bg-gray-50">삭제</button>
+        </div>
+        <div id="clubAssignmentTable" class="mt-4 overflow-x-auto"></div>
       </div>
     </div>
   </section>
@@ -470,21 +499,33 @@ service cloud.firestore {
       <button onclick="commitStudentBulk()" class="bg-amber text-white px-4 py-2 rounded-lg text-sm font-semibold hover:opacity-90">인식된 학생 모두 등록</button>
     </div>
 
-    <div id="studentCardWrap" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4"></div>
-    <div id="studentTableWrap" class="hidden bg-card border border-gray-200 rounded-xl overflow-x-auto">
-      <table class="w-full text-sm">
-        <thead class="bg-forest-light text-forest-dark text-left">
-          <tr>
-            <th class="px-4 py-2.5 font-semibold">번호</th>
-            <th class="px-4 py-2.5 font-semibold">이름</th>
-            <th class="px-4 py-2.5 font-semibold">청소구역</th>
-            <th class="px-4 py-2.5 font-semibold">동아리</th>
-            <th class="px-4 py-2.5 font-semibold">건강 특이사항</th>
-            <th class="px-4 py-2.5 font-semibold"></th>
-          </tr>
-        </thead>
-        <tbody id="studentTableBody"></tbody>
-      </table>
+    <div class="grid grid-cols-1 xl:grid-cols-[minmax(0,1.8fr)_minmax(280px,0.8fr)] gap-5">
+      <div>
+        <div id="studentCardWrap" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4"></div>
+        <div id="studentTableWrap" class="hidden bg-card border border-gray-200 rounded-xl overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead class="bg-forest-light text-forest-dark text-left">
+              <tr>
+                <th class="px-4 py-2.5 font-semibold">번호</th>
+                <th class="px-4 py-2.5 font-semibold">이름</th>
+                <th class="px-4 py-2.5 font-semibold">청소구역</th>
+                <th class="px-4 py-2.5 font-semibold">동아리</th>
+                <th class="px-4 py-2.5 font-semibold">건강 특이사항</th>
+                <th class="px-4 py-2.5 font-semibold"></th>
+              </tr>
+            </thead>
+            <tbody id="studentTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+      <aside class="student-summary-panel p-4 h-fit sticky top-24">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="font-display text-lg text-forest-dark">학생 전체 보고서</h2>
+          <button onclick="downloadStudentSummaryCsv()" class="text-[11px] bg-white border border-gray-300 rounded-full px-2.5 py-1 font-semibold text-forest-dark hover:bg-gray-50">다운로드</button>
+        </div>
+        <div id="studentSummaryTabs" class="flex flex-wrap gap-2 mb-4"></div>
+        <div id="studentSummaryContent" class="space-y-2 max-h-[520px] overflow-y-auto pr-1"></div>
+      </aside>
     </div>
   </section>
 
@@ -779,6 +820,8 @@ function handleCleaningPhotoUpload(e){
   compressImageFile(file, 1200, 0.7).then(dataUrl => {
     if (dataUrl.length > 900000) return alert('이미지 용량이 너무 큽니다. 더 작거나 단순한 사진으로 다시 시도해주세요.');
     db.collection('settings').doc('cleaningPhoto').set({ data: dataUrl });
+    cleaningPhotoCache = dataUrl;
+    renderPhotosView();
   }).catch(() => alert('사진을 처리하는 중 문제가 발생했습니다.'));
 }
 function handleClubPhotoUpload(e){
@@ -786,7 +829,99 @@ function handleClubPhotoUpload(e){
   compressImageFile(file, 1200, 0.7).then(dataUrl => {
     if (dataUrl.length > 900000) return alert('이미지 용량이 너무 큽니다. 더 작거나 단순한 사진으로 다시 시도해주세요.');
     db.collection('settings').doc('clubPhoto').set({ data: dataUrl });
+    clubPhotoCache = dataUrl;
+    renderPhotosView();
   }).catch(() => alert('사진을 처리하는 중 문제가 발생했습니다.'));
+}
+function safeSetObject(target, key, value){
+  const next = { ...(target || {}) };
+  next[key] = value;
+  return next;
+}
+
+let assignmentTableState = { cleaning: [], club: [] };
+function ensureAssignmentRows(rows){
+  if (!Array.isArray(rows) || !rows.length) return [['', '', '', '', '']];
+  return rows.map(r => Array.isArray(r) ? r.slice(0, 5).concat(Array(5 - Math.min(5, r.length)).fill('')) : ['', '', '', '', '']);
+}
+function renderAssignmentTable(kind){
+  const rows = ensureAssignmentRows(assignmentTableState[kind] || []);
+  const el = document.getElementById(kind === 'cleaning' ? 'cleaningAssignmentTable' : 'clubAssignmentTable');
+  if (!el) return;
+  if (!rows.length || rows.every(r => r.every(v => !String(v).trim()))) {
+    el.innerHTML = `<p class="text-xs text-gray-400">아직 표로 재구성된 데이터가 없습니다. 사진을 올리고 “표로 재구성”을 눌러주세요.</p>`;
+    return;
+  }
+  el.innerHTML = `
+    <table class="w-full border border-gray-300 text-xs text-left">
+      <tbody>
+        ${rows.map((row, rIdx) => `
+          <tr>
+            ${row.map((cell, cIdx) => `
+              <td class="border border-gray-300 p-1 align-top min-w-[60px]">
+                <input value="${escapeAttr(cell)}" data-kind="${kind}" data-row="${rIdx}" data-col="${cIdx}" onchange="updateAssignmentCell('${kind}', ${rIdx}, ${cIdx}, this.value)" class="w-full bg-transparent text-center border-0 p-1 rounded outline-none focus:bg-white focus:border focus:border-gray-200">
+              </td>
+            `).join('')}
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+    <div class="flex gap-2 mt-2">
+      <button onclick="addAssignmentRow('${kind}')" class="text-[11px] bg-white border border-gray-300 rounded-lg px-2 py-1 hover:bg-gray-50">행 추가</button>
+      <button onclick="addAssignmentCol('${kind}')" class="text-[11px] bg-white border border-gray-300 rounded-lg px-2 py-1 hover:bg-gray-50">열 추가</button>
+      <button onclick="deleteAssignmentRow('${kind}')" class="text-[11px] bg-white border border-gray-300 rounded-lg px-2 py-1 hover:bg-gray-50">행 삭제</button>
+    </div>
+  `;
+}
+function updateAssignmentCell(kind, row, col, value){
+  const rows = ensureAssignmentRows(assignmentTableState[kind] || []);
+  rows[row][col] = value;
+  assignmentTableState[kind] = rows;
+}
+function addAssignmentRow(kind){
+  const rows = ensureAssignmentRows(assignmentTableState[kind] || []);
+  rows.push(Array(5).fill(''));
+  assignmentTableState[kind] = rows;
+  renderAssignmentTable(kind);
+}
+function addAssignmentCol(kind){
+  const rows = ensureAssignmentRows(assignmentTableState[kind] || []);
+  rows.forEach(r => r.push(''));
+  assignmentTableState[kind] = rows;
+  renderAssignmentTable(kind);
+}
+function deleteAssignmentRow(kind){
+  const rows = ensureAssignmentRows(assignmentTableState[kind] || []);
+  if (rows.length <= 1) return;
+  rows.pop();
+  assignmentTableState[kind] = rows;
+  renderAssignmentTable(kind);
+}
+function clearAssignmentTable(kind){
+  assignmentTableState[kind] = [];
+  renderAssignmentTable(kind);
+}
+function parseAssignmentTableText(text){
+  const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+  const table = [];
+  lines.forEach(line => {
+    const parts = line.split(/\s{2,}|\t|\|/).map(p => p.replace(/[\u200b\u00a0]/g,'').trim()).filter(Boolean);
+    const row = parts.slice(0,5);
+    if (row.length) table.push(row.map(v => v || ''));
+  });
+  return table.length ? table : [['', '', '', '', '']];
+}
+async function rebuildAssignmentTable(kind){
+  const photo = kind === 'cleaning' ? cleaningPhotoCache : clubPhotoCache;
+  if (!photo) return alert('먼저 사진을 올려주세요.');
+  if (!window.Tesseract) return alert('OCR 기능을 불러오지 못했습니다.');
+  try {
+    const result = await Tesseract.recognize(photo, 'kor+eng');
+    assignmentTableState[kind] = parseAssignmentTableText(result.data.text);
+    renderAssignmentTable(kind);
+  } catch (err) {
+    alert('사진에서 표를 인식하지 못했습니다. 수동으로 표를 수정해주세요.');
+  }
 }
 function renderPhotosView(){
   document.getElementById('cleaningPhotoView').innerHTML = cleaningPhotoCache
@@ -795,6 +930,8 @@ function renderPhotosView(){
   document.getElementById('clubPhotoView').innerHTML = clubPhotoCache
     ? `<img src="${clubPhotoCache}" class="w-full h-auto cursor-pointer" onclick="openPhotoZoom(this.src)">`
     : `<p class="text-gray-400 text-sm p-8">등록된 사진이 없습니다.</p>`;
+  renderAssignmentTable('cleaning');
+  renderAssignmentTable('club');
 }
 function openPhotoZoom(src){
   document.getElementById('photoZoomImg').src = src;
@@ -1538,6 +1675,54 @@ function renderTimetable(){
   html += '</tbody>';
   document.getElementById('timetableEl').innerHTML = html;
 }
+async function handleTimetablePhotoUpload(e){
+  const file = e.target.files[0]; if (!file) return;
+  const dataUrl = await compressImageFile(file, 1400, 0.75);
+  const preview = document.getElementById('timetablePhotoPreview');
+  preview.classList.remove('hidden');
+  preview.innerHTML = `<img src="${dataUrl}" class="max-h-52 rounded-md mx-auto block">`;
+  if (!window.Tesseract) return alert('OCR 라이브러리를 불러오지 못했습니다.');
+  try {
+    const result = await Tesseract.recognize(dataUrl, 'kor+eng');
+    const extracted = parseTimetableText(result.data.text);
+    if (!extracted.length) return alert('시간표를 인식하지 못했습니다. 사진을 다시 찍어 주세요.');
+    settingsCache.timetable = { ...(settingsCache.timetable || {}), ...extracted };
+    db.collection('settings').doc('general').set({ timetable: settingsCache.timetable }, { merge: true });
+    renderTimetable();
+    alert('시간표 사진을 기반으로 표를 반영했습니다.');
+  } catch (err) {
+    alert('시간표 사진 인식에 실패했습니다. 다시 시도해 주세요.');
+  }
+}
+function clearTimetableFromPhoto(){
+  settingsCache.timetable = {};
+  db.collection('settings').doc('general').set({ timetable: {} }, { merge: true });
+  renderTimetable();
+}
+function parseTimetableText(text){
+  const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  const result = {};
+  const dayMap = { '월': '월', '화': '화', '수': '수', '목': '목', '금': '금' };
+  const allDays = ['월','화','수','목','금'];
+  for (const line of lines) {
+    const cells = line.split(/\s{2,}|\t|\||,|\s+/).map(v => v.trim()).filter(Boolean);
+    if (!cells.length) continue;
+    let dayName = null;
+    for (const d of allDays) {
+      if (cells.some(c => c.includes(d))) {
+        dayName = d; break;
+      }
+    }
+    if (!dayName) continue;
+    const period = cells.find(c => /^\d+$/.test(c.replace(/[^0-9]/g,'')) || /^\d+교시?$/.test(c));
+    if (!period) continue;
+    const p = Number(String(period).replace(/[^0-9]/g,''));
+    if (!p || p < 1 || p > 7) continue;
+    const lesson = cells.filter(c => c !== period && !allDays.includes(c)).join(' ');
+    if (lesson) result[`${dayName}-${p}`] = lesson;
+  }
+  return result;
+}
 function updateTimetableCell(key, val){
   settingsCache.timetable = settingsCache.timetable || {};
   settingsCache.timetable[key] = val;
@@ -1948,15 +2133,103 @@ function exportStudentExcel(){
   XLSX.writeFile(wb, `${s.name || '학생'}_학생정보_${todayStr()}.xlsx`);
 }
 
+function maskStudentName(name){
+  const raw = (name || '').trim();
+  if (!raw) return '이름 없음';
+  const chars = [...raw];
+  if (chars.length <= 2) return `${chars[0]}○`;
+  const first = chars[0];
+  const last = chars[chars.length - 1];
+  const hidden = '○';
+  return `${first}${hidden}${last}`;
+}
+
+let studentSummaryFilter = 'all';
+const STUDENT_SUMMARY_TABS = [
+  { key: 'all', label: '전체' },
+  { key: 'consult', label: '상담' },
+  { key: 'health', label: '건강' },
+  { key: 'elective', label: '학점' },
+  { key: 'cert', label: '자격증' },
+  { key: 'cleaning', label: '청소' },
+  { key: 'club', label: '동아리' },
+  { key: 'awards', label: '수상' },
+];
+
+function renderStudentSummaryPanel(){
+  const tabs = document.getElementById('studentSummaryTabs');
+  const content = document.getElementById('studentSummaryContent');
+  if (!tabs || !content) return;
+  tabs.innerHTML = STUDENT_SUMMARY_TABS.map(tab => `
+    <button class="student-summary-btn ${studentSummaryFilter === tab.key ? 'active' : ''}" onclick="studentSummaryFilter='${tab.key}'; renderStudentSummaryPanel();">${tab.label}</button>
+  `).join('');
+
+  const list = [...studentsCache].sort((a,b) => (parseInt(a.number) || 0) - (parseInt(b.number) || 0));
+  const filtered = list.filter(s => {
+    if (studentSummaryFilter === 'all') return true;
+    if (studentSummaryFilter === 'consult') return (s.consultLogs || []).length > 0;
+    if (studentSummaryFilter === 'health') return !!(s.health || '').trim();
+    if (studentSummaryFilter === 'elective') return (s.electiveCourses || []).length > 0;
+    if (studentSummaryFilter === 'cert') return (s.certificates || []).length > 0;
+    if (studentSummaryFilter === 'cleaning') return !!(s.cleaningArea || '').trim();
+    if (studentSummaryFilter === 'club') return !!(s.club || '').trim();
+    if (studentSummaryFilter === 'awards') return (s.awards || []).length > 0;
+    return true;
+  });
+
+  content.innerHTML = filtered.length ? filtered.map(s => `
+    <div class="bg-white border border-gray-200 rounded-xl p-2.5">
+      <div class="flex items-center justify-between mb-2">
+        <div class="flex items-center gap-2">
+          <span class="privacy-chip">${maskStudentName(s.name).slice(1, 2) || '○'}</span>
+          <div>
+            <p class="font-display text-base leading-none">${escapeHtml(maskStudentName(s.name))}</p>
+            <p class="font-mono text-[10px] text-gray-400">No. ${escapeHtml(s.number || '-')}</p>
+          </div>
+        </div>
+        <button onclick="openStudentEditor('${s.id}')" class="text-[10px] text-forest-dark font-semibold hover:underline">상세보기</button>
+      </div>
+      <div class="text-[11px] text-gray-600 space-y-1">
+        <div>🧹 ${escapeHtml(s.cleaningArea || '미지정')}</div>
+        <div>🎨 ${escapeHtml(s.club || '미가입')}</div>
+        <div>🏥 ${escapeHtml(s.health || '건강메모 없음')}</div>
+        <div>📜 ${((s.certificates || []).length)}개 · 🏅 ${((s.awards || []).length)}건 · 🧭 ${((s.consultLogs || []).length)}회</div>
+      </div>
+    </div>
+  `).join('') : `<p class="text-sm text-gray-400 py-2">조건에 맞는 학생이 없습니다.</p>`;
+}
+
+function downloadStudentSummaryCsv(){
+  const rows = [...studentsCache].sort((a,b)=> (parseInt(a.number)||0)-(parseInt(b.number)||0)).map(s => ({
+    번호: s.number || '',
+    이름: maskStudentName(s.name),
+    청소구역: s.cleaningArea || '',
+    동아리: s.club || '',
+    건강: s.health || '',
+    자격증: (s.certificates || []).map(c => c.type).join(', '),
+    수상: (s.awards || []).map(a => a.title).join(', '),
+    상담: (s.consultLogs || []).length,
+  }));
+  if (!rows.length) return alert('다운로드할 학생 데이터가 없습니다.');
+  const csv = [Object.keys(rows[0]).join(','), ...rows.map(r => Object.values(r).map(v => '"' + String(v).replace(/"/g,'""') + '"').join(','))].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = '학생_보고서.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 function renderStudents(){
   const query = (document.getElementById('studentSearch')?.value || '').trim();
-  const list = studentsCache.filter(s => s.name.includes(query))
+  const list = studentsCache.filter(s => (s.name || '').includes(query))
     .sort((a,b) => (parseInt(a.number) || 0) - (parseInt(b.number) || 0));
 
   document.getElementById('studentCardWrap').innerHTML = list.length ? list.map((s,i) => `
     <div class="student-card p-4 pt-5 cursor-pointer" onclick="openStudentEditor('${s.id}')">
       <div class="corner-tab ${CARD_COLORS[i%3]}"></div>
-      <p class="font-display text-lg">${escapeHtml(s.name)}</p>
+      <p class="font-display text-lg">${escapeHtml(maskStudentName(s.name))}</p>
       <p class="font-mono text-[11px] text-gray-400 mb-2">No. ${escapeHtml(s.number||'-')}</p>
       <div class="text-xs text-gray-500 space-y-1">
         <p>🧹 ${escapeHtml(s.cleaningArea)||'미지정'}</p>
@@ -1968,12 +2241,14 @@ function renderStudents(){
   document.getElementById('studentTableBody').innerHTML = list.length ? list.map(s => `
     <tr class="border-t border-gray-100 hover:bg-forest-light/40 cursor-pointer" onclick="openStudentEditor('${s.id}')">
       <td class="px-4 py-2.5 font-mono text-xs text-gray-400">${escapeHtml(s.number||'-')}</td>
-      <td class="px-4 py-2.5 font-semibold">${escapeHtml(s.name)}</td>
+      <td class="px-4 py-2.5 font-semibold">${escapeHtml(maskStudentName(s.name))}</td>
       <td class="px-4 py-2.5">${escapeHtml(s.cleaningArea)||'-'}</td>
       <td class="px-4 py-2.5">${escapeHtml(s.club)||'-'}</td>
       <td class="px-4 py-2.5 text-gray-500">${escapeHtml(s.health)||'-'}</td>
       <td class="px-4 py-2.5 text-right text-gray-300">›</td>
     </tr>`).join('') : `<tr><td colspan="6" class="px-4 py-6 text-center text-gray-400">등록된 학생이 없습니다.</td></tr>`;
+
+  renderStudentSummaryPanel();
 }
 
 /* --- 학생 명단 붙여넣기 일괄 등록 --- */
