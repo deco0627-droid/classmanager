@@ -51,17 +51,36 @@
   }
 
   .student-card {
-    background: #F8F9F5; border: 1px solid #d9e2d9; border-radius: 6px; position: relative;
-    transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease; box-shadow: 2px 2px 0 rgba(30,42,56,0.05);
+    background: linear-gradient(180deg, #ffffff 0%, #f7faf7 100%); border: 1px solid #dfe8df; border-radius: 16px; position: relative;
+    transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease; box-shadow: 0 8px 18px rgba(30,42,56,0.05);
   }
   .student-card:hover {
-    transform: translateY(-4px) scale(1.01); box-shadow: 0 12px 22px rgba(47,111,82,0.12); border-color: #2F6F52;
+    transform: translateY(-4px) scale(1.01); box-shadow: 0 16px 28px rgba(47,111,82,0.12); border-color: #2F6F52;
   }
   .student-card.selected { border-color: #2F6F52; box-shadow: 0 10px 20px rgba(47,111,82,0.12); }
   .corner-tab { position: absolute; top: -1px; left: 14px; width: 34px; height: 10px; border-radius: 0 0 4px 4px; }
+  .student-name-avatar {
+    width: 2.2rem; height: 2.2rem; border-radius: 9999px; display:flex; align-items:center; justify-content:center;
+    background: linear-gradient(135deg, #2F6F52, #A5B59A); color:#fff; font-size:0.8rem; font-weight:700;
+    box-shadow: inset 0 0 0 2px rgba(255,255,255,.25);
+  }
+  .student-summary-pill {
+    display:inline-flex; align-items:center; gap:0.3rem; padding:0.28rem 0.6rem; border-radius:9999px;
+    background:#edf5ee; color:#2F6F52; font-size:0.68rem; font-weight:700; border:1px solid #dfeadf;
+  }
   .overview-chip { border: 1px solid #d9e2d9; background: #fff; color: #52645d; border-radius: 9999px; padding: 0.45rem 0.8rem; font-size: 0.72rem; font-weight: 700; transition: all .15s ease; }
   .overview-chip:hover { border-color: #2F6F52; color: #20503B; background: #EEF7F0; }
   .overview-chip.active { background: #2F6F52; color: white; border-color: #2F6F52; }
+
+  .pretty-table {
+    border-collapse: separate; border-spacing: 0; width: 100%; border: 1px solid #dfe6df; border-radius: 18px; overflow: hidden; background: rgba(255,255,255,.75);
+    box-shadow: 0 8px 18px rgba(30,42,56,0.04);
+  }
+  .pretty-table thead th {
+    background: linear-gradient(180deg, #edf5ee 0%, #f6f9f5 100%); color: #20503B; font-weight: 700; border-bottom: 1px solid #dfe6df;
+  }
+  .pretty-table th, .pretty-table td { border-bottom: 1px solid #edf1ee; }
+  .pretty-table tbody tr:hover td { background: #f4faf5; }
 
   ::-webkit-scrollbar { width: 8px; height: 8px; }
   ::-webkit-scrollbar-thumb { background: #c3d1c4; border-radius: 8px; }
@@ -93,13 +112,23 @@
     position:absolute; left: 12px; top: 12px; padding: 0.32rem 0.7rem; border-radius:9999px;
     background: rgba(33, 49, 39, 0.65); color: #fff; font-size: 10px; font-weight: 700; letter-spacing: .05em; backdrop-filter: blur(2px);
   }
+  .photo-privacy-chip {
+    position:absolute; right:12px; top:12px; width: 2rem; height: 2rem; border-radius:9999px; display:flex; align-items:center; justify-content:center;
+    background: rgba(255,255,255,0.9); color:#20503B; font-size:0.72rem; font-weight:800; border:2px solid rgba(47,111,82,0.2); box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+  }
+  .delete-photo-btn {
+    position:absolute; right:12px; bottom:12px; z-index:2; border-radius:9999px; background: rgba(181,83,63,0.92); color:#fff; padding:0.34rem 0.72rem; font-size:0.65rem; font-weight:700; box-shadow: 0 6px 12px rgba(181,83,63,.2);
+  }
   .photo-meta { display:flex; align-items:center; gap:0.8rem; margin-top:0.9rem; }
   .photo-avatar {
     width: 2.3rem; height: 2.3rem; border-radius: 9999px; display:flex; align-items:center; justify-content:center;
     background: linear-gradient(135deg, #2F6F52, #9FAE8C); color: white; font-size: 0.8rem; font-weight: 700; box-shadow: inset 0 0 0 2px rgba(255,255,255,.25);
   }
-  .photo-caption { font-size: 0.82rem; font-weight: 600; color: #1E2A38; }
+  .photo-caption {
+    font-size: 0.82rem; font-weight: 600; color: #1E2A38; font-family: 'JetBrains Mono', monospace;
+  }
   .photo-author { font-size: 0.68rem; color: #6b7a71; }
+  #galleryUploadInput, #galleryCaptionInput { font-family: 'JetBrains Mono', monospace; }
 </style>
 </head>
 <body class="min-h-screen">
@@ -248,7 +277,7 @@ service cloud.firestore {
     <div class="grid grid-cols-1 xl:grid-cols-3 gap-5">
       <div class="xl:col-span-2 bg-card border border-gray-200 rounded-xl p-5 overflow-x-auto">
         <h2 class="font-display text-lg mb-3 text-forest-dark">주간 시간표 <span class="text-xs font-body text-gray-400 font-normal teacher-only-hint hidden">(칸을 클릭해 편집)</span></h2>
-        <table class="w-full text-sm border-collapse min-w-[520px]" id="timetableEl"></table>
+        <table class="pretty-table min-w-[520px]" id="timetableEl"></table>
       </div>
       <div class="bg-card border border-gray-200 rounded-xl p-5">
         <h2 class="font-display text-lg mb-3 text-forest-dark">학사일정 관리</h2>
@@ -296,9 +325,11 @@ service cloud.firestore {
     </div>
 
     <div id="studentOverviewBar" class="flex flex-wrap gap-2 mb-4"></div>
-    <div id="studentCardWrap" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4"></div>
-    <div id="studentTableWrap" class="hidden bg-card border border-gray-200 rounded-xl overflow-x-auto">
-      <table class="w-full text-sm">
+    <div class="grid grid-cols-1 xl:grid-cols-[1.6fr_1fr] gap-5">
+      <div>
+        <div id="studentCardWrap" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4"></div>
+        <div id="studentTableWrap" class="hidden bg-card border border-gray-200 rounded-xl overflow-x-auto p-2 mt-4">
+          <table class="pretty-table text-sm">
         <thead class="bg-forest-light text-forest-dark text-left">
           <tr>
             <th class="px-4 py-2.5 font-semibold">번호</th>
@@ -310,7 +341,10 @@ service cloud.firestore {
           </tr>
         </thead>
         <tbody id="studentTableBody"></tbody>
-      </table>
+          </table>
+        </div>
+      </div>
+      <div id="studentInspectorPanel" class="hidden bg-card border border-gray-200 rounded-2xl p-4 shadow-sm"></div>
     </div>
   </section>
 
@@ -712,21 +746,32 @@ function renderGallery(){
     return;
   }
 
-  grid.innerHTML = safeGallery.map(item => `
-    <article class="photo-card">
-      <div class="photo-frame">
-        <span class="photo-tag">${escapeHtml(item.author || '익명')}</span>
-        <img src="${escapeAttr(item.image || '')}" alt="${escapeAttr(item.caption || '교실 벽 사진')}" onerror="this.src='https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=900&q=80';">
-      </div>
-      <div class="photo-meta">
-        <div class="photo-avatar">${escapeHtml((item.authorInitial || (item.author || '익')[0] || 'A').toUpperCase())}</div>
-        <div>
-          <p class="photo-caption">${escapeHtml(item.caption || '우리 반의 순간')}</p>
-          <p class="photo-author">익명 공개</p>
+  grid.innerHTML = safeGallery.map(item => {
+    const initial = (item.authorInitial || (item.author || '교')[0] || 'A').toUpperCase();
+    const safeTag = (item.author && item.author !== '익명') ? '교사' : '익명';
+    return `
+      <article class="photo-card">
+        <div class="photo-frame">
+          <span class="photo-tag">${escapeHtml(safeTag)}</span>
+          <span class="photo-privacy-chip">${escapeHtml(initial)}</span>
+          ${isTeacher ? `<button class="delete-photo-btn" onclick="deleteGalleryPhoto('${item.id}')">삭제</button>` : ''}
+          <img src="${escapeAttr(item.image || '')}" alt="${escapeAttr(item.caption || '교실 벽 사진')}" onerror="this.src='https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=900&q=80';">
         </div>
-      </div>
-    </article>
-  `).join('');
+        <div class="photo-meta">
+          <div class="photo-avatar">${escapeHtml(initial)}</div>
+          <div>
+            <p class="photo-caption">${escapeHtml(item.caption || '우리 반의 순간')}</p>
+            <p class="photo-author">익명 공개</p>
+          </div>
+        </div>
+      </article>
+    `;
+  }).join('');
+}
+function deleteGalleryPhoto(id){
+  if (!isTeacher) return;
+  if (!confirm('이 사진을 삭제할까요?')) return;
+  db.collection('gallery').doc(id).delete();
 }
 function saveGalleryPhoto(){
   if (!isTeacher) return alert('교사만 사진을 업로드할 수 있습니다.');
@@ -935,20 +980,35 @@ function renderStudents(){
   const list = getVisibleStudents();
   renderStudentOverviewBar();
 
-  document.getElementById('studentCardWrap').innerHTML = list.length ? list.map((s,i) => `
-    <div class="student-card p-4 pt-5 cursor-pointer ${currentStudentId===s.id ? 'selected' : ''}" onclick="openStudentEditor('${s.id}')">
+  if (!currentStudentId && list.length) currentStudentId = list[0].id;
+  if (currentStudentId && !list.some(s => s.id === currentStudentId)) currentStudentId = list[0]?.id || null;
+
+  document.getElementById('studentCardWrap').innerHTML = list.length ? list.map((s,i) => {
+    const initial = (s.name || '?')[0]?.toUpperCase() || '?';
+    return `
+    <div class="student-card p-4 pt-5 cursor-pointer ${currentStudentId===s.id ? 'selected' : ''}" onclick="currentStudentId='${s.id}'; renderStudents();">
       <div class="corner-tab ${CARD_COLORS[i%3]}"></div>
-      <p class="font-display text-lg">${escapeHtml(s.name)}</p>
-      <p class="font-mono text-[11px] text-gray-400 mb-2">No. ${escapeHtml(s.number||'-')}</p>
-      <div class="text-xs text-gray-500 space-y-1">
-        <p>🧹 ${escapeHtml(s.cleaningArea)||'미지정'}</p>
-        <p>🎨 ${escapeHtml(s.club)||'미가입'}</p>
-        <p>🏅 수상 ${(s.awards||[]).length}건 · 📜 자격증 ${(s.certificates||[]).length}건</p>
+      <div class="flex items-center gap-2 mb-2">
+        <span class="student-name-avatar">${escapeHtml(initial)}</span>
+        <div>
+          <p class="font-display text-lg leading-tight">${escapeHtml(s.name)}</p>
+          <p class="font-mono text-[11px] text-gray-400">No. ${escapeHtml(s.number||'-')}</p>
+        </div>
       </div>
-    </div>`).join('') : `<p class="text-gray-400 col-span-full">${studentsCache.length ? '검색 결과가 없습니다.' : '등록된 학생이 없습니다. 위 붙여넣기 도구나 + 학생 추가로 등록해주세요.'}</p>`;
+      <div class="flex flex-wrap gap-1.5 mt-2">
+        <span class="student-summary-pill">🧹 ${escapeHtml(s.cleaningArea)||'미지정'}</span>
+        <span class="student-summary-pill">🎨 ${escapeHtml(s.club)||'미가입'}</span>
+      </div>
+      <div class="mt-3 text-[11px] text-gray-500 flex justify-between">
+        <span>🏅 ${ (s.awards||[]).length }건</span>
+        <span>📜 ${ (s.certificates||[]).length }건</span>
+        <span>💬 ${ (s.consultLogs||[]).length }회</span>
+      </div>
+    </div>`;
+  }).join('') : `<p class="text-gray-400 col-span-full">${studentsCache.length ? '검색 결과가 없습니다.' : '등록된 학생이 없습니다. 위 붙여넣기 도구나 + 학생 추가로 등록해주세요.'}</p>`;
 
   document.getElementById('studentTableBody').innerHTML = list.length ? list.map(s => `
-    <tr class="border-t border-gray-100 hover:bg-forest-light/40 cursor-pointer" onclick="openStudentEditor('${s.id}')">
+    <tr class="border-t border-gray-100 hover:bg-forest-light/40 cursor-pointer" onclick="currentStudentId='${s.id}'; renderStudents();">
       <td class="px-4 py-2.5 font-mono text-xs text-gray-400">${escapeHtml(s.number||'-')}</td>
       <td class="px-4 py-2.5 font-semibold">${escapeHtml(s.name)}</td>
       <td class="px-4 py-2.5">${escapeHtml(s.cleaningArea)||'-'}</td>
@@ -956,6 +1016,87 @@ function renderStudents(){
       <td class="px-4 py-2.5 text-gray-500">${escapeHtml(s.health)||'-'}</td>
       <td class="px-4 py-2.5 text-right text-gray-300">›</td>
     </tr>`).join('') : `<tr><td colspan="6" class="px-4 py-6 text-center text-gray-400">등록된 학생이 없습니다.</td></tr>`;
+
+  renderStudentInspector();
+}
+
+function renderStudentInspector(){
+  const panel = document.getElementById('studentInspectorPanel');
+  const s = getCurrentStudent();
+  if (!s) {
+    panel.classList.add('hidden');
+    panel.innerHTML = '';
+    return;
+  }
+
+  panel.classList.remove('hidden');
+  const tabs = [
+    { key: 'consult', label: '상담일지' },
+    { key: 'health', label: '건강상태' },
+    { key: 'elective', label: '고교학점제' },
+    { key: 'cert', label: '자격증' },
+    { key: 'cleaning', label: '청소구역' },
+    { key: 'club', label: '동아리' },
+    { key: 'awards', label: '수상실적' }
+  ];
+
+  const tabsHtml = tabs.map(tab => `
+    <button class="text-xs font-semibold px-2 py-1.5 rounded-full ${currentModalTab===tab.key ? 'bg-forest text-white' : 'text-gray-500 hover:bg-gray-100'}"
+      onclick="currentModalTab='${tab.key}'; renderStudentInspector();">${tab.label}</button>
+  `).join('');
+
+  let contentHtml = '<p class="text-gray-400 text-sm">기록이 없습니다.</p>';
+  if (currentModalTab === 'consult') {
+    contentHtml = (s.consultLogs || []).length
+      ? (s.consultLogs || []).slice().sort((a,b) => b.date.localeCompare(a.date)).map(c => `
+        <div class="border border-gray-200 rounded-lg p-2 bg-white">
+          <div class="font-mono text-[11px] text-forest-dark mb-1">${escapeHtml(c.date)}</div>
+          <div class="text-sm text-gray-700">${escapeHtml(c.content)}</div>
+        </div>`).join('')
+      : '<p class="text-gray-400 text-sm">등록된 상담 기록이 없습니다.</p>';
+  } else if (currentModalTab === 'health') {
+    contentHtml = s.health ? `<div class="whitespace-pre-line text-sm text-gray-700">${escapeHtml(s.health)}</div>` : '<p class="text-gray-400 text-sm">등록된 건강 상태가 없습니다.</p>';
+  } else if (currentModalTab === 'elective') {
+    contentHtml = (s.electiveCourses || []).length
+      ? (s.electiveCourses || []).map(item => `<span class="inline-flex items-center px-2.5 py-1 rounded-full bg-forest-light text-forest-dark text-xs font-semibold mr-2 mb-2">${escapeHtml(item)}</span>`).join('')
+      : '<p class="text-gray-400 text-sm">등록된 고교학점제 과목이 없습니다.</p>';
+  } else if (currentModalTab === 'cert') {
+    contentHtml = (s.certificates || []).length
+      ? (s.certificates || []).map(c => `
+        <div class="flex items-center justify-between border border-gray-200 rounded-lg p-2 bg-white">
+          <div>
+            <div class="text-sm font-semibold">${escapeHtml(c.type)}</div>
+            <div class="font-mono text-[11px] text-gray-400">${escapeHtml(c.date || '-')}</div>
+          </div>
+        </div>`).join('')
+      : '<p class="text-gray-400 text-sm">등록된 자격증이 없습니다.</p>';
+  } else if (currentModalTab === 'cleaning') {
+    contentHtml = s.cleaningArea ? `<div class="text-sm text-gray-700">${escapeHtml(s.cleaningArea)}</div>` : '<p class="text-gray-400 text-sm">청소 구역이 아직 없어요.</p>';
+  } else if (currentModalTab === 'club') {
+    contentHtml = s.club || s.clubTeacher
+      ? `<div class="space-y-2 text-sm text-gray-700"><div><span class="font-semibold text-forest-dark">동아리:</span> ${escapeHtml(s.club || '미등록')}</div><div><span class="font-semibold text-forest-dark">지도교사:</span> ${escapeHtml(s.clubTeacher || '미등록')}</div></div>`
+      : '<p class="text-gray-400 text-sm">동아리 정보가 없습니다.</p>';
+  } else if (currentModalTab === 'awards') {
+    contentHtml = (s.awards || []).length
+      ? (s.awards || []).map(a => `
+        <div class="border border-gray-200 rounded-lg p-2 bg-white">
+          <div class="font-semibold text-sm">${escapeHtml(a.title)}</div>
+          <div class="font-mono text-[11px] text-gray-400">${escapeHtml(a.date || '-')} ${a.org ? '· ' + escapeHtml(a.org) : ''}</div>
+        </div>`).join('')
+      : '<p class="text-gray-400 text-sm">수상 실적이 없습니다.</p>';
+  }
+
+  panel.innerHTML = `
+    <div class="flex items-center justify-between mb-3">
+      <div>
+        <div class="text-[11px] text-gray-400 uppercase tracking-[0.15em]">Selected student</div>
+        <div class="font-display text-2xl mt-1">${escapeHtml(s.name)}</div>
+      </div>
+      <button onclick="openStudentEditor('${s.id}')" class="text-xs font-semibold text-forest-dark hover:underline">상세보기</button>
+    </div>
+    <div class="flex flex-wrap gap-2 mb-4">${tabsHtml}</div>
+    <div class="space-y-2 max-h-[440px] overflow-y-auto pr-1">${contentHtml}</div>
+  `;
 }
 
 /* --- 학생 명단 붙여넣기 일괄 등록 --- */
