@@ -2695,6 +2695,7 @@ function toggleStudentTextSizePanel(){
 }
 
 function downloadStudentSummaryCsv(){
+  if (!requireHealthPassword()) return;
   const rows = [...studentsCache].sort((a,b)=> (parseInt(a.number)||0)-(parseInt(b.number)||0)).map(s => ({
     번호: s.number || '',
     이름: isTeacher ? s.name : maskStudentName(s.name),
@@ -2813,14 +2814,20 @@ const MODAL_TABS = [
 function getHealthPassword(){
   return (settingsCache && settingsCache.healthPassword) ? String(settingsCache.healthPassword).trim() : 'health1234';
 }
+let healthPasswordSessionUnlocked = false;
 function requireHealthPassword(){
+  if (healthPasswordSessionUnlocked) return true;
   const input = window.prompt('건강 정보 수정 비밀번호를 입력하세요.');
   if (input === null) return false;
   if (String(input).trim() !== getHealthPassword()) {
     alert('건강 비밀번호가 올바르지 않습니다.');
     return false;
   }
+  healthPasswordSessionUnlocked = true;
   return true;
+}
+function clearHealthPasswordSession(){
+  healthPasswordSessionUnlocked = false;
 }
 let healthPasswordUnlockCount = 0;
 function unlockHealthPasswordPanel(){
@@ -2875,6 +2882,7 @@ document.getElementById('addStudentNumber').addEventListener('keydown', (e) => {
 function closeStudentModal(){
   document.getElementById('studentModal').classList.add('hidden');
   currentStudentId = null;
+  clearHealthPasswordSession();
   renderStudents();
 }
 function deleteCurrentStudent(){
