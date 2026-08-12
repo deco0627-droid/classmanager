@@ -65,12 +65,19 @@
   .tab-btn .tab-icon { font-size: 1.1rem; line-height: 1; }
   .tab-btn .tab-label { font-size: 0.78rem; letter-spacing: -0.02em; }
 
-  #cleaningAssignmentTable td, #timetableEl td { text-align: center; vertical-align: middle; }
-  #cleaningAssignmentTable input, #timetableEl input[data-timetable-key] {
+  #cleaningAssignmentTable td { text-align: center; vertical-align: middle; }
+  #cleaningAssignmentTable input {
     width: 42px; height: 42px; border-radius: 9999px; background: #F4F8F4; border: 1px solid #dfe7df;
     text-align: center; margin: 0 auto; display: block; font-size: 11px; line-height: 1; color: #1E2A38;
   }
-  #cleaningAssignmentTable input:focus, #timetableEl input[data-timetable-key]:focus { background: #fff; }
+  #cleaningAssignmentTable input:focus { background: #fff; }
+
+  #timetableEl td { text-align: center; vertical-align: middle; }
+  #timetableEl input[data-timetable-key] {
+    width: 100%; min-height: 44px; border-radius: 10px; background: #fff; border: 1px solid transparent;
+    text-align: center; margin: 0 auto; display: block; font-size: 11px; line-height: 1.2; color: #1E2A38;
+  }
+  #timetableEl input[data-timetable-key]:focus { background: #fff; border-color: #2F6F52; }
 
   .stamp {
     border: 3px solid #B5533F; color: #B5533F; border-radius: 9999px; transform: rotate(-8deg);
@@ -956,6 +963,7 @@ function deleteAssignmentPhoto(kind){
   if (photoCacheKey === 'cleaningPhotoCache') cleaningPhotoCache = '';
   if (photoCacheKey === 'clubPhotoCache') clubPhotoCache = '';
   assignmentTableState[kind] = [];
+  syncAssignmentPhotoButtons();
   renderPhotosView();
 }
 function parseAssignmentTableText(text){
@@ -1012,6 +1020,12 @@ async function rebuildAssignmentTable(kind){
     alert('사진에서 표를 인식하지 못했습니다. 수동으로 표를 수정해주세요.');
   }
 }
+function syncAssignmentPhotoButtons(){
+  const cleaningBtn = document.getElementById('cleaningDeletePhotoBtn');
+  const clubBtn = document.getElementById('clubDeletePhotoBtn');
+  if (cleaningBtn) cleaningBtn.classList.toggle('hidden', !(isTeacher && !!cleaningPhotoCache));
+  if (clubBtn) clubBtn.classList.toggle('hidden', !(isTeacher && !!clubPhotoCache));
+}
 function renderPhotosView(){
   document.getElementById('cleaningPhotoView').innerHTML = cleaningPhotoCache
     ? `<img src="${cleaningPhotoCache}" class="w-full h-auto cursor-pointer" onclick="openPhotoZoom(this.src)">`
@@ -1019,6 +1033,7 @@ function renderPhotosView(){
   document.getElementById('clubPhotoView').innerHTML = clubPhotoCache
     ? `<img src="${clubPhotoCache}" class="w-full h-auto cursor-pointer" onclick="openPhotoZoom(this.src)">`
     : `<p class="text-gray-400 text-sm p-8">등록된 사진이 없습니다.</p>`;
+  syncAssignmentPhotoButtons();
   renderAssignmentTable('cleaning');
   renderAssignmentTable('club');
 }
@@ -1351,8 +1366,7 @@ function bootstrapApp(){
     document.getElementById('certGuideEditArea').classList.toggle('hidden', !isTeacher);
     document.getElementById('cleaningPhotoUploadLabel').classList.toggle('hidden', !isTeacher);
     document.getElementById('clubPhotoUploadLabel').classList.toggle('hidden', !isTeacher);
-    document.getElementById('cleaningDeletePhotoBtn').classList.toggle('hidden', !isTeacher);
-    document.getElementById('clubDeletePhotoBtn').classList.toggle('hidden', !isTeacher);
+    syncAssignmentPhotoButtons();
     document.getElementById('dashBlogEditBtn').classList.toggle('hidden', !isTeacher);
     if (isTeacher) { startStudentsListener(); startWallPrivateListener(); } else { stopStudentsListener(); stopWallPrivateListener(); }
     const onPrivateCustom = currentView.startsWith('custom_') && (() => {
@@ -1902,37 +1916,64 @@ function parseTimetableText(text){
   const result = {};
   const allDays = ['월','화','수','목','금'];
 
+  const normalizeToken = value => String(value || '')
+    .replace(/[\u200b\u00a0]/g, '')
+    .replace(/[|｜]+/g, ' ')
+    .replace(/\s*[:：]\s*/g, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+
   for (const line of lines) {
-    const normalized = line
-      .replace(/\s*[:：]\s*/g, ' ')
-      .replace(/[|｜]+/g, ' ')
-      .replace(/\s{2,}/g, ' ')
-      .trim();
+    const normalized = normalizeToken(line);
     if (!normalized) continue;
 
-    const cells = normalized.split(/\s+/).filter(Boolean);
+    const cells = normalized.split(/\s+/).filter(Boolean).map(v => normalizeToken(v));
     if (cells.length < 2) continue;
 
     let dayName = null;
     for (const d of allDays) {
-      if (cells.some(c => c.includes(d))) {
+      if (cells.some(c => c.includes(d) && c.length <= 3)) {
         dayName = d; break;
       }
     }
     if (!dayName) continue;
 
-    const period = cells.find(c => /^\d+$/.test(c.replace(/[^0-9]/g,'')) || /^\d+교시?$/.test(c));
+    let period = null;
+    for (const c of cells) {
+      const digits = c.replace(/[^0-9]/g, '');
+      if ((digits && Number(digits) >= 1 && Number(digits) <= 7) || /^\d+교시?$/.test(c)) {
+        period = c;
+        break;
+      }
+    }
     if (!period) continue;
-    const p = Number(String(period).replace(/[^0-9]/g,''));
+
+    const p = Number(String(period).replace(/[^0-9]/g, ''));
     if (!p || p < 1 || p > 7) continue;
 
     const lesson = cells
-      .filter(c => c !== period && !allDays.includes(c) && !/^\d+(:?\d+)?$/.test(c.replace(/[^0-9]/g,'')))
+      .filter(c => c !== period && !allDays.some(d => c.includes(d)) && !/^\d+$/.test(c.replace(/[^0-9]/g, '')))
       .join(' ')
       .replace(/[^가-힣A-Za-z0-9()\-_/\s]/g, '')
       .trim();
+
     if (lesson) result[`${dayName}-${p}`] = lesson;
   }
+
+  if (!Object.keys(result).length) {
+    const fallbackRows = text.split(/\r?\n/).map(line => line.split(/\s{2,}|\t|\||,|\s+/).map(v => normalizeToken(v)).filter(Boolean));
+    for (const row of fallbackRows) {
+      const day = allDays.find(d => row.some(v => v.includes(d)));
+      if (!day) continue;
+      const periodToken = row.find(v => /^\d+$/.test(v.replace(/[^0-9]/g, '')) || /^\d+교시?$/.test(v));
+      if (!periodToken) continue;
+      const p = Number(String(periodToken).replace(/[^0-9]/g, ''));
+      if (!p || p < 1 || p > 7) continue;
+      const lesson = row.filter(v => v !== periodToken && !allDays.some(d => v.includes(d))).join(' ').trim();
+      if (lesson) result[`${day}-${p}`] = lesson;
+    }
+  }
+
   return result;
 }
 function updateTimetableCell(key, val){
