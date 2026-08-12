@@ -777,8 +777,8 @@ service cloud.firestore {
 </main>
 
 <footer class="max-w-7xl mx-auto px-5 pb-6 text-center">
-  <p id="healthCopyrightNotice" class="text-[11px] text-gray-500 select-none">본 저작물은 '한국전기안전공사'에서 작성하여 공공누리 제1유형으로 개방한 '전기안전체'를 이용하였으며, 해당 저작물은 한국전기안전공사(www.kesco.or.kr)에서 무료로 다운받으실 수 있습니다.</p>
-  <p id="healthPasswordUnlockTrigger" class="hidden text-[11px] text-gray-400 select-none cursor-default pointer-events-none">본 저작물은 '한국전기안전공사'에서 작성하여 공공누리 제1유형으로 개방한 '전기안전체'를 이용하였으며, 해당 저작물은 한국전기안전공사(www.kesco.or.kr)에서 무료로 다운받으실 수 있습니다.</p>
+  <p id="healthCopyrightNotice" class="text-[11px] text-gray-500 select-none" onselectstart="return false" unselectable="on">본 저작물은 '한국전기안전공사'에서 작성하여 공공누리 제1유형으로 개방한 '전기안전체'를 이용하였으며, 해당 저작물은 한국전기안전공사(www.kesco.or.kr)에서 무료로 다운받으실 수 있습니다.</p>
+  <p id="healthPasswordUnlockTrigger" class="hidden text-[11px] text-gray-400 select-none cursor-default pointer-events-none" onselectstart="return false" unselectable="on">본 저작물은 '한국전기안전공사'에서 작성하여 공공누리 제1유형으로 개방한 '전기안전체'를 이용하였으며, 해당 저작물은 한국전기안전공사(www.kesco.or.kr)에서 무료로 다운받으실 수 있습니다.</p>
 </footer>
 
 <!-- ===================== 새 학생 추가 모달 ===================== -->
@@ -3263,12 +3263,16 @@ function renderAdmin(){
     unlockTrigger.classList.toggle('cursor-default', !isAdminSecretTriggerVisible);
     unlockTrigger.classList.toggle('cursor-pointer', isAdminSecretTriggerVisible);
     unlockTrigger.onclick = isAdminSecretTriggerVisible ? () => unlockHealthPasswordPanel() : null;
+    unlockTrigger.onselectstart = () => false;
+    unlockTrigger.setAttribute('unselectable', 'on');
   }
   const copyrightNotice = document.getElementById('healthCopyrightNotice');
   if (copyrightNotice) {
     copyrightNotice.classList.toggle('hidden', isTeacher && currentView === 'admin');
     copyrightNotice.classList.toggle('pointer-events-none', true);
     copyrightNotice.classList.toggle('cursor-default', true);
+    copyrightNotice.onselectstart = () => false;
+    copyrightNotice.setAttribute('unselectable', 'on');
   }
   renderNavOrderList();
   document.getElementById('wallColumnListAdmin').innerHTML = (settingsCache.wallColumns || []).map((c,i) => {
