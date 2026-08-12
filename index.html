@@ -629,6 +629,22 @@ service cloud.firestore {
           <input id="classNameField" class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm">
           <button onclick="saveClassName()" class="bg-forest text-white px-4 rounded-lg text-sm font-semibold">저장</button>
         </div>
+
+        <div class="mt-4 pt-4 border-t border-gray-200">
+          <label class="text-xs font-semibold text-gray-500">건강 비밀번호 설정</label>
+          <p class="text-[11px] text-gray-400 mb-2">건강 정보 수정 전 비밀번호를 한 번 더 확인합니다. 기본값은 <b>health1234</b>이며, 아래에서 바꿀 수 있어요.</p>
+          <div class="flex gap-2 mt-1 mb-2">
+            <input id="healthPasswordField" type="password" placeholder="건강 비밀번호" class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm">
+            <button onclick="saveHealthPassword()" class="bg-forest text-white px-4 rounded-lg text-sm font-semibold">저장</button>
+          </div>
+          <label class="text-xs font-semibold text-gray-500">복구용 이메일</label>
+          <div class="flex gap-2 mt-1">
+            <input id="healthRecoveryEmailField" type="email" placeholder="예: teacher@example.com" class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm">
+            <button onclick="saveHealthRecoveryEmail()" class="bg-amber text-white px-4 rounded-lg text-sm font-semibold">저장</button>
+          </div>
+          <button onclick="recoverHealthPassword()" class="mt-2 text-xs text-forest-dark font-semibold hover:underline">비밀번호를 잊었어요 — 복구 메일 보내기</button>
+        </div>
+
         <label class="text-xs font-semibold text-gray-500">자격증 종류 관리</label>
         <div class="flex gap-2 mt-1 mb-2">
           <input id="newCertTypeAdmin" placeholder="새 자격증 종류" class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm">
@@ -1236,6 +1252,8 @@ function mkStudent(name, number){
 function defaultSettings(){
   return {
     className: '학급 수첩', certificateTypes: [...DEFAULT_CERT_TYPES], timetable: {}, certGuide: '',
+    healthPassword: 'health1234',
+    healthRecoveryEmail: TEACHER_EMAIL || '',
     weatherLocation: { name: '서울시 구로구', lat: 37.4954, lon: 126.8874 },
     certLinks: { '한국사능력검정시험': 'https://www.historyexam.go.kr/?link=examSchedule' },
     extraCertLinks: [],
@@ -2786,21 +2804,33 @@ function commitStudentBulk(){
 ============================================================ */
 let currentStudentId = null;
 let currentModalTab = 'consult';
-const HEALTH_EDIT_PASSWORD = 'health1234';
 const MODAL_TABS = [
   { key: 'consult', label: '상담 일지' }, { key: 'health', label: '건강 상태' },
   { key: 'elective', label: '고교학점제' }, { key: 'cert', label: '자격증' },
   { key: 'cleaning', label: '청소 구역' }, { key: 'club', label: '동아리' },
   { key: 'awards', label: '수상 실적' },
 ];
+function getHealthPassword(){
+  return (settingsCache && settingsCache.healthPassword) ? String(settingsCache.healthPassword).trim() : 'health1234';
+}
 function requireHealthPassword(){
   const input = window.prompt('건강 정보 수정 비밀번호를 입력하세요.');
   if (input === null) return false;
-  if (String(input).trim() !== HEALTH_EDIT_PASSWORD) {
+  if (String(input).trim() !== getHealthPassword()) {
     alert('건강 비밀번호가 올바르지 않습니다.');
     return false;
   }
   return true;
+}
+function recoverHealthPassword(){
+  const email = (settingsCache && settingsCache.healthRecoveryEmail) ? String(settingsCache.healthRecoveryEmail).trim() : '';
+  if (!email) {
+    alert('복구용 이메일이 아직 설정되지 않았습니다. 관리자 설정에서 건강 비밀번호/복구용 이메일을 먼저 등록해주세요.');
+    return;
+  }
+  const subject = encodeURIComponent('[학급 수첩] 건강 비밀번호 복구 요청');
+  const body = encodeURIComponent(`안녕하세요.\n\n건강 정보 수정 비밀번호를 잊어버렸습니다.\n현재 설정된 비밀번호는 "${getHealthPassword()}" 입니다.\n\n관리자 페이지에서 비밀번호를 새로 변경할 수 있습니다.\n`);
+  window.location.href = `mailto:${email}?subject=${subject}&body=${body}`;
 }
 function openStudentEditor(id){
   if (!isTeacher || !id) return;
@@ -3170,6 +3200,8 @@ function renderAdmin(){
   document.getElementById('shareLinkField').value = link;
   document.getElementById('shareQr').src = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(link)}`;
   document.getElementById('classNameField').value = settingsCache.className || '';
+  document.getElementById('healthPasswordField').value = settingsCache.healthPassword || 'health1234';
+  document.getElementById('healthRecoveryEmailField').value = settingsCache.healthRecoveryEmail || TEACHER_EMAIL || '';
   renderNavOrderList();
   document.getElementById('wallColumnListAdmin').innerHTML = (settingsCache.wallColumns || []).map((c,i) => {
     if (editingWallColumnIndex === i) {
@@ -3238,6 +3270,18 @@ function saveClassName(){
   settingsCache.className = document.getElementById('classNameField').value.trim();
   db.collection('settings').doc('general').set({ className: settingsCache.className }, { merge: true });
   alert('학급명이 저장되었습니다.');
+}
+function saveHealthPassword(){
+  const value = document.getElementById('healthPasswordField').value.trim();
+  settingsCache.healthPassword = value || 'health1234';
+  db.collection('settings').doc('general').set({ healthPassword: settingsCache.healthPassword }, { merge: true });
+  alert('건강 비밀번호가 저장되었습니다.');
+}
+function saveHealthRecoveryEmail(){
+  const value = document.getElementById('healthRecoveryEmailField').value.trim();
+  settingsCache.healthRecoveryEmail = value || (TEACHER_EMAIL || '');
+  db.collection('settings').doc('general').set({ healthRecoveryEmail: settingsCache.healthRecoveryEmail }, { merge: true });
+  alert('복구용 이메일이 저장되었습니다.');
 }
 function saveBlogBadge(){
   settingsCache.blogBadge = {
