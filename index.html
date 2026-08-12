@@ -52,10 +52,16 @@
 
   .student-card {
     background: #F8F9F5; border: 1px solid #d9e2d9; border-radius: 6px; position: relative;
-    transition: transform .15s ease, box-shadow .15s ease; box-shadow: 2px 2px 0 rgba(30,42,56,0.05);
+    transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease; box-shadow: 2px 2px 0 rgba(30,42,56,0.05);
   }
-  .student-card:hover { transform: translateY(-3px); box-shadow: 4px 6px 0 rgba(47,111,82,0.12); border-color: #2F6F52; }
+  .student-card:hover {
+    transform: translateY(-4px) scale(1.01); box-shadow: 0 12px 22px rgba(47,111,82,0.12); border-color: #2F6F52;
+  }
+  .student-card.selected { border-color: #2F6F52; box-shadow: 0 10px 20px rgba(47,111,82,0.12); }
   .corner-tab { position: absolute; top: -1px; left: 14px; width: 34px; height: 10px; border-radius: 0 0 4px 4px; }
+  .overview-chip { border: 1px solid #d9e2d9; background: #fff; color: #52645d; border-radius: 9999px; padding: 0.45rem 0.8rem; font-size: 0.72rem; font-weight: 700; transition: all .15s ease; }
+  .overview-chip:hover { border-color: #2F6F52; color: #20503B; background: #EEF7F0; }
+  .overview-chip.active { background: #2F6F52; color: white; border-color: #2F6F52; }
 
   ::-webkit-scrollbar { width: 8px; height: 8px; }
   ::-webkit-scrollbar-thumb { background: #c3d1c4; border-radius: 8px; }
@@ -289,6 +295,7 @@ service cloud.firestore {
       <button onclick="commitStudentBulk()" class="bg-amber text-white px-4 py-2 rounded-lg text-sm font-semibold hover:opacity-90">인식된 학생 모두 등록</button>
     </div>
 
+    <div id="studentOverviewBar" class="flex flex-wrap gap-2 mb-4"></div>
     <div id="studentCardWrap" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4"></div>
     <div id="studentTableWrap" class="hidden bg-card border border-gray-200 rounded-xl overflow-x-auto">
       <table class="w-full text-sm">
@@ -879,6 +886,7 @@ function commitScheduleBulk(){
    학생 명단 (교사 전용)
 ============================================================ */
 let studentViewMode = 'card';
+let studentOverviewFilter = 'all';
 function setStudentView(mode){
   studentViewMode = mode;
   document.getElementById('viewBtnCard').className = 'px-3 py-1.5 font-semibold ' + (mode==='card' ? 'bg-forest text-white' : '');
@@ -887,12 +895,48 @@ function setStudentView(mode){
   document.getElementById('studentTableWrap').classList.toggle('hidden', mode!=='table');
 }
 const CARD_COLORS = ['bg-forest','bg-amber','bg-brick'];
-function renderStudents(){
+function getStudentOverviewCounts(){
+  return {
+    all: studentsCache.length,
+    health: studentsCache.filter(s => String(s.health || '').trim()).length,
+    cert: studentsCache.filter(s => (s.certificates || []).length).length,
+    club: studentsCache.filter(s => String(s.club || '').trim()).length,
+    cleaning: studentsCache.filter(s => String(s.cleaningArea || '').trim()).length,
+    awards: studentsCache.filter(s => (s.awards || []).length).length,
+  };
+}
+function renderStudentOverviewBar(){
+  const counts = getStudentOverviewCounts();
+  const options = [
+    { key: 'all', label: '전체' },
+    { key: 'health', label: '건강' },
+    { key: 'cert', label: '자격증' },
+    { key: 'club', label: '동아리' },
+    { key: 'cleaning', label: '청소' },
+    { key: 'awards', label: '수상' },
+  ];
+  document.getElementById('studentOverviewBar').innerHTML = options.map(option => `
+    <button class="overview-chip ${studentOverviewFilter===option.key ? 'active' : ''}" onclick="studentOverviewFilter='${option.key}'; renderStudents();">
+      ${option.label} <span class="ml-1 font-mono text-[10px] opacity-90">${counts[option.key] || 0}</span>
+    </button>
+  `).join('');
+}
+function getVisibleStudents(){
   const query = (document.getElementById('studentSearch')?.value || '').trim();
-  const list = studentsCache.filter(s => s.name.includes(query));
+  let list = studentsCache.filter(s => s.name.includes(query));
+  if (studentOverviewFilter === 'health') list = list.filter(s => String(s.health || '').trim());
+  if (studentOverviewFilter === 'cert') list = list.filter(s => (s.certificates || []).length > 0);
+  if (studentOverviewFilter === 'club') list = list.filter(s => String(s.club || '').trim());
+  if (studentOverviewFilter === 'cleaning') list = list.filter(s => String(s.cleaningArea || '').trim());
+  if (studentOverviewFilter === 'awards') list = list.filter(s => (s.awards || []).length > 0);
+  return list;
+}
+function renderStudents(){
+  const list = getVisibleStudents();
+  renderStudentOverviewBar();
 
   document.getElementById('studentCardWrap').innerHTML = list.length ? list.map((s,i) => `
-    <div class="student-card p-4 pt-5 cursor-pointer" onclick="openStudentEditor('${s.id}')">
+    <div class="student-card p-4 pt-5 cursor-pointer ${currentStudentId===s.id ? 'selected' : ''}" onclick="openStudentEditor('${s.id}')">
       <div class="corner-tab ${CARD_COLORS[i%3]}"></div>
       <p class="font-display text-lg">${escapeHtml(s.name)}</p>
       <p class="font-mono text-[11px] text-gray-400 mb-2">No. ${escapeHtml(s.number||'-')}</p>
@@ -1043,6 +1087,19 @@ function renderModalContent(){
       </div>`;
   }
   else if (currentModalTab === 'health') {
+    const unlocked = !!s.healthAccessVerified;
+    if (!unlocked) {
+      el.innerHTML = `
+        <div class="bg-white border border-amber-200 rounded-xl p-4">
+          <p class="text-sm font-semibold text-gray-700">건강 상태 보호</p>
+          <p class="text-xs text-gray-500 mt-1 mb-3">민감한 정보 보호를 위해 학생 이름을 입력해 확인 절차를 거쳐야 합니다.</p>
+          <div class="flex gap-2">
+            <input id="healthGuardInput" placeholder="${escapeHtml(s.name)}" class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm">
+            <button onclick="unlockHealthInfo()" class="bg-forest text-white px-4 rounded-lg text-sm font-semibold">확인</button>
+          </div>
+        </div>`;
+      return;
+    }
     el.innerHTML = `
       <label class="text-xs font-semibold text-gray-500">건강 상태 및 특이사항</label>
       <textarea id="healthField" rows="8" placeholder="알레르기, 지병, 복용 약물, 기타 특이사항 등을 기록하세요"
@@ -1123,7 +1180,15 @@ function addConsultLog(){
   s.consultLogs.push({ date, content }); persistStudent(s); renderModalContent();
 }
 function deleteConsultLog(i){ const s = getCurrentStudent(); s.consultLogs.splice(i,1); persistStudent(s); renderModalContent(); }
-function saveHealth(){ const s = getCurrentStudent(); s.health = document.getElementById('healthField').value; persistStudent(s); alert('건강 정보가 저장되었습니다.'); }
+function unlockHealthInfo(){
+  const s = getCurrentStudent();
+  const input = document.getElementById('healthGuardInput')?.value.trim();
+  if (!input || input !== s.name) return alert('학생 이름을 정확히 입력해주세요.');
+  s.healthAccessVerified = true;
+  persistStudent(s);
+  renderModalContent();
+}
+function saveHealth(){ const s = getCurrentStudent(); s.health = document.getElementById('healthField').value; s.healthAccessVerified = true; persistStudent(s); alert('건강 정보가 저장되었습니다.'); }
 function addElective(){
   const s = getCurrentStudent(); const val = document.getElementById('electiveInput').value.trim();
   if (!val) return; s.electiveCourses.push(val); persistStudent(s); renderModalContent();
