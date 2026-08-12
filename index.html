@@ -412,7 +412,7 @@ service cloud.firestore {
             📷 사진 올리기·변경
             <input type="file" accept="image/*" class="hidden" onchange="handleCleaningPhotoUpload(event)">
           </label>
-          <button id="cleaningDeletePhotoBtn" onclick="deleteAssignmentPhoto('cleaning')" class="hidden text-xs border border-gray-300 bg-white px-3 py-1.5 rounded-lg hover:bg-gray-50">사진 삭제</button>
+          <button id="cleaningDeletePhotoBtn" onclick="deleteAssignmentPhoto('cleaning')" class="text-xs border border-gray-300 bg-white px-3 py-1.5 rounded-lg hover:bg-gray-50">사진 삭제</button>
         </div>
         <div id="cleaningAssignmentTable" class="mt-4 overflow-x-auto"></div>
       </div>
@@ -424,7 +424,7 @@ service cloud.firestore {
             📷 사진 올리기·변경
             <input type="file" accept="image/*" class="hidden" onchange="handleClubPhotoUpload(event)">
           </label>
-          <button id="clubDeletePhotoBtn" onclick="deleteAssignmentPhoto('club')" class="hidden text-xs border border-gray-300 bg-white px-3 py-1.5 rounded-lg hover:bg-gray-50">사진 삭제</button>
+          <button id="clubDeletePhotoBtn" onclick="deleteAssignmentPhoto('club')" class="text-xs border border-gray-300 bg-white px-3 py-1.5 rounded-lg hover:bg-gray-50">사진 삭제</button>
         </div>
         <div id="clubAssignmentTable" class="mt-4 overflow-x-auto"></div>
       </div>
@@ -1021,8 +1021,8 @@ async function rebuildAssignmentTable(kind){
 function syncAssignmentPhotoButtons(){
   const cleaningBtn = document.getElementById('cleaningDeletePhotoBtn');
   const clubBtn = document.getElementById('clubDeletePhotoBtn');
-  if (cleaningBtn) cleaningBtn.classList.toggle('hidden', !(cleaningPhotoCache || document.getElementById('cleaningPhotoView')?.querySelector('img')));
-  if (clubBtn) clubBtn.classList.toggle('hidden', !(clubPhotoCache || document.getElementById('clubPhotoView')?.querySelector('img')));
+  if (cleaningBtn) cleaningBtn.classList.toggle('hidden', false);
+  if (clubBtn) clubBtn.classList.toggle('hidden', false);
 }
 function renderPhotosView(){
   document.getElementById('cleaningPhotoView').innerHTML = cleaningPhotoCache
