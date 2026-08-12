@@ -3254,25 +3254,29 @@ function renderAdmin(){
   document.getElementById('classNameField').value = settingsCache.className || '';
   document.getElementById('healthPasswordField').value = settingsCache.healthPassword || 'health1234';
   document.getElementById('healthRecoveryEmailField').value = settingsCache.healthRecoveryEmail || TEACHER_EMAIL || '';
+  const isAdminView = isTeacher && currentView === 'admin';
   const unlockTrigger = document.getElementById('healthPasswordUnlockTrigger');
   if (unlockTrigger) {
-    const isAdminSecretTriggerVisible = isTeacher && currentView === 'admin';
-    unlockTrigger.classList.toggle('hidden', !isAdminSecretTriggerVisible);
-    unlockTrigger.classList.toggle('pointer-events-none', !isAdminSecretTriggerVisible);
-    unlockTrigger.classList.toggle('pointer-events-auto', isAdminSecretTriggerVisible);
-    unlockTrigger.classList.toggle('cursor-default', !isAdminSecretTriggerVisible);
-    unlockTrigger.classList.toggle('cursor-pointer', isAdminSecretTriggerVisible);
-    unlockTrigger.onclick = isAdminSecretTriggerVisible ? () => unlockHealthPasswordPanel() : null;
+    unlockTrigger.classList.toggle('hidden', !isAdminView);
+    unlockTrigger.classList.toggle('pointer-events-none', !isAdminView);
+    unlockTrigger.classList.toggle('pointer-events-auto', isAdminView);
+    unlockTrigger.classList.toggle('cursor-default', !isAdminView);
+    unlockTrigger.classList.toggle('cursor-pointer', isAdminView);
+    unlockTrigger.onclick = isAdminView ? () => unlockHealthPasswordPanel() : null;
     unlockTrigger.onselectstart = () => false;
     unlockTrigger.setAttribute('unselectable', 'on');
+
   }
   const copyrightNotice = document.getElementById('healthCopyrightNotice');
   if (copyrightNotice) {
-    copyrightNotice.classList.toggle('hidden', isTeacher && currentView === 'admin');
+    copyrightNotice.classList.toggle('hidden', isAdminView);
     copyrightNotice.classList.toggle('pointer-events-none', true);
     copyrightNotice.classList.toggle('cursor-default', true);
+    copyrightNotice.style.pointerEvents = 'none';
+    copyrightNotice.style.cursor = 'default';
     copyrightNotice.onselectstart = () => false;
     copyrightNotice.setAttribute('unselectable', 'on');
+
   }
   renderNavOrderList();
   document.getElementById('wallColumnListAdmin').innerHTML = (settingsCache.wallColumns || []).map((c,i) => {
