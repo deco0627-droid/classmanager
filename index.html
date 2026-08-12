@@ -288,7 +288,7 @@ service cloud.firestore {
               업로드
               <input type="file" accept=".csv,.xlsx,.xls" class="hidden" onchange="handleTimetableFileUpload(event)">
             </label>
-            <button onclick="clearTimetableFromPhoto()" class="text-xs border border-gray-300 bg-white px-3 py-1.5 rounded-lg hover:bg-gray-50">초기화</button>
+            <button onclick="confirmResetTimetable()" class="text-xs border border-gray-300 bg-white px-3 py-1.5 rounded-lg hover:bg-gray-50">초기화</button>
           </div>
         </div>
         <table class="w-full text-sm border-collapse min-w-[520px]" id="timetableEl"></table>
@@ -1981,6 +1981,11 @@ function parseTimetableUploadRows(rows){
     });
   });
   return result;
+}
+function confirmResetTimetable(){
+  const ok = window.confirm('시간표를 초기화하시겠습니까? 저장된 시간표 내용이 모두 삭제됩니다.');
+  if (!ok) return;
+  clearTimetableFromPhoto();
 }
 function clearTimetableFromPhoto(){
   settingsCache.timetable = {};
