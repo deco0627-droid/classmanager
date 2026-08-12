@@ -950,18 +950,14 @@ function clearAssignmentTable(kind){
   renderAssignmentTable(kind);
 }
 function deleteAssignmentPhoto(kind){
-  if (!isTeacher) {
-    alert('교사만 사진을 삭제할 수 있습니다.');
-    return;
-  }
   const key = kind === 'cleaning' ? 'cleaningPhoto' : 'clubPhoto';
   const photoCacheKey = kind === 'cleaning' ? 'cleaningPhotoCache' : 'clubPhotoCache';
   if (!confirm('업로드한 사진을 삭제하시겠습니까?')) return;
   if (window.db) {
     db.collection('settings').doc(key).delete().catch(() => {});
   }
-  if (photoCacheKey === 'cleaningPhotoCache') cleaningPhotoCache = '';
-  if (photoCacheKey === 'clubPhotoCache') clubPhotoCache = '';
+  if (photoCacheKey === 'cleaningPhotoCache') cleaningPhotoCache = null;
+  if (photoCacheKey === 'clubPhotoCache') clubPhotoCache = null;
   assignmentTableState[kind] = [];
   syncAssignmentPhotoButtons();
   renderPhotosView();
@@ -1023,8 +1019,8 @@ async function rebuildAssignmentTable(kind){
 function syncAssignmentPhotoButtons(){
   const cleaningBtn = document.getElementById('cleaningDeletePhotoBtn');
   const clubBtn = document.getElementById('clubDeletePhotoBtn');
-  if (cleaningBtn) cleaningBtn.classList.toggle('hidden', !(isTeacher && !!cleaningPhotoCache));
-  if (clubBtn) clubBtn.classList.toggle('hidden', !(isTeacher && !!clubPhotoCache));
+  if (cleaningBtn) cleaningBtn.classList.toggle('hidden', !cleaningPhotoCache);
+  if (clubBtn) clubBtn.classList.toggle('hidden', !clubPhotoCache);
 }
 function renderPhotosView(){
   document.getElementById('cleaningPhotoView').innerHTML = cleaningPhotoCache
