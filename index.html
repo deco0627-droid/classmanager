@@ -777,7 +777,7 @@ service cloud.firestore {
 </main>
 
 <footer class="max-w-7xl mx-auto px-5 pb-6 text-center">
-  <p id="healthPasswordUnlockTrigger" class="text-[11px] text-gray-400 select-none cursor-pointer">본 저작물은 '한국전기안전공사'에서 작성하여 공공누리 제1유형으로 개방한 '전기안전체'를 이용하였으며, 해당 저작물은 한국전기안전공사(www.kesco.or.kr)에서 무료로 다운받으실 수 있습니다.</p>
+  <p id="healthPasswordUnlockTrigger" class="hidden text-[11px] text-gray-400 select-none cursor-default pointer-events-none">본 저작물은 '한국전기안전공사'에서 작성하여 공공누리 제1유형으로 개방한 '전기안전체'를 이용하였으며, 해당 저작물은 한국전기안전공사(www.kesco.or.kr)에서 무료로 다운받으실 수 있습니다.</p>
 </footer>
 
 <!-- ===================== 새 학생 추가 모달 ===================== -->
@@ -2824,6 +2824,7 @@ function requireHealthPassword(){
 }
 let healthPasswordUnlockCount = 0;
 function unlockHealthPasswordPanel(){
+  if (!isTeacher || currentView !== 'admin') return;
   healthPasswordUnlockCount += 1;
   if (healthPasswordUnlockCount >= 3) {
     const panel = document.getElementById('healthPasswordAdminPanel');
@@ -3217,7 +3218,11 @@ function renderAdmin(){
   document.getElementById('healthRecoveryEmailField').value = settingsCache.healthRecoveryEmail || TEACHER_EMAIL || '';
   const unlockTrigger = document.getElementById('healthPasswordUnlockTrigger');
   if (unlockTrigger) {
-    unlockTrigger.onclick = () => unlockHealthPasswordPanel();
+    const isAdminSecretTriggerVisible = isTeacher && currentView === 'admin';
+    unlockTrigger.classList.toggle('hidden', !isAdminSecretTriggerVisible);
+    unlockTrigger.classList.toggle('pointer-events-none', !isAdminSecretTriggerVisible);
+    unlockTrigger.classList.toggle('cursor-default', true);
+    unlockTrigger.onclick = isAdminSecretTriggerVisible ? () => unlockHealthPasswordPanel() : null;
   }
   renderNavOrderList();
   document.getElementById('wallColumnListAdmin').innerHTML = (settingsCache.wallColumns || []).map((c,i) => {
