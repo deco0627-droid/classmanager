@@ -1352,7 +1352,6 @@ function bootstrapApp(){
     statsCache = doc.exists ? doc.data() : { total: 0, dailyDate: '', dailyCount: 0 };
     if (currentView === 'dashboard') renderDashboard();
   });
-  trackVisit();
   db.collection('customPages').onSnapshot(snap => {
     customPagesCache = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => (a.order||0)-(b.order||0));
     renderNav();
@@ -1368,6 +1367,11 @@ function bootstrapApp(){
   auth.onAuthStateChanged(user => {
     isTeacher = !!(user && user.email === TEACHER_EMAIL);
     currentUserEmail = user ? user.email : null;
+    if (isTeacher) {
+      resetVisitStats();
+    } else {
+      trackVisit();
+    }
     renderUserPanel();
     renderNav();
     document.querySelectorAll('.teacher-only-hint').forEach(el => el.classList.toggle('hidden', !isTeacher));
@@ -1848,17 +1852,33 @@ function selectMealSchool(i){
 /* ============================================================
    방문자 통계 (같은 IP는 10분 이내 재방문 시 카운트 제외)
 ============================================================ */
+function resetVisitStats(){
+  if (!db) return;
+  db.collection('stats').doc('visits').set({ total: 0, dailyDate: todayStr(), dailyCount: 0 }, { merge: true }).catch(() => {});
+}
 function trackVisit(){
-  if (auth && auth.currentUser && auth.currentUser.email === TEACHER_EMAIL) return;
-  if (isTeacher) return;
+  if (auth && auth.currentUser && auth.currentUser.email === TEACHER_EMAIL) {
+    resetVisitStats();
+    return;
+  }
+  if (isTeacher) {
+    resetVisitStats();
+    return;
+  }
   fetch('https://api.ipify.org?format=json')
     .then(r => r.json())
     .then(data => trackVisitWithIp(data.ip))
     .catch(() => trackVisitWithIp(null)); // IP 조회 실패 시 중복 방지 없이 그냥 카운트
 }
 function trackVisitWithIp(ip){
-  if (auth && auth.currentUser && auth.currentUser.email === TEACHER_EMAIL) return;
-  if (isTeacher) return;
+  if (auth && auth.currentUser && auth.currentUser.email === TEACHER_EMAIL) {
+    resetVisitStats();
+    return;
+  }
+  if (isTeacher) {
+    resetVisitStats();
+    return;
+  }
   const today = todayStr();
   const now = Date.now();
   const statsRef = db.collection('stats').doc('visits');
