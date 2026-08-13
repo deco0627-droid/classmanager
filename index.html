@@ -2634,14 +2634,14 @@ function renderCertGuideHtml(value){
   const semesterCards = data.semesters.map((s, i) => {
     const theme = CERT_ROADMAP_THEMES[i] || CERT_ROADMAP_THEMES[0];
     return `
-        <div class="rounded-2xl border ${theme.card} p-1 shadow-sm" style="line-height:1.05">
-          <div class="flex items-center gap-1">
-            <span class="text-base">${escapeHtml(s.icon)}</span>
-            <span class="text-xs font-bold ${theme.label}">${escapeHtml(s.label)}</span>
+        <div class="rounded-2xl border ${theme.card} p-1 shadow-sm">
+          <div style="display:flex; align-items:center; gap:4px; margin:0; padding:0;">
+            <span style="font-size:16px; line-height:1; margin:0; padding:0;">${escapeHtml(s.icon)}</span>
+            <span class="font-bold ${theme.label}" style="font-size:11px; line-height:1; margin:0; padding:0;">${escapeHtml(s.label)}</span>
           </div>
-          <p class="font-semibold text-ink text-sm -mt-0.5" style="line-height:1.05">${escapeHtml(s.subject)}</p>
-          <ul class="-mt-0.5 text-xs ${theme.bullet} space-y-1 list-disc pl-4" style="line-height:1.35">
-            ${(s.bullets || []).map(b => `<li>${escapeHtml(b)}</li>`).join('')}
+          <p class="font-semibold text-ink" style="font-size:14px; line-height:1.1; margin:2px 0 0 0; padding:0;">${escapeHtml(s.subject)}</p>
+          <ul class="list-disc pl-4 ${theme.bullet}" style="font-size:11px; line-height:1.3; margin:2px 0 0 0; padding-top:0;">
+            ${(s.bullets || []).map(b => `<li style="margin:2px 0 0 0; padding:0;">${escapeHtml(b)}</li>`).join('')}
           </ul>
         </div>`;
   }).join('');
