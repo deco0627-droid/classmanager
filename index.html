@@ -3486,7 +3486,7 @@ function renderTaskChecklist(){
   `).join('') : '<p class="text-xs text-gray-400">등록된 할 일이 없습니다.</p>';
 }
 // 구글 시트와 양방향 동기화 (Apps Script 웹앱 배포 후 URL을 여기에 붙여넣으세요)
-const TASK_SHEET_WEBHOOK_URL = '';
+const TASK_SHEET_WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbwNDFy6594zbujGtsVYo7BnG5dMNakeSp5NsE1mB_WJL7hRdcsX9AfNdNmjLFyGTHl-/exec';
 function syncTaskToSheet(action, task){
   if (!TASK_SHEET_WEBHOOK_URL) return;
   fetch(TASK_SHEET_WEBHOOK_URL, { method: 'POST', body: JSON.stringify({ action, ...task }) })
