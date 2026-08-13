@@ -140,7 +140,7 @@ service cloud.firestore {
     match /students/{doc}  { allow read, write: if isTeacher(); }
     match /customPages/{doc} { allow read: if true; allow write: if isTeacher(); }
     match /certExams/{doc} { allow read: if true; allow write: if isTeacher(); }
-    match /tasks/{doc} { allow read, write: if isTeacher(); }
+    match /tasks/{doc} { allow read, write: if true; }
     match /stats/{doc} { allow read: if true; allow write: if true; }
     match /visitLog/{doc} { allow read, write: if true; }
     match /wallPosts/{doc} { allow read: if resource.data.isPrivate == false || isTeacher(); allow create: if request.auth != null; allow update, delete: if isTeacher() || (request.auth != null && request.auth.token.email == resource.data.authorEmail); }
@@ -3485,20 +3485,37 @@ function renderTaskChecklist(){
     </div>
   `).join('') : '<p class="text-xs text-gray-400">등록된 할 일이 없습니다.</p>';
 }
+// 구글 시트와 양방향 동기화 (Apps Script 웹앱 배포 후 URL을 여기에 붙여넣으세요)
+const TASK_SHEET_WEBHOOK_URL = '';
+function syncTaskToSheet(action, task){
+  if (!TASK_SHEET_WEBHOOK_URL) return;
+  fetch(TASK_SHEET_WEBHOOK_URL, { method: 'POST', body: JSON.stringify({ action, ...task }) })
+    .catch(err => console.error('시트 동기화 실패:', err));
+}
 function addTask(){
   const input = document.getElementById('newTaskInput');
   const text = input.value.trim();
   if (!text) return;
-  db.collection('tasks').add({ text, done: false, createdAt: Date.now() })
-    .then(() => { input.value = ''; })
+  const createdAt = Date.now();
+  db.collection('tasks').add({ text, done: false, createdAt })
+    .then(ref => {
+      input.value = '';
+      syncTaskToSheet('upsert', { id: ref.id, text, done: false, createdAt });
+    })
     .catch(err => alert('할 일 추가에 실패했습니다: ' + err.message));
 }
 function toggleTask(id, current){
-  db.collection('tasks').doc(id).set({ done: !current }, { merge: true })
+  const done = !current;
+  db.collection('tasks').doc(id).set({ done }, { merge: true })
+    .then(() => {
+      const t = tasksCache.find(x => x.id === id);
+      syncTaskToSheet('upsert', { id, text: t ? t.text : '', done, createdAt: t ? t.createdAt : Date.now() });
+    })
     .catch(err => alert('업데이트에 실패했습니다: ' + err.message));
 }
 function deleteTask(id){
   db.collection('tasks').doc(id).delete()
+    .then(() => syncTaskToSheet('delete', { id }))
     .catch(err => alert('삭제에 실패했습니다: ' + err.message));
 }
 function renderCertRoadmapForm(){
