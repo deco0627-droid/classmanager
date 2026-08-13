@@ -652,40 +652,7 @@ service cloud.firestore {
           </label>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
-          <div class="border border-gray-200 rounded-lg p-3">
-            <div class="flex gap-2 mb-2">
-              <input id="certRoadmapIcon0" class="w-14 border border-gray-300 rounded-lg px-2 py-2 text-sm text-center" maxlength="4">
-              <input id="certRoadmapLabel0" placeholder="예: 1학년 1학기" class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm">
-            </div>
-            <input id="certRoadmapSubject0" placeholder="과목명" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mb-2">
-            <textarea id="certRoadmapBullets0" rows="3" placeholder="글머리 항목 (한 줄에 하나씩)" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"></textarea>
-          </div>
-          <div class="border border-gray-200 rounded-lg p-3">
-            <div class="flex gap-2 mb-2">
-              <input id="certRoadmapIcon1" class="w-14 border border-gray-300 rounded-lg px-2 py-2 text-sm text-center" maxlength="4">
-              <input id="certRoadmapLabel1" placeholder="예: 1학년 2학기" class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm">
-            </div>
-            <input id="certRoadmapSubject1" placeholder="과목명" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mb-2">
-            <textarea id="certRoadmapBullets1" rows="3" placeholder="글머리 항목 (한 줄에 하나씩)" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"></textarea>
-          </div>
-          <div class="border border-gray-200 rounded-lg p-3">
-            <div class="flex gap-2 mb-2">
-              <input id="certRoadmapIcon2" class="w-14 border border-gray-300 rounded-lg px-2 py-2 text-sm text-center" maxlength="4">
-              <input id="certRoadmapLabel2" placeholder="예: 2학년 1학기" class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm">
-            </div>
-            <input id="certRoadmapSubject2" placeholder="과목명" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mb-2">
-            <textarea id="certRoadmapBullets2" rows="3" placeholder="글머리 항목 (한 줄에 하나씩)" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"></textarea>
-          </div>
-          <div class="border border-gray-200 rounded-lg p-3">
-            <div class="flex gap-2 mb-2">
-              <input id="certRoadmapIcon3" class="w-14 border border-gray-300 rounded-lg px-2 py-2 text-sm text-center" maxlength="4">
-              <input id="certRoadmapLabel3" placeholder="예: 2학년 2학기" class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm">
-            </div>
-            <input id="certRoadmapSubject3" placeholder="과목명" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mb-2">
-            <textarea id="certRoadmapBullets3" rows="3" placeholder="글머리 항목 (한 줄에 하나씩)" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"></textarea>
-          </div>
-        </div>
+        <div id="certRoadmapSemestersContainer" class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3"></div>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
           <label class="text-xs text-gray-600">
@@ -2602,20 +2569,28 @@ const DEFAULT_CERT_ROADMAP = {
   semesters: [
     { icon: '🌱', label: '1학년 1학기', subject: '진로탐색 및 학교적응', bullets: ['학생들의 적성과 흥미 탐색', '학교생활 적응 및 협동 역량 강화', '기본 학습 습관과 진로 목표 설정'] },
     { icon: '🧠', label: '1학년 2학기', subject: '한국사, 컴퓨터활용능력 2급', bullets: ['한국사 기초 소양 향상', '컴퓨터 활용 능력 기반 형성', '자격증 준비의 첫걸음'] },
-    { icon: '⚡', label: '2학년 1학기', subject: '전기기능사, 승강기기능사', bullets: ['전기·설비 분야 핵심 이론 학습', '실습 기반 직업 역량 강화', '직무 적합성 탐색 및 자신감 형성'] },
+    { icon: '❄️', label: '겨울방학', subject: '자격증 취득 및 전공 공부', bullets: ['다음 학기 자격증 시험 준비', '전공 이론 복습 및 심화 학습', '방학 중 생활 계획 관리'] },
+    { icon: '⚡', label: '2학년 1학기', subject: '전기기능사, 승강기기능사', bullets: ['전기·설비 분야 핵심 이론 학습', '실습 기반 직업 역량 강화', '2학년 1학기부터 전공심화반 참여 시작'] },
     { icon: '🧭', label: '2학년 2학기', subject: 'NCS 및 진로 선택', bullets: ['NCS 기반 직무 이해 및 역량 진단', '진로 선택의 기준 확립', '대학 진학 및 취업 방향 설정'] },
+    { icon: '❄️', label: '겨울방학', subject: '자격증 취득 및 전공 공부', bullets: ['자격증 취득 마무리', '전공심화 학습 지속', '3학년 진로 준비 계획 수립'] },
+    { icon: '🎯', label: '3학년 1학기', subject: '진로 결정 및 준비', bullets: ['공기업·대기업·공무원 관련 전공심화반 참여', '대학 진학 희망자는 대학 서칭 진행', '취업 희망자는 채용연계형 도전 및 자소서·면접 준비'] },
+    { icon: '☀️', label: '여름방학', subject: '채용연계형 및 전공심화반 참여', bullets: ['채용연계형 프로그램 참여', '전공심화반 학습 지속'] },
+    { icon: '🎓', label: '3학년 2학기', subject: '현장실습 및 대학 준비', bullets: ['취업 희망자는 현장실습 참여', '대학 진학 희망자는 최종 원서·면접 준비', '3년간의 진로 로드맵 마무리'] },
   ],
   outro: {
     title: '✅ 자격증 안내사항',
     text: '학생들은 단계별로 기본소양과 직업기초를 쌓아가며, 2학년부터는 자격증 취득과 진로 결정에 집중할 수 있습니다. 학습 계획은 학생의 적성과 흥미를 고려해 개인별로 조정하며, 필요한 경우 상담을 통해 진로 방향을 함께 설정하고 있습니다.',
   },
 };
-// 카드 디자인(색상)은 학기별로 고정, 글자 내용만 관리자 화면에서 바꿀 수 있다
+// 카드 디자인(색상)은 학년/방학별로 고정, 글자 내용만 관리자 화면에서 바꿀 수 있다
+const CERT_ROADMAP_THEME_FOREST = { card: 'border-forest/20 bg-white', label: 'text-forest-dark', bullet: 'text-gray-600' };
+const CERT_ROADMAP_THEME_AMBER = { card: 'border-amber/30 bg-amber-light/70', label: 'text-amber-darker', bullet: 'text-gray-700' };
+const CERT_ROADMAP_THEME_BRICK = { card: 'border-brick/30 bg-brick-light/70', label: 'text-brick', bullet: 'text-gray-700' };
+const CERT_ROADMAP_THEME_BREAK = { card: 'border-gray-300 border-dashed bg-gray-50', label: 'text-gray-500', bullet: 'text-gray-500' };
 const CERT_ROADMAP_THEMES = [
-  { card: 'border-forest/20 bg-white', label: 'text-forest-dark', bullet: 'text-gray-600' },
-  { card: 'border-forest/20 bg-white', label: 'text-forest-dark', bullet: 'text-gray-600' },
-  { card: 'border-amber/30 bg-amber-light/70', label: 'text-amber-darker', bullet: 'text-gray-700' },
-  { card: 'border-brick/30 bg-brick-light/70', label: 'text-brick', bullet: 'text-gray-700' },
+  CERT_ROADMAP_THEME_FOREST, CERT_ROADMAP_THEME_FOREST, CERT_ROADMAP_THEME_BREAK,
+  CERT_ROADMAP_THEME_AMBER, CERT_ROADMAP_THEME_AMBER, CERT_ROADMAP_THEME_BREAK,
+  CERT_ROADMAP_THEME_BRICK, CERT_ROADMAP_THEME_BREAK, CERT_ROADMAP_THEME_BRICK,
 ];
 function getCertRoadmap(){
   const saved = settingsCache.certRoadmap;
@@ -2641,7 +2616,7 @@ function renderCertGuideHtml(value){
     return `<div class="rounded-2xl border ${theme.card} p-1 shadow-sm"><div style="display:flex; align-items:center; gap:4px; margin:0; padding:0;"><span style="font-size:16px; line-height:1; margin:0; padding:0;">${escapeHtml(s.icon)}</span><span class="font-bold ${theme.label}" style="font-size:11px; line-height:1; margin:0; padding:0;">${escapeHtml(s.label)}</span></div><p class="font-semibold text-ink" style="font-size:14px; line-height:1; margin:2px 0 0 0; padding:0;">${escapeHtml(s.subject)}</p><ul class="list-disc pl-4 ${theme.bullet}" style="font-size:11px; line-height:1.1; margin:6px 0 0 0; padding-top:0;">${bullets}</ul></div>`;
   }).join('');
 
-  return `<div class="space-y-1"><div class="rounded-2xl border border-forest/20 bg-forest-light/60 p-2" style="line-height:1.1"><h3 class="font-display text-lg text-forest-dark">${escapeHtml(data.intro.title)}</h3><p class="text-sm text-gray-600" style="line-height:1.1; margin:2px 0 0 0;">${escapeHtml(data.intro.text)}</p></div><div class="grid grid-cols-1 md:grid-cols-2 gap-1">${semesterCards}</div><div class="rounded-2xl border border-gray-200 bg-white p-1.5" style="line-height:1.1"><p class="text-sm font-bold text-forest-dark" style="margin:0 0 2px 0;">${escapeHtml(data.outro.title)}</p><p class="text-xs text-gray-600" style="line-height:1.1;">${escapeHtml(data.outro.text)}</p></div></div>`;
+  return `<div class="space-y-1"><div class="rounded-2xl border border-forest/20 bg-forest-light/60 p-2" style="line-height:1.1"><h3 class="font-display text-lg text-forest-dark">${escapeHtml(data.intro.title)}</h3><p class="text-sm text-gray-600" style="line-height:1.1; margin:2px 0 0 0;">${escapeHtml(data.intro.text)}</p></div><div class="grid grid-cols-1 sm:grid-cols-3 gap-1">${semesterCards}</div><div class="rounded-2xl border border-gray-200 bg-white p-1.5" style="line-height:1.1"><p class="text-sm font-bold text-forest-dark" style="margin:0 0 2px 0;">${escapeHtml(data.outro.title)}</p><p class="text-xs text-gray-600" style="line-height:1.1;">${escapeHtml(data.outro.text)}</p></div></div>`;
 }
 function renderCertInfo(){
   document.getElementById('certGuideView').innerHTML = renderCertGuideHtml(settingsCache.certGuide);
@@ -3526,12 +3501,15 @@ function renderCertRoadmapForm(){
   const data = getCertRoadmap();
   document.getElementById('certRoadmapIntroTitle').value = data.intro.title;
   document.getElementById('certRoadmapIntroText').value = data.intro.text;
-  data.semesters.forEach((s, i) => {
-    document.getElementById('certRoadmapIcon' + i).value = s.icon;
-    document.getElementById('certRoadmapLabel' + i).value = s.label;
-    document.getElementById('certRoadmapSubject' + i).value = s.subject;
-    document.getElementById('certRoadmapBullets' + i).value = (s.bullets || []).join('\n');
-  });
+  document.getElementById('certRoadmapSemestersContainer').innerHTML = data.semesters.map((s, i) => `
+    <div class="border border-gray-200 rounded-lg p-3">
+      <div class="flex gap-2 mb-2">
+        <input id="certRoadmapIcon${i}" value="${escapeAttr(s.icon)}" class="w-14 border border-gray-300 rounded-lg px-2 py-2 text-sm text-center" maxlength="4">
+        <input id="certRoadmapLabel${i}" value="${escapeAttr(s.label)}" placeholder="예: 1학년 1학기" class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm">
+      </div>
+      <input id="certRoadmapSubject${i}" value="${escapeAttr(s.subject)}" placeholder="과목명" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mb-2">
+      <textarea id="certRoadmapBullets${i}" rows="3" placeholder="글머리 항목 (한 줄에 하나씩)" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">${escapeHtml((s.bullets || []).join('\n'))}</textarea>
+    </div>`).join('');
   document.getElementById('certRoadmapOutroTitle').value = data.outro.title;
   document.getElementById('certRoadmapOutroText').value = data.outro.text;
 }
@@ -3541,10 +3519,10 @@ function saveCertRoadmap(){
       title: document.getElementById('certRoadmapIntroTitle').value.trim() || DEFAULT_CERT_ROADMAP.intro.title,
       text: document.getElementById('certRoadmapIntroText').value.trim() || DEFAULT_CERT_ROADMAP.intro.text,
     },
-    semesters: [0, 1, 2, 3].map(i => ({
-      icon: document.getElementById('certRoadmapIcon' + i).value.trim() || DEFAULT_CERT_ROADMAP.semesters[i].icon,
-      label: document.getElementById('certRoadmapLabel' + i).value.trim() || DEFAULT_CERT_ROADMAP.semesters[i].label,
-      subject: document.getElementById('certRoadmapSubject' + i).value.trim() || DEFAULT_CERT_ROADMAP.semesters[i].subject,
+    semesters: DEFAULT_CERT_ROADMAP.semesters.map((def, i) => ({
+      icon: document.getElementById('certRoadmapIcon' + i).value.trim() || def.icon,
+      label: document.getElementById('certRoadmapLabel' + i).value.trim() || def.label,
+      subject: document.getElementById('certRoadmapSubject' + i).value.trim() || def.subject,
       bullets: document.getElementById('certRoadmapBullets' + i).value.split('\n').map(s => s.trim()).filter(Boolean),
     })),
     outro: {
