@@ -140,6 +140,7 @@ service cloud.firestore {
     match /students/{doc}  { allow read, write: if isTeacher(); }
     match /customPages/{doc} { allow read: if true; allow write: if isTeacher(); }
     match /certExams/{doc} { allow read: if true; allow write: if isTeacher(); }
+    match /tasks/{doc} { allow read, write: if isTeacher(); }
     match /stats/{doc} { allow read: if true; allow write: if true; }
     match /visitLog/{doc} { allow read, write: if true; }
     match /wallPosts/{doc} { allow read: if resource.data.isPrivate == false || isTeacher(); allow create: if request.auth != null; allow update, delete: if isTeacher() || (request.auth != null && request.auth.token.email == resource.data.authorEmail); }
