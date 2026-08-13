@@ -1735,7 +1735,9 @@ function scaleNodeProperty(node, datasetKey, cssProp, scale, unit){
     node.dataset[datasetKey] = computed;
   }
   if (datasetKey in node.dataset) {
-    node.style[cssProp] = scale === 1 ? '' : (parseFloat(node.dataset[datasetKey]) * scale) + unit;
+    // scale===1이어도 값을 비워버리면(=''), 원래 인라인 스타일이 아니라 브라우저/폰트 기본값(예: 한글 폰트의 넓은 normal line-height)으로
+    // 되돌아가 버리므로, 항상 캐시해둔 원래 값을 명시적으로 다시 써준다.
+    node.style[cssProp] = (parseFloat(node.dataset[datasetKey]) * scale) + unit;
   }
 }
 function applyPageTextScale(root, textScale){
