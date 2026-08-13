@@ -2639,8 +2639,8 @@ function renderCertGuideHtml(value){
             <span class="text-base">${escapeHtml(s.icon)}</span>
             <span class="text-xs font-bold ${theme.label}">${escapeHtml(s.label)}</span>
           </div>
-          <p class="font-semibold text-ink text-sm mt-px" style="line-height:1.05">${escapeHtml(s.subject)}</p>
-          <ul class="mt-0 text-xs ${theme.bullet} space-y-1 list-disc pl-4" style="line-height:1.35">
+          <p class="font-semibold text-ink text-sm -mt-0.5" style="line-height:1.05">${escapeHtml(s.subject)}</p>
+          <ul class="-mt-0.5 text-xs ${theme.bullet} space-y-1 list-disc pl-4" style="line-height:1.35">
             ${(s.bullets || []).map(b => `<li>${escapeHtml(b)}</li>`).join('')}
           </ul>
         </div>`;
