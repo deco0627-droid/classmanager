@@ -168,7 +168,7 @@ service cloud.firestore {
             <h3 class="font-display text-sm text-forest-dark">이 페이지 글자 크기</h3>
             <button onclick="togglePageFontPanel()" class="text-xs text-gray-500 hover:text-forest-dark">닫기</button>
           </div>
-          <input id="pageFontScaleInput" type="range" min="0.85" max="1.4" step="0.05" value="1" class="w-full">
+          <input id="pageFontScaleInput" type="range" min="0.85" max="1.25" step="0.05" value="1" class="w-full">
           <div class="flex items-center justify-end gap-2 mt-3">
             <button onclick="resetPageFontSize()" class="bg-white border border-gray-300 rounded-lg px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50">초기화</button>
             <button onclick="applyPageFontSize()" class="bg-forest text-white rounded-lg px-3 py-1.5 text-xs font-semibold hover:bg-forest-dark">적용</button>
@@ -1634,7 +1634,7 @@ function renderView(key){
 function fontScaleStorageKey(viewKey){ return 'classManager.pageFontScale.' + viewKey; }
 function getPageFontScale(viewKey){
   const saved = Number(localStorage.getItem(fontScaleStorageKey(viewKey)));
-  return saved && saved >= 0.85 && saved <= 1.4 ? saved : 1;
+  return saved && saved >= 0.85 && saved <= 1.25 ? saved : 1;
 }
 function fontScaleTargetEl(viewKey){
   return document.getElementById(viewKey.startsWith('custom_') ? 'view-custom' : 'view-' + viewKey);
@@ -2467,51 +2467,51 @@ function renderCertGuideHtml(value){
   }
 
   return `
-    <div class="space-y-3">
-      <div class="rounded-2xl border border-forest/20 bg-forest-light/60 p-4">
-        <h3 class="font-display text-lg text-forest-dark">🎯 학생 진로 과정 로드맵</h3>
-        <p class="text-sm text-gray-600 mt-1 leading-relaxed">3년 동안 6학기를 통해 자기 이해, 기본 소양, 자격증 준비, 진로 선택까지 한 단계씩 성장할 수 있도록 구성되어 있습니다.</p>
+    <div class="space-y-2">
+      <div class="rounded-2xl border border-forest/20 bg-forest-light/60 p-3">
+        <h3 class="font-display text-lg leading-tight text-forest-dark">🎯 학생 진로 과정 로드맵</h3>
+        <p class="text-sm text-gray-600 mt-0.5 leading-snug">3년 동안 6학기를 통해 자기 이해, 기본 소양, 자격증 준비, 진로 선택까지 한 단계씩 성장할 수 있도록 구성되어 있습니다.</p>
       </div>
 
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <div class="rounded-2xl border border-forest/20 bg-white p-3 shadow-sm">
-          <p class="text-lg leading-none mb-1.5">🌱</p>
-          <p class="text-xs font-bold text-forest-dark leading-tight mb-0.5">1학년 1학기</p>
-          <p class="font-semibold text-ink text-sm leading-tight">진로탐색 및 학교적응</p>
-          <ul class="mt-1 text-xs text-gray-600 leading-snug space-y-0.5 list-disc pl-4">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+        <div class="rounded-2xl border border-forest/20 bg-white p-2.5 shadow-sm">
+          <p class="text-lg leading-none mb-0.5">🌱</p>
+          <p class="text-xs font-bold text-forest-dark leading-none">1학년 1학기</p>
+          <p class="font-semibold text-ink text-sm leading-none mt-1">진로탐색 및 학교적응</p>
+          <ul class="mt-0.5 text-xs text-gray-600 leading-snug space-y-0 list-disc pl-4">
             <li>학생들의 적성과 흥미 탐색</li>
             <li>학교생활 적응 및 협동 역량 강화</li>
             <li>기본 학습 습관과 진로 목표 설정</li>
           </ul>
         </div>
 
-        <div class="rounded-2xl border border-forest/20 bg-white p-3 shadow-sm">
-          <p class="text-lg leading-none mb-1.5">🧠</p>
-          <p class="text-xs font-bold text-forest-dark leading-tight mb-0.5">1학년 2학기</p>
-          <p class="font-semibold text-ink text-sm leading-tight">한국사, 컴퓨터활용능력 2급</p>
-          <ul class="mt-1 text-xs text-gray-600 leading-snug space-y-0.5 list-disc pl-4">
+        <div class="rounded-2xl border border-forest/20 bg-white p-2.5 shadow-sm">
+          <p class="text-lg leading-none mb-0.5">🧠</p>
+          <p class="text-xs font-bold text-forest-dark leading-none">1학년 2학기</p>
+          <p class="font-semibold text-ink text-sm leading-none mt-1">한국사, 컴퓨터활용능력 2급</p>
+          <ul class="mt-0.5 text-xs text-gray-600 leading-snug space-y-0 list-disc pl-4">
             <li>한국사 기초 소양 향상</li>
             <li>컴퓨터 활용 능력 기반 형성</li>
             <li>자격증 준비의 첫걸음</li>
           </ul>
         </div>
 
-        <div class="rounded-2xl border border-amber/30 bg-amber-light/70 p-3 shadow-sm">
-          <p class="text-lg leading-none mb-1.5">⚡</p>
-          <p class="text-xs font-bold text-amber-darker leading-tight mb-0.5">2학년 1학기</p>
-          <p class="font-semibold text-ink text-sm leading-tight">전기기능사, 승강기기능사</p>
-          <ul class="mt-1 text-xs text-gray-700 leading-snug space-y-0.5 list-disc pl-4">
+        <div class="rounded-2xl border border-amber/30 bg-amber-light/70 p-2.5 shadow-sm">
+          <p class="text-lg leading-none mb-0.5">⚡</p>
+          <p class="text-xs font-bold text-amber-darker leading-none">2학년 1학기</p>
+          <p class="font-semibold text-ink text-sm leading-none mt-1">전기기능사, 승강기기능사</p>
+          <ul class="mt-0.5 text-xs text-gray-700 leading-snug space-y-0 list-disc pl-4">
             <li>전기·설비 분야 핵심 이론 학습</li>
             <li>실습 기반 직업 역량 강화</li>
             <li>직무 적합성 탐색 및 자신감 형성</li>
           </ul>
         </div>
 
-        <div class="rounded-2xl border border-brick/30 bg-brick-light/70 p-3 shadow-sm">
-          <p class="text-lg leading-none mb-1.5">🧭</p>
-          <p class="text-xs font-bold text-brick leading-tight mb-0.5">2학년 2학기</p>
-          <p class="font-semibold text-ink text-sm leading-tight">NCS 및 진로 선택</p>
-          <ul class="mt-1 text-xs text-gray-700 leading-snug space-y-0.5 list-disc pl-4">
+        <div class="rounded-2xl border border-brick/30 bg-brick-light/70 p-2.5 shadow-sm">
+          <p class="text-lg leading-none mb-0.5">🧭</p>
+          <p class="text-xs font-bold text-brick leading-none">2학년 2학기</p>
+          <p class="font-semibold text-ink text-sm leading-none mt-1">NCS 및 진로 선택</p>
+          <ul class="mt-0.5 text-xs text-gray-700 leading-snug space-y-0 list-disc pl-4">
             <li>NCS 기반 직무 이해 및 역량 진단</li>
             <li>진로 선택의 기준 확립</li>
             <li>대학 진학 및 취업 방향 설정</li>
@@ -2519,8 +2519,8 @@ function renderCertGuideHtml(value){
         </div>
       </div>
 
-      <div class="rounded-2xl border border-gray-200 bg-white p-3">
-        <p class="text-sm font-bold text-forest-dark leading-tight mb-1">✅ 자격증 안내사항</p>
+      <div class="rounded-2xl border border-gray-200 bg-white p-2.5">
+        <p class="text-sm font-bold text-forest-dark leading-tight mb-0.5">✅ 자격증 안내사항</p>
         <p class="text-xs text-gray-600 leading-snug">학생들은 단계별로 기본소양과 직업기초를 쌓아가며, 2학년부터는 자격증 취득과 진로 결정에 집중할 수 있습니다. 학습 계획은 학생의 적성과 흥미를 고려해 개인별로 조정하며, 필요한 경우 상담을 통해 진로 방향을 함께 설정하고 있습니다.</p>
       </div>
     </div>`;
