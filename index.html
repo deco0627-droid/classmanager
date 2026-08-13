@@ -104,21 +104,6 @@
   .modal-tab.active { color: #20503B; border-bottom-color: #2F6F52; }
 
   .view { zoom: 1; }
-  .view.fs-sm { zoom: 0.9; }
-  .view.fs-lg { zoom: 1.15; }
-  .view.fs-xl { zoom: 1.3; }
-
-  #fontScaleWidget {
-    position: fixed; right: 18px; bottom: 18px; z-index: 45; display: flex; align-items: center; gap: 0.4rem;
-    background: #1E2A38; color: #fff; border-radius: 9999px; padding: 0.4rem 0.55rem; box-shadow: 0 4px 14px rgba(30,42,56,0.28);
-  }
-  #fontScaleWidget button {
-    width: 26px; height: 26px; border-radius: 9999px; background: rgba(255,255,255,0.12); color: #fff;
-    font-weight: 700; font-size: 0.85rem; line-height: 1; display: flex; align-items: center; justify-content: center;
-  }
-  #fontScaleWidget button:hover:not(:disabled) { background: rgba(255,255,255,0.24); }
-  #fontScaleWidget button:disabled { opacity: 0.35; }
-  #fontScaleWidget span { font-size: 0.7rem; font-weight: 600; min-width: 3.4em; text-align: center; }
 
   input:focus, textarea:focus, select:focus { outline: none; box-shadow: 0 0 0 2px #2F6F52; }
   .chip { display:inline-flex; align-items:center; gap:4px; }
@@ -177,6 +162,20 @@ service cloud.firestore {
     <nav class="hidden md:flex items-end gap-1" id="mainNav"></nav>
     <div class="flex items-center gap-2">
       <div class="relative">
+        <button id="pageFontBtn" class="flex items-center justify-center w-9 h-9 bg-white/10 hover:bg-white/20 transition rounded-full text-sm font-bold" title="이 페이지 글자 크기">가</button>
+        <div id="pageFontPanel" class="hidden absolute right-0 mt-2 w-64 bg-white text-ink rounded-xl shadow-2xl p-4 border border-gray-100 z-50">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="font-display text-sm text-forest-dark">이 페이지 글자 크기</h3>
+            <button onclick="togglePageFontPanel()" class="text-xs text-gray-500 hover:text-forest-dark">닫기</button>
+          </div>
+          <input id="pageFontScaleInput" type="range" min="0.85" max="1.4" step="0.05" value="1" class="w-full">
+          <div class="flex items-center justify-end gap-2 mt-3">
+            <button onclick="resetPageFontSize()" class="bg-white border border-gray-300 rounded-lg px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50">초기화</button>
+            <button onclick="applyPageFontSize()" class="bg-forest text-white rounded-lg px-3 py-1.5 text-xs font-semibold hover:bg-forest-dark">적용</button>
+          </div>
+        </div>
+      </div>
+      <div class="relative">
         <button id="userBtn" class="flex items-center gap-2 bg-white/10 hover:bg-white/20 transition rounded-full pl-2 pr-3 py-1.5 text-sm">
           <span id="userAvatar" class="w-6 h-6 rounded-full bg-amber flex items-center justify-center text-[11px] font-bold text-white">?</span>
           <span id="userLabel" class="font-mono text-xs">교사 로그인</span>
@@ -203,12 +202,6 @@ service cloud.firestore {
     <p id="loginError" class="hidden text-xs text-brick mt-2 mb-1">로그인에 실패했습니다. 이메일/비밀번호를 확인해주세요.</p>
     <button onclick="loginTeacher()" class="w-full bg-forest text-white py-2.5 rounded-lg text-sm font-semibold hover:bg-forest-dark mt-3">로그인</button>
   </div>
-</div>
-
-<div id="fontScaleWidget" title="이 페이지의 글씨 크기">
-  <button id="fontScaleDec" onclick="adjustFontScale(-1)" aria-label="글씨 작게">가⁻</button>
-  <span id="fontScaleLabel">보통</span>
-  <button id="fontScaleInc" onclick="adjustFontScale(1)" aria-label="글씨 크게">가⁺</button>
 </div>
 
 <main class="max-w-7xl mx-auto px-5 py-7">
@@ -1631,41 +1624,41 @@ function renderView(key){
     if (key==='admin') renderAdmin();
   }
   renderNav();
-  applyFontScale(key);
-  renderFontScaleWidget();
+  applyPageFontScale(key);
+  document.getElementById('pageFontPanel').classList.add('hidden');
 }
 
 /* ============================================================
    페이지별 글씨 크기 조절
 ============================================================ */
-const FONT_SCALE_LEVELS = ['sm', 'base', 'lg', 'xl'];
-const FONT_SCALE_LABELS = { sm: '작게', base: '보통', lg: '크게', xl: '아주 크게' };
-function fontScaleStorageKey(viewKey){ return 'fontScale_' + viewKey; }
-function getFontScale(viewKey){
-  const saved = localStorage.getItem(fontScaleStorageKey(viewKey));
-  return FONT_SCALE_LEVELS.includes(saved) ? saved : 'base';
+function fontScaleStorageKey(viewKey){ return 'classManager.pageFontScale.' + viewKey; }
+function getPageFontScale(viewKey){
+  const saved = Number(localStorage.getItem(fontScaleStorageKey(viewKey)));
+  return saved && saved >= 0.85 && saved <= 1.4 ? saved : 1;
 }
 function fontScaleTargetEl(viewKey){
   return document.getElementById(viewKey.startsWith('custom_') ? 'view-custom' : 'view-' + viewKey);
 }
-function applyFontScale(viewKey){
+function applyPageFontScale(viewKey){
   const el = fontScaleTargetEl(viewKey);
-  if (!el) return;
-  FONT_SCALE_LEVELS.forEach(level => el.classList.remove('fs-' + level));
-  el.classList.add('fs-' + getFontScale(viewKey));
+  if (el) el.style.zoom = getPageFontScale(viewKey);
 }
-function renderFontScaleWidget(){
-  const level = getFontScale(currentView);
-  const idx = FONT_SCALE_LEVELS.indexOf(level);
-  document.getElementById('fontScaleLabel').textContent = FONT_SCALE_LABELS[level];
-  document.getElementById('fontScaleDec').disabled = idx === 0;
-  document.getElementById('fontScaleInc').disabled = idx === FONT_SCALE_LEVELS.length - 1;
+function togglePageFontPanel(){
+  const panel = document.getElementById('pageFontPanel');
+  panel.classList.toggle('hidden');
+  if (!panel.classList.contains('hidden')) {
+    document.getElementById('pageFontScaleInput').value = getPageFontScale(currentView);
+  }
 }
-function adjustFontScale(delta){
-  const idx = Math.max(0, Math.min(FONT_SCALE_LEVELS.length - 1, FONT_SCALE_LEVELS.indexOf(getFontScale(currentView)) + delta));
-  localStorage.setItem(fontScaleStorageKey(currentView), FONT_SCALE_LEVELS[idx]);
-  applyFontScale(currentView);
-  renderFontScaleWidget();
+function resetPageFontSize(){
+  localStorage.removeItem(fontScaleStorageKey(currentView));
+  document.getElementById('pageFontScaleInput').value = 1;
+  applyPageFontScale(currentView);
+}
+function applyPageFontSize(){
+  const value = Number(document.getElementById('pageFontScaleInput').value) || 1;
+  localStorage.setItem(fontScaleStorageKey(currentView), value);
+  applyPageFontScale(currentView);
 }
 
 /* ============================================================
@@ -1678,9 +1671,13 @@ document.getElementById('userBtn').addEventListener('click', () => {
     openLoginModal();
   }
 });
+document.getElementById('pageFontBtn').addEventListener('click', togglePageFontPanel);
 document.addEventListener('click', (e) => {
   if (!e.target.closest('#userBtn') && !e.target.closest('#userPanel')) {
     document.getElementById('userPanel').classList.add('hidden');
+  }
+  if (!e.target.closest('#pageFontBtn') && !e.target.closest('#pageFontPanel')) {
+    document.getElementById('pageFontPanel').classList.add('hidden');
   }
 });
 function openLoginModal(){
