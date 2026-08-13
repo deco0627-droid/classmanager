@@ -622,7 +622,7 @@ service cloud.firestore {
         <button id="adminCardEditToggleBtn" onclick="toggleAdminCardEditMode()" class="text-xs bg-forest text-white px-3 py-1.5 rounded-lg font-semibold hover:bg-forest-dark">✏️ 순서 편집</button>
       </div>
       <p class="text-xs text-gray-500 mb-3">아래 카드들이 표시되는 순서를 원하는 대로 바꿀 수 있어요. "순서 편집"을 누른 뒤 항목을 마우스로 끌어서 옮기고, 다 끝나면 "완료"를 눌러주세요.</p>
-      <div id="adminCardOrderList" class="space-y-1.5"></div>
+      <div id="adminCardOrderList" class="hidden space-y-1.5"></div>
     </div>
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-5" id="adminCardGrid">
       <div class="bg-card border border-gray-200 rounded-xl p-5" data-admin-card="shareLink">
@@ -3465,11 +3465,14 @@ function toggleAdminCardEditMode(){
   renderAdminCardOrderList();
 }
 function renderAdminCardOrderList(){
+  const listEl = document.getElementById('adminCardOrderList');
+  listEl.classList.toggle('hidden', !adminCardEditMode);
+  if (!adminCardEditMode) return;
   const order = getAdminCardOrder();
-  document.getElementById('adminCardOrderList').innerHTML = order.map((k,i) => `
-    <div class="flex items-center gap-2 bg-white border ${adminCardEditMode ? 'border-forest cursor-move' : 'border-gray-200'} rounded-lg px-3 py-2"
-      ${adminCardEditMode ? `draggable="true" ondragstart="adminCardDragStart(event,${i})" ondragover="adminCardDragOver(event)" ondrop="adminCardDrop(event,${i})"` : ''}>
-      ${adminCardEditMode ? '<span class="text-gray-300 text-sm">⠿</span>' : `<span class="text-gray-300 text-xs font-mono">${i+1}</span>`}
+  listEl.innerHTML = order.map((k,i) => `
+    <div class="flex items-center gap-2 bg-white border border-forest cursor-move rounded-lg px-3 py-2"
+      draggable="true" ondragstart="adminCardDragStart(event,${i})" ondragover="adminCardDragOver(event)" ondrop="adminCardDrop(event,${i})">
+      <span class="text-gray-300 text-sm">⠿</span>
       <span class="text-sm flex-1">${escapeHtml(ADMIN_CARD_LABELS[k] || k)}</span>
     </div>
   `).join('');
