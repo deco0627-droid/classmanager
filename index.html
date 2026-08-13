@@ -1439,7 +1439,7 @@ function bootstrapApp(){
   db.collection('tasks').onSnapshot(snap => {
     tasksCache = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => (a.createdAt||0)-(b.createdAt||0));
     if (currentView === 'admin') renderTaskChecklist();
-  });
+  }, err => console.error('tasks 컬렉션을 불러오지 못했습니다 (Firestore 보안 규칙을 확인하세요):', err));
 
   auth.onAuthStateChanged(user => {
     isTeacher = !!(user && user.email === TEACHER_EMAIL);
@@ -3488,14 +3488,17 @@ function addTask(){
   const input = document.getElementById('newTaskInput');
   const text = input.value.trim();
   if (!text) return;
-  db.collection('tasks').add({ text, done: false, createdAt: Date.now() });
-  input.value = '';
+  db.collection('tasks').add({ text, done: false, createdAt: Date.now() })
+    .then(() => { input.value = ''; })
+    .catch(err => alert('할 일 추가에 실패했습니다: ' + err.message));
 }
 function toggleTask(id, current){
-  db.collection('tasks').doc(id).set({ done: !current }, { merge: true });
+  db.collection('tasks').doc(id).set({ done: !current }, { merge: true })
+    .catch(err => alert('업데이트에 실패했습니다: ' + err.message));
 }
 function deleteTask(id){
-  db.collection('tasks').doc(id).delete();
+  db.collection('tasks').doc(id).delete()
+    .catch(err => alert('삭제에 실패했습니다: ' + err.message));
 }
 function renderCertRoadmapForm(){
   const data = getCertRoadmap();
