@@ -208,7 +208,10 @@ service cloud.firestore {
       </div>
     </div>
   </div>
-  <div class="md:hidden flex overflow-x-auto gap-1 px-3 pb-2" id="mainNavMobile"></div>
+  <div class="md:hidden">
+    <div class="flex justify-center gap-1 px-3" id="mainNavMobileHome"></div>
+    <div class="flex overflow-x-auto gap-1 px-3 pb-2" id="mainNavMobile"></div>
+  </div>
 </header>
 
 <!-- ===================== 교사 로그인 모달 ===================== -->
@@ -1591,11 +1594,12 @@ function renderTabLabel(label){
 }
 
 function renderNav(){
-  const html = visibleNavItems().map(item =>
-    `<button class="tab-btn ${currentView===item.key?'active':''}" onclick="switchView('${item.key}')">${renderTabLabel(item.label)}</button>`
-  ).join('');
-  document.getElementById('mainNav').innerHTML = html;
-  document.getElementById('mainNavMobile').innerHTML = html;
+  const items = visibleNavItems();
+  const btn = item => `<button class="tab-btn ${currentView===item.key?'active':''}" onclick="switchView('${item.key}')">${renderTabLabel(item.label)}</button>`;
+  document.getElementById('mainNav').innerHTML = items.map(btn).join('');
+  // 모바일에서는 대시보드만 한 줄 위에 따로 두고, 나머지 탭은 그 아래 줄에서 가로 스크롤한다.
+  document.getElementById('mainNavMobileHome').innerHTML = items.filter(i => i.key === 'dashboard').map(btn).join('');
+  document.getElementById('mainNavMobile').innerHTML = items.filter(i => i.key !== 'dashboard').map(btn).join('');
 }
 
 function applyBrandLogo(){
