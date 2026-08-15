@@ -2321,7 +2321,7 @@ function handleTimetableKeydown(event, key){
   if (event.key !== 'Enter') return;
   event.preventDefault();
   const [day, period] = key.split('-');
-  const currentIndex = PERIODS.indexOf(period);
+  const currentIndex = PERIODS.findIndex(pd => String(pd) === period);
   if (currentIndex === -1 || currentIndex === PERIODS.length - 1) return;
   const nextKey = `${day}-${PERIODS[currentIndex + 1]}`;
   const nextInput = document.querySelector(`input[data-timetable-key="${nextKey}"]`);
