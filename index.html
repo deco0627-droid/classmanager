@@ -244,7 +244,7 @@ service cloud.firestore {
         <button id="dashBlogEditBtn" onclick="switchView('admin')" class="hidden text-gray-300 hover:text-forest-dark text-sm shrink-0" title="이 배지 수정하기">✏️</button>
       </div>
       <div id="dashBadgeLinks" class="flex items-center gap-2 flex-wrap sm:justify-end"></div>
-      <div class="flex items-center gap-2 shrink-0">
+      <div class="flex items-center justify-end gap-2 shrink-0 sm:ml-auto">
         <div class="relative">
           <button id="pageFontBtn" class="flex items-center justify-center w-8 h-8 rounded-full bg-forest-light text-forest-dark hover:opacity-80 transition text-sm font-bold" title="이 페이지 글자 크기 · 간격">가</button>
           <div id="pageFontPanel" class="hidden absolute right-0 mt-2 w-72 bg-card rounded-xl shadow-2xl p-4 border border-gray-100 z-50">
@@ -1794,6 +1794,36 @@ document.addEventListener('click', (e) => {
     document.getElementById('pageFontPanel').classList.add('hidden');
   }
 });
+
+/* ============================================================
+   모바일 스와이프로 탭 이동
+   가로 스크롤이 있는 위젯(시간표, 주간 날씨 등) 안에서 시작한 스와이프는
+   해당 위젯을 스크롤하려는 의도이므로 탭 전환을 건드리지 않는다.
+============================================================ */
+(function setupSwipeNav(){
+  const THRESHOLD = 60, RESTRAINT = 80, ALLOWED_TIME = 600;
+  let startX = 0, startY = 0, startTime = 0, blocked = false;
+  document.addEventListener('touchstart', (e) => {
+    if (!e.touches || e.touches.length !== 1) return;
+    const t = e.touches[0];
+    startX = t.clientX; startY = t.clientY; startTime = Date.now();
+    blocked = !!e.target.closest('.overflow-x-auto, .overflow-x-scroll, input, textarea, select, [contenteditable]');
+  }, { passive: true });
+  document.addEventListener('touchend', (e) => {
+    if (blocked) return;
+    const t = e.changedTouches[0];
+    const distX = t.clientX - startX;
+    const distY = t.clientY - startY;
+    if (Date.now() - startTime > ALLOWED_TIME) return;
+    if (Math.abs(distX) < THRESHOLD || Math.abs(distY) > RESTRAINT) return;
+    const items = visibleNavItems();
+    const idx = items.findIndex(i => i.key === currentView);
+    if (idx === -1) return;
+    const target = distX < 0 ? items[idx + 1] : items[idx - 1];
+    if (target) switchView(target.key);
+  }, { passive: true });
+})();
+
 function openLoginModal(){
   document.getElementById('loginModalClassName').textContent = settingsCache.className || '학급 수첩';
   document.getElementById('loginEmail').value = '';
