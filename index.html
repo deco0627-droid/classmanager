@@ -292,17 +292,17 @@ service cloud.firestore {
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
       <div class="lg:col-span-2 space-y-5">
         <div class="bg-card border border-gray-200 rounded-xl p-5">
-          <h2 class="font-display text-lg mb-3 text-forest-dark">📌 오늘의 학사일정</h2>
-          <div id="dashTodaySchedule" class="space-y-2 text-sm"></div>
-          <h2 class="font-display text-lg mt-5 mb-3 text-forest-dark">🗓 다가오는 일정</h2>
-          <div id="dashUpcoming" class="space-y-2 text-sm"></div>
-        </div>
-        <div class="bg-card border border-gray-200 rounded-xl p-5">
           <div class="flex items-center justify-between mb-3">
             <h2 class="font-display text-lg text-forest-dark">📢 최근 공지사항</h2>
             <button onclick="openNoticesListModal()" class="text-xs text-forest-dark font-semibold hover:underline shrink-0">자세히 보기 →</button>
           </div>
           <div id="dashNotices" class="space-y-3 text-sm"></div>
+        </div>
+        <div class="bg-card border border-gray-200 rounded-xl p-5">
+          <h2 class="font-display text-lg mb-3 text-forest-dark">📌 오늘의 학사일정</h2>
+          <div id="dashTodaySchedule" class="space-y-2 text-sm"></div>
+          <h2 class="font-display text-lg mt-5 mb-3 text-forest-dark">🗓 다가오는 일정</h2>
+          <div id="dashUpcoming" class="space-y-2 text-sm"></div>
         </div>
       </div>
       <div class="space-y-5">
@@ -3476,9 +3476,9 @@ function renderAdminCardOrderList(){
   if (!adminCardEditMode) return;
   const order = getAdminCardOrder();
   listEl.innerHTML = order.map((k,i) => `
-    <div class="flex items-center gap-2 bg-white border border-forest cursor-move rounded-lg px-3 py-2"
+    <div class="flex items-center gap-2 bg-card border border-forest cursor-move rounded-lg px-3 py-2"
       draggable="true" ondragstart="adminCardDragStart(event,${i})" ondragover="adminCardDragOver(event)" ondrop="adminCardDrop(event,${i})">
-      <span class="text-gray-300 text-sm">⠿</span>
+      <span class="text-gray-500 text-sm">⠿</span>
       <span class="text-sm flex-1">${escapeHtml(ADMIN_CARD_LABELS[k] || k)}</span>
     </div>
   `).join('');
