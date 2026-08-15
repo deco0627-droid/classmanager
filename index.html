@@ -1437,7 +1437,7 @@ function bootstrapApp(){
     const mealKey = settingsCache.mealSchool ? `${settingsCache.mealSchool.officeCode},${settingsCache.mealSchool.schoolCode}` : null;
     if (mealKey !== lastMealSchoolKey) { lastMealSchoolKey = mealKey; fetchLunchMenu(); }
     if (currentView === 'dashboard') renderDashboard();
-    if (currentView === 'schedule') renderTimetable();
+    if (currentView === 'schedule' && !document.activeElement?.closest('#timetableEl')) renderTimetable();
     if (currentView === 'photos') renderPhotosView();
     if (currentView === 'admin') renderAdmin();
   });
