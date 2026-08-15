@@ -1595,51 +1595,21 @@ function renderNav(){
 }
 
 function applyBrandLogo(){
-  const bambooSvg = `
-    <svg viewBox="0 0 64 64" class="w-8 h-8" aria-label="배움꿈나무 로고" role="img">
-      <rect width="64" height="64" rx="16" fill="#E7F5E2"/>
-      <g stroke-linecap="round" stroke-linejoin="round">
-        <rect x="28" y="12" width="7" height="34" rx="3" fill="#3A7C45"/>
-        <path d="M15 22 C22 18, 26 15, 28 22 C24 27, 17 31, 15 22Z" fill="#5DB56D"/>
-        <path d="M49 22 C41 18, 37 15, 35 22 C39 27, 46 31, 49 22Z" fill="#5DB56D"/>
-        <path d="M18 34 C25 30, 29 28, 31 34 C27 39, 20 42, 18 34Z" fill="#70C77F"/>
-        <path d="M46 34 C39 30, 35 28, 33 34 C37 39, 44 42, 46 34Z" fill="#70C77F"/>
-        <path d="M23 50 C26 38, 29 33, 32 50" stroke="#2F6E3B" stroke-width="2.6" fill="none"/>
-        <path d="M41 50 C38 38, 35 33, 32 50" stroke="#2F6E3B" stroke-width="2.6" fill="none"/>
-      </g>
-    </svg>
-  `;
-
+  // 로고(이미지/SVG 뱃지)는 안 쓰기로 해서 헤더·로그인 모달에 남아있으면 제거만 한다
+  // (헤더를 눌러 대시보드로 이동하는 동작은 유지).
   const brandWrap = document.querySelector('header .flex.items-center.gap-3');
   if (brandWrap) {
     brandWrap.setAttribute('onclick', "switchView('dashboard')");
     brandWrap.setAttribute('title', '대시보드로 이동');
     brandWrap.classList.add('cursor-pointer');
     const oldLogo = brandWrap.querySelector('img');
-    if (oldLogo) {
-      oldLogo.replaceWith(new DOMParser().parseFromString(bambooSvg, 'image/svg+xml').documentElement);
-    } else {
-      const container = document.createElement('div');
-      container.className = 'w-10 h-10 rounded-full bg-white/10 border border-white/20 flex items-center justify-center shadow-inner overflow-hidden';
-      container.innerHTML = bambooSvg;
-      brandWrap.prepend(container);
-    }
+    if (oldLogo) oldLogo.remove();
   }
 
-  const modalLogo = document.querySelector('#loginModal svg[aria-label="배움꿈나무 로고"]');
-  if (!modalLogo) {
-    const modalWrap = document.querySelector('#loginModal .bg-paper');
-    if (modalWrap) {
-      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-      svg.setAttribute('viewBox', '0 0 64 64');
-      svg.setAttribute('class', 'w-14 h-14 mx-auto mb-3');
-      svg.setAttribute('aria-label', '배움꿈나무 로고');
-      svg.setAttribute('role', 'img');
-      svg.innerHTML = '<rect width="64" height="64" rx="18" fill="#E7F5E2"/><g stroke-linecap="round" stroke-linejoin="round"><rect x="28" y="12" width="7" height="34" rx="3" fill="#3A7C45"/><path d="M15 22 C22 18, 26 15, 28 22 C24 27, 17 31, 15 22Z" fill="#5DB56D"/><path d="M49 22 C41 18, 37 15, 35 22 C39 27, 46 31, 49 22Z" fill="#5DB56D"/><path d="M18 34 C25 30, 29 28, 31 34 C27 39, 20 42, 18 34Z" fill="#70C77F"/><path d="M46 34 C39 30, 35 28, 33 34 C37 39, 44 42, 46 34Z" fill="#70C77F"/><path d="M23 50 C26 38, 29 33, 32 50" stroke="#2F6E3B" stroke-width="2.6" fill="none"/><path d="M41 50 C38 38, 35 33, 32 50" stroke="#2F6E3B" stroke-width="2.6" fill="none"/></g>';
-      const existing = modalWrap.querySelector('img');
-      if (existing) existing.replaceWith(svg);
-      else modalWrap.prepend(svg);
-    }
+  const modalWrap = document.querySelector('#loginModal .bg-paper');
+  if (modalWrap) {
+    const existing = modalWrap.querySelector('img, svg[aria-label="배움꿈나무 로고"]');
+    if (existing) existing.remove();
   }
 }
 
@@ -2599,7 +2569,7 @@ const DEFAULT_CERT_ROADMAP = {
   },
 };
 // 카드 디자인(색상)은 학년/방학별로 고정, 글자 내용만 관리자 화면에서 바꿀 수 있다
-const CERT_ROADMAP_THEME_FOREST = { card: 'border-forest/20 bg-white', label: 'text-forest-dark', bullet: 'text-gray-600' };
+const CERT_ROADMAP_THEME_FOREST = { card: 'border-forest/20 bg-forest-light/70', label: 'text-forest-dark', bullet: 'text-gray-600' };
 const CERT_ROADMAP_THEME_AMBER = { card: 'border-amber/30 bg-amber-light/70', label: 'text-amber-darker', bullet: 'text-gray-700' };
 const CERT_ROADMAP_THEME_BRICK = { card: 'border-brick/30 bg-brick-light/70', label: 'text-brick', bullet: 'text-gray-700' };
 const CERT_ROADMAP_THEME_BREAK = { card: 'border-gray-300 border-dashed bg-gray-50', label: 'text-gray-500', bullet: 'text-gray-500' };
