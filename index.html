@@ -1613,23 +1613,25 @@ function renderNav(){
 }
 
 function applyBrandLogo(){
-  // "배움꿈나무" 이름 그대로, 책 아이콘 대신 나무 모양 아이콘으로 바꾼다.
-  const treeSvg = `
+  // 나무 아이콘 대신, "꿈나무"를 귀엽게 캐릭터화한 도토리 캐리커처 아이콘을 쓴다.
+  const acornSvg = `
     <svg viewBox="0 0 64 64" aria-label="배움꿈나무 로고" role="img">
       <rect width="64" height="64" rx="16" fill="#E7F5E2"/>
-      <path d="M28 56 L28 38 Q28 34 32 34 Q36 34 36 38 L36 56 Z" fill="#8B5E3C"/>
-      <ellipse cx="32" cy="55" rx="11" ry="2.6" fill="#3A7C45" opacity="0.2"/>
-      <circle cx="21" cy="28" r="11" fill="#7FCB8A"/>
-      <circle cx="44" cy="27" r="12" fill="#5DB56D"/>
-      <circle cx="32" cy="17" r="13" fill="#3A7C45"/>
-      <circle cx="22" cy="13" r="2.1" fill="#FDF6E9"/>
-      <circle cx="43" cy="11" r="1.5" fill="#FDF6E9"/>
-      <circle cx="34" cy="7" r="1.2" fill="#FDF6E9"/>
+      <path d="M32 10 Q30 6 33 4" stroke="#5B3A1E" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+      <path d="M16 24 Q16 12 32 12 Q48 12 48 24 Q48 29 32 29 Q16 29 16 24Z" fill="#8B5E3C"/>
+      <path d="M18 18 Q32 24 46 18" stroke="#6B4226" stroke-width="1.4" fill="none" opacity="0.55"/>
+      <path d="M19 22 Q32 27.5 45 22" stroke="#6B4226" stroke-width="1.4" fill="none" opacity="0.55"/>
+      <path d="M18 26 Q16 44 32 54 Q48 44 46 26 Q32 32 18 26Z" fill="#D9A066"/>
+      <circle cx="27" cy="38" r="2" fill="#4A2E10"/>
+      <circle cx="37" cy="38" r="2" fill="#4A2E10"/>
+      <path d="M27 44 Q32 48 37 44" stroke="#4A2E10" stroke-width="2" stroke-linecap="round" fill="none"/>
+      <ellipse cx="22" cy="41" rx="2.4" ry="1.5" fill="#E8956B" opacity="0.5"/>
+      <ellipse cx="42" cy="41" rx="2.4" ry="1.5" fill="#E8956B" opacity="0.5"/>
     </svg>
   `;
   const applyTo = (img, sizeClass) => {
     if (!img) return;
-    const svgEl = new DOMParser().parseFromString(treeSvg, 'image/svg+xml').documentElement;
+    const svgEl = new DOMParser().parseFromString(acornSvg, 'image/svg+xml').documentElement;
     svgEl.setAttribute('class', sizeClass);
     img.replaceWith(svgEl);
   };
