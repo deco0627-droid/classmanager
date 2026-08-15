@@ -2099,17 +2099,17 @@ function trackVisitWithIp(ip){
    시간표
 ============================================================ */
 function renderTimetable(){
-  let html = '<thead><tr><th class="p-2 text-xs text-gray-400 font-mono">교시</th>';
+  let html = '<thead><tr><th class="p-2 text-sm text-gray-400 font-mono">교시</th>';
   DAYS.forEach(d => html += `<th class="p-2 text-sm font-display text-forest-dark">${d}</th>`);
   html += '</tr></thead><tbody>';
   PERIODS.forEach(p => {
-    html += `<tr><td class="p-2 text-center font-mono text-xs text-gray-400 border-t border-gray-100">${p}</td>`;
+    html += `<tr><td class="p-2 text-center font-mono text-sm text-gray-400 border-t border-gray-100">${p}</td>`;
     DAYS.forEach(d => {
       const key = d+'-'+p;
       const val = (settingsCache.timetable || {})[key] || '';
       html += `<td class="border-t border-gray-100 p-1">
-        <input value="${escapeAttr(val)}" data-timetable-key="${key}" ${isTeacher ? `onchange="updateTimetableCell('${key}', this.value)" onkeydown="handleTimetableKeydown(event, '${key}')"` : 'readonly'}
-          class="w-full text-center text-xs py-2 rounded-lg bg-white border border-transparent ${isTeacher ? 'hover:border-gray-200 focus:border-forest' : ''}" placeholder="-">
+        <input value="${escapeAttr(val)}" data-timetable-key="${key}" ${isTeacher ? `onchange="updateTimetableCell('${key}', this.value)" onkeyup="handleTimetableKeydown(event, '${key}')"` : 'readonly'}
+          class="w-full text-center text-sm py-2 rounded-lg bg-white border border-transparent ${isTeacher ? 'hover:border-gray-200 focus:border-forest' : ''}" placeholder="-">
       </td>`;
     });
     html += '</tr>';
