@@ -1194,7 +1194,7 @@ function renderWall(){
               ${p.isPrivate ? `<span class="text-[9px] font-semibold text-brick">🔒 비밀글 (교사만 볼 수 있음)</span>` : ''}
             </div>
             ${p.image ? `<img src="${p.image}" class="w-full rounded mb-2 cursor-pointer" onclick="openPhotoZoom(this.src)">` : ''}
-            <p class="text-xs whitespace-pre-line">${linkifyText(escapeHtml(p.content))}</p>
+            <p class="text-xs whitespace-pre-line text-ink">${linkifyText(escapeHtml(p.content))}</p>
             <div class="flex items-center justify-between mt-1.5">
               <p class="text-[10px] text-ink/50">${escapeHtml(p.author || '익명')} · ${timeAgo(p.createdAt || 0)}</p>
               <div class="flex items-center gap-1.5 shrink-0">
