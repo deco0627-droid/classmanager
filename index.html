@@ -2103,13 +2103,13 @@ function renderTimetable(){
   DAYS.forEach(d => html += `<th class="p-2 text-sm font-display text-forest-dark">${d}</th>`);
   html += '</tr></thead><tbody>';
   PERIODS.forEach(p => {
-    html += `<tr><td class="p-2 text-center font-mono text-[20px] text-white border-t border-gray-100">${p}</td>`;
+    html += `<tr><td class="p-2 text-center font-mono text-white border-t border-gray-100" style="font-size:20px">${p}</td>`;
     DAYS.forEach(d => {
       const key = d+'-'+p;
       const val = (settingsCache.timetable || {})[key] || '';
       html += `<td class="border-t border-gray-100 p-1">
         <input value="${escapeAttr(val)}" data-timetable-key="${key}" ${isTeacher ? `onchange="updateTimetableCell('${key}', this.value)" onkeyup="handleTimetableKeydown(event, '${key}')"` : 'readonly'}
-          class="w-full text-center text-[20px] py-2 rounded-lg bg-white border border-transparent ${isTeacher ? 'hover:border-gray-200 focus:border-forest' : ''}" placeholder="-">
+          class="w-full text-center py-2 rounded-lg bg-white border border-transparent ${isTeacher ? 'hover:border-gray-200 focus:border-forest' : ''}" style="font-size:20px" placeholder="-">
       </td>`;
     });
     html += '</tr>';
@@ -2318,12 +2318,17 @@ function updateTimetableCell(key, val){
 }
 
 function handleTimetableKeydown(event, key){
-  if (event.key !== 'Enter') return;
+  const moves = { Enter: [0, 1], ArrowDown: [0, 1], ArrowUp: [0, -1], ArrowRight: [1, 0], ArrowLeft: [-1, 0] };
+  const delta = moves[event.key];
+  if (!delta) return;
   event.preventDefault();
   const [day, period] = key.split('-');
-  const currentIndex = PERIODS.findIndex(pd => String(pd) === period);
-  if (currentIndex === -1 || currentIndex === PERIODS.length - 1) return;
-  const nextKey = `${day}-${PERIODS[currentIndex + 1]}`;
+  const dayIndex = DAYS.indexOf(day);
+  const periodIndex = PERIODS.findIndex(pd => String(pd) === period);
+  const nextDayIndex = dayIndex + delta[0];
+  const nextPeriodIndex = periodIndex + delta[1];
+  if (nextDayIndex < 0 || nextDayIndex >= DAYS.length || nextPeriodIndex < 0 || nextPeriodIndex >= PERIODS.length) return;
+  const nextKey = `${DAYS[nextDayIndex]}-${PERIODS[nextPeriodIndex]}`;
   const nextInput = document.querySelector(`input[data-timetable-key="${nextKey}"]`);
   if (nextInput) nextInput.focus();
 }
