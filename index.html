@@ -209,8 +209,8 @@ service cloud.firestore {
         <h1 class="font-display text-2xl mt-1">오늘의 학급 브리핑</h1>
       </div>
       <div class="flex items-center justify-between sm:justify-start gap-3">
-        <button onclick="openAnimalLadderGame()" class="bg-card border border-gray-200 rounded-xl px-3 py-2.5 text-center min-w-[52px] h-full hover:bg-gray-50 shrink-0" title="사다리타기 (동물 랜덤 뽑기)">
-          <span class="text-2xl leading-none">🪜</span>
+        <button onclick="openAnimalLadderGame()" class="bg-card border border-gray-200 rounded-xl px-3 py-2.5 text-center min-w-[52px] self-stretch flex flex-col items-center justify-center hover:bg-gray-50 shrink-0" title="동물 달리기 경주 (랜덤 뽑기)">
+          <span class="text-2xl leading-none">🏁</span>
         </button>
         <div id="dashWeather" class="bg-card border border-gray-200 rounded-xl px-4 py-2.5 text-center min-w-[100px]">
           <p class="text-2xl leading-none" id="dashWeatherIcon">🌡</p>
@@ -234,11 +234,15 @@ service cloud.firestore {
         </div>
 
         <div id="animalLadderSetupPanel">
-          <p class="text-sm text-gray-400 mb-3">이름 없이 동물 아이콘만으로 진행해요. 동물을 눌러 참가자를 추가하세요 (최대 20명, 최소 2명, 같은 동물도 여러 번 추가할 수 있어요).</p>
-          <div id="animalPalette" class="flex flex-wrap gap-2 mb-4"></div>
+          <p class="text-sm text-gray-400 mb-3">동물을 눌러 참가자를 추가하세요 (최대 20명, 최소 2명, 같은 동물도 여러 번 추가할 수 있어요). 이름을 넣고 싶으면 아래 "학생 명단 불러오기"를 이용하세요(비밀번호 필요).</p>
+          <div id="animalPalette" class="flex flex-wrap gap-2 mb-3"></div>
+          <div class="flex gap-2 mb-3">
+            <button onclick="selectAllAnimalPalette()" class="text-xs border border-gray-300 px-3 py-1.5 rounded-full hover:bg-gray-50">전체 선택</button>
+            <button onclick="clearAnimalLadderSelection()" class="text-xs border border-gray-300 px-3 py-1.5 rounded-full hover:bg-gray-50">전체 선택 해제</button>
+            <button onclick="importStudentsToAnimalLadder()" class="text-xs border border-gray-300 px-3 py-1.5 rounded-full hover:bg-gray-50">🔒 학생 명단 불러오기</button>
+          </div>
           <div class="flex items-center justify-between mb-2">
             <span id="animalLadderSelectedCount" class="text-sm text-gray-400"></span>
-            <button onclick="clearAnimalLadderSelection()" class="text-xs border border-gray-300 px-3 py-1.5 rounded-full hover:bg-gray-50">전체 선택 해제</button>
           </div>
           <div id="animalLadderSelectedList" class="flex flex-wrap gap-1.5 mb-4 min-h-[2.5rem] border border-gray-200 rounded-lg p-2"></div>
           <button id="animalLadderStartBtn" onclick="startAnimalLadderGame()" class="w-full bg-forest text-white px-5 py-2.5 rounded-lg text-sm font-semibold hover:bg-forest-dark disabled:opacity-40 disabled:cursor-not-allowed">경주 시작</button>
@@ -276,7 +280,7 @@ service cloud.firestore {
         </div>
         <button id="dashBlogEditBtn" onclick="switchView('admin')" class="hidden text-gray-300 hover:text-forest-dark text-sm shrink-0" title="이 배지 수정하기">✏️</button>
       </div>
-      <div id="dashBadgeLinks" class="flex items-center gap-2 flex-wrap sm:justify-end"></div>
+      <div id="dashBadgeLinks" class="flex items-center gap-2 flex-wrap sm:justify-end sm:ml-auto"></div>
       <div class="flex items-center justify-end gap-2 shrink-0 sm:ml-auto">
         <div class="relative">
           <button id="pageFontBtn" class="flex items-center justify-center w-8 h-8 rounded-full bg-forest-light text-forest-dark hover:opacity-80 transition text-sm font-bold" title="이 페이지 글자 크기 · 간격">가</button>
@@ -338,28 +342,28 @@ service cloud.firestore {
           <div id="dashUpcoming" class="space-y-2 text-sm"></div>
         </div>
       </div>
-      <div class="space-y-5">
-        <div class="bg-card border border-gray-200 rounded-xl p-5">
+      <div class="space-y-5" id="dashSidebarCards">
+        <div class="bg-card border border-gray-200 rounded-xl p-5" data-dash-card="timetable">
           <h2 class="font-display text-base mb-3 text-forest-dark">🕐 오늘 시간표</h2>
           <div id="dashTodayTimetable" class="space-y-1.5 text-sm font-mono"></div>
         </div>
-        <div class="bg-card border border-gray-200 rounded-xl p-5">
+        <div class="bg-card border border-gray-200 rounded-xl p-5" data-dash-card="tagCloud">
           <h2 class="font-display text-base mb-3 text-forest-dark">🏷 공지 태그 모아보기</h2>
           <div id="dashTagCloud" class="flex flex-wrap gap-1.5"></div>
         </div>
-        <div class="bg-card border border-gray-200 rounded-xl p-5">
+        <div class="bg-card border border-gray-200 rounded-xl p-5" data-dash-card="lunchMenu">
           <h2 class="font-display text-base mb-3 text-forest-dark">🍱 오늘의 점심메뉴</h2>
           <div id="dashLunchMenu" class="text-sm"></div>
         </div>
-        <div class="bg-card border border-gray-200 rounded-xl p-5">
+        <div class="bg-card border border-gray-200 rounded-xl p-5" data-dash-card="characterWord">
           <h2 class="font-display text-base mb-3 text-forest-dark">🌱 오늘의 인성 단어</h2>
           <div id="dashCharacterWord"></div>
         </div>
-        <div class="bg-card border border-gray-200 rounded-xl p-5">
+        <div class="bg-card border border-gray-200 rounded-xl p-5" data-dash-card="dailyLearning">
           <h2 class="font-display text-base mb-3 text-forest-dark">📚 오늘의 영어 한 문장 &amp; 사자성어</h2>
           <div id="dashDailyLearning" class="space-y-2"></div>
         </div>
-        <div class="bg-card border border-gray-200 rounded-xl p-5 text-right">
+        <div class="bg-card border border-gray-200 rounded-xl p-5 text-right" data-dash-card="visitStats">
           <p class="text-[11px] text-gray-400">오늘 방문 <span class="font-mono font-semibold text-forest-dark" id="dashVisitToday">-</span>명</p>
           <p class="text-[11px] text-gray-400 mt-0.5">누적 방문 <span class="font-mono font-semibold text-forest-dark" id="dashVisitTotal">-</span>명</p>
         </div>
@@ -721,6 +725,14 @@ service cloud.firestore {
       <p class="text-xs text-gray-500 mb-3">아래 카드들이 표시되는 순서를 원하는 대로 바꿀 수 있어요. "순서 편집"을 누른 뒤 항목을 마우스로 끌어서 옮기고, 다 끝나면 "완료"를 눌러주세요.</p>
       <div id="adminCardOrderList" class="hidden space-y-1.5"></div>
     </div>
+    <div class="bg-card border border-gray-200 rounded-xl p-5 mb-5">
+      <div class="flex items-center justify-between mb-2">
+        <h2 class="font-display text-lg text-forest-dark">📊 대시보드 사이드바 순서 편집</h2>
+        <button id="dashCardEditToggleBtn" onclick="toggleDashCardEditMode()" class="text-xs bg-forest text-white px-3 py-1.5 rounded-lg font-semibold hover:bg-forest-dark">✏️ 순서 편집</button>
+      </div>
+      <p class="text-xs text-gray-500 mb-3">대시보드 오른쪽에 있는 시간표·공지태그·점심메뉴·인성 단어·영어 문장 등의 순서를 바꿀 수 있어요.</p>
+      <div id="dashCardOrderList" class="hidden space-y-1.5"></div>
+    </div>
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-5" id="adminCardGrid">
       <div class="bg-card border border-gray-200 rounded-xl p-5" data-admin-card="shareLink">
         <h2 class="font-display text-lg mb-2 text-forest-dark">🔗 학생 공유 링크 &amp; QR</h2>
@@ -831,6 +843,14 @@ service cloud.firestore {
           </div>
           <p class="text-[11px] text-gray-400 mb-1">복구용 이메일은 위 건강 비밀번호 설정과 같은 걸 사용해요.</p>
           <button onclick="recoverConsultPassword()" class="mt-1 text-xs text-forest-dark font-semibold hover:underline">비밀번호를 잊었어요 — 복구 메일 보내기</button>
+
+          <label class="text-xs font-semibold text-gray-500 mt-4 block">대시보드 학생 명단 불러오기 비밀번호</label>
+          <p class="text-[11px] text-gray-400 mb-2">대시보드는 로그인 없이 누구나 볼 수 있어서, 동물 달리기 경주에 실제 학생 이름을 불러올 때만 이 비밀번호로 한 번 더 확인합니다. 기본값은 <b>roster1234</b>입니다.</p>
+          <div class="flex gap-2 mt-1 mb-2">
+            <input id="rosterImportPasswordField" type="password" placeholder="학생 명단 불러오기 비밀번호" class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm">
+            <button onclick="saveRosterImportPassword()" class="bg-forest text-white px-4 rounded-lg text-sm font-semibold">저장</button>
+          </div>
+          <button onclick="recoverRosterImportPassword()" class="mt-1 text-xs text-forest-dark font-semibold hover:underline">비밀번호를 잊었어요 — 복구 메일 보내기</button>
         </div>
 
         <label class="text-xs font-semibold text-gray-500">자격증 종류 관리</label>
@@ -1455,6 +1475,7 @@ function defaultSettings(){
     className: '학급 수첩', certificateTypes: [...DEFAULT_CERT_TYPES], timetable: {}, certGuide: '', certRoadmap: null,
     healthPassword: 'health1234',
     consultPassword: 'consult1234',
+    rosterImportPassword: 'roster1234',
     healthRecoveryEmail: TEACHER_EMAIL || '',
     weatherLocation: { name: '서울시 구로구', lat: 37.4954, lon: 126.8874 },
     certLinks: { '한국사능력검정시험': 'https://www.historyexam.go.kr/?link=examSchedule' },
@@ -2089,6 +2110,7 @@ function renderDashboard(){
   document.getElementById('dashStampDow').textContent = dow+'요일';
   renderCharacterWord();
   renderDailyLearning();
+  applyDashCardOrder();
 
   const today = todayStr();
   const todays = schedulesCache.filter(s => s.date === today);
@@ -3461,7 +3483,7 @@ function renderLadderRound(participants, opts){
    익명 동물 사다리타기 (대시보드, 날씨 위젯 앞) — 학생 명단과 무관하게
    교사가 동물만 골라서 진행하는 사다리타기
 ============================================================ */
-let animalLadderQueue = []; // [{ uid, animal }] — 같은 동물을 여러 번 추가할 수 있어 uid로 구분
+let animalLadderQueue = []; // [{ uid, animal, name }] — 같은 동물을 여러 번 추가할 수 있어 uid로 구분. name은 학생 명단을 불러왔을 때만 채워진다.
 function openAnimalLadderGame(){
   animalLadderQueue = [];
   document.getElementById('animalPalette').innerHTML = LADDER_ANIMALS.map(a => `
@@ -3480,7 +3502,14 @@ function backToAnimalLadderSetup(){
 }
 function addAnimalToLadderQueue(animal){
   if (animalLadderQueue.length >= 20) return alert('최대 20명까지 추가할 수 있어요.');
-  animalLadderQueue.push({ uid: Date.now() + '_' + Math.random(), animal });
+  animalLadderQueue.push({ uid: Date.now() + '_' + Math.random(), animal, name: '' });
+  renderAnimalLadderQueue();
+}
+function selectAllAnimalPalette(){
+  LADDER_ANIMALS.forEach(a => {
+    if (animalLadderQueue.length >= 20) return;
+    animalLadderQueue.push({ uid: Date.now() + '_' + Math.random(), animal: a, name: '' });
+  });
   renderAnimalLadderQueue();
 }
 function removeAnimalFromLadderQueue(uid){
@@ -3491,9 +3520,27 @@ function clearAnimalLadderSelection(){
   animalLadderQueue = [];
   renderAnimalLadderQueue();
 }
+// 대시보드는 로그인 없이 누구나 보는 공개 화면이라, 실제 학생 이름을 불러오는 건 비밀번호로 막아둔다
+// (경주 자체는 그 자리에서 교사가 화면을 보여줄 때만 의미가 있고, 원격의 낯선 방문자가 몰래
+// 명단을 불러와 보는 건 막아야 해서).
+function importStudentsToAnimalLadder(){
+  requireRosterImportPassword(() => {
+    if (!studentsCache.length) return alert('등록된 학생이 없습니다.');
+    const animals = shuffleArray(LADDER_ANIMALS);
+    animalLadderQueue = studentsCache
+      .slice()
+      .sort((a,b) => (parseInt(a.number) || 0) - (parseInt(b.number) || 0))
+      .slice(0, 20)
+      .map((s, i) => ({ uid: s.id, animal: animals[i % animals.length], name: displayStudentName(s.name) }));
+    renderAnimalLadderQueue();
+  });
+}
 function renderAnimalLadderQueue(){
   document.getElementById('animalLadderSelectedList').innerHTML = animalLadderQueue.length
-    ? animalLadderQueue.map(a => `<button onclick="removeAnimalFromLadderQueue('${a.uid}')" class="text-xl w-10 h-10 flex items-center justify-center rounded-lg bg-forest-light border border-forest" title="눌러서 빼기">${a.animal}</button>`).join('')
+    ? animalLadderQueue.map(a => `
+      <button onclick="removeAnimalFromLadderQueue('${a.uid}')" class="flex items-center gap-1 ${a.name ? 'px-2' : 'w-10 justify-center'} h-10 rounded-lg bg-forest-light border border-forest text-sm" title="눌러서 빼기">
+        <span class="text-xl">${a.animal}</span>${a.name ? `<span>${escapeHtml(a.name)}</span>` : ''}
+      </button>`).join('')
     : `<p class="text-xs text-gray-400">위에서 동물을 눌러 참가자를 추가하세요.</p>`;
   const count = animalLadderQueue.length;
   document.getElementById('animalLadderSelectedCount').textContent = `선택됨: ${count}/20명`;
@@ -3509,7 +3556,7 @@ function redoAnimalLadderGame(){
   runAnimalLadderRound();
 }
 function runAnimalLadderRound(){
-  const participants = animalLadderQueue.map(a => ({ animal: a.animal }));
+  const participants = animalLadderQueue.map(a => ({ animal: a.animal, name: a.name }));
   renderAnimalRace(participants);
 }
 // 동물들이 각자 다른 무작위 시간(2.5~5초) 동안 트랙 끝까지 달려서 도착 순서로 순위를 매긴다.
@@ -3523,7 +3570,7 @@ function renderAnimalRace(participants){
   wrap.innerHTML = `<div class="space-y-2">${participants.map((p, i) => `
     <div class="relative h-10 bg-forest-light rounded-lg overflow-hidden">
       <span class="absolute inset-y-0 right-2 flex items-center text-sm">🏁</span>
-      <span id="racer${i}" class="absolute inset-y-0 flex items-center text-2xl" style="left:0%">${p.animal}</span>
+      <span id="racer${i}" class="absolute inset-y-0 flex items-center gap-1 text-2xl" style="left:0%">${p.animal}${p.name ? `<span class="text-xs font-semibold">${escapeHtml(p.name)}</span>` : ''}</span>
     </div>`).join('')}</div>`;
 
   const finishOrder = [];
@@ -3537,6 +3584,7 @@ function renderAnimalRace(participants){
           <div class="flex items-center gap-2 text-sm">
             <span class="font-mono font-bold text-forest-dark w-10">${rank+1}등</span>
             <span class="text-lg">${participants[idx].animal}</span>
+            ${participants[idx].name ? `<span class="font-semibold">${escapeHtml(participants[idx].name)}</span>` : ''}
           </div>`).join('');
       }
     }, { once: true });
@@ -3692,6 +3740,32 @@ function recoverConsultPassword(){
   }
   const subject = encodeURIComponent('[학급 수첩] 상담 비밀번호 복구 요청');
   const body = encodeURIComponent(`안녕하세요.\n\n상담 일지 비밀번호를 잊어버렸습니다.\n현재 설정된 비밀번호는 "${getConsultPassword()}" 입니다.\n\n관리자 페이지에서 비밀번호를 새로 변경할 수 있습니다.\n`);
+  window.location.href = `mailto:${email}?subject=${subject}&body=${body}`;
+}
+function getRosterImportPassword(){
+  return (settingsCache && settingsCache.rosterImportPassword) ? String(settingsCache.rosterImportPassword).trim() : 'roster1234';
+}
+function requireRosterImportPassword(onSuccess){
+  openPasswordPrompt('학생 명단을 불러오려면 비밀번호를 입력하세요.', (input) => {
+    if (!input) return;
+    if (input.trim() !== getRosterImportPassword()) { alert('비밀번호가 올바르지 않습니다.'); return; }
+    onSuccess();
+  });
+}
+function saveRosterImportPassword(){
+  const value = document.getElementById('rosterImportPasswordField').value.trim();
+  settingsCache.rosterImportPassword = value || 'roster1234';
+  db.collection('settings').doc('general').set({ rosterImportPassword: settingsCache.rosterImportPassword }, { merge: true });
+  alert('학생 명단 불러오기 비밀번호가 저장되었습니다.');
+}
+function recoverRosterImportPassword(){
+  const email = (settingsCache && settingsCache.healthRecoveryEmail) ? String(settingsCache.healthRecoveryEmail).trim() : '';
+  if (!email) {
+    alert('복구용 이메일이 아직 설정되지 않았습니다. 관리자 설정에서 복구용 이메일을 먼저 등록해주세요.');
+    return;
+  }
+  const subject = encodeURIComponent('[학급 수첩] 학생 명단 불러오기 비밀번호 복구 요청');
+  const body = encodeURIComponent(`안녕하세요.\n\n대시보드 사다리타기/경주에서 학생 명단 불러오기 비밀번호를 잊어버렸습니다.\n현재 설정된 비밀번호는 "${getRosterImportPassword()}" 입니다.\n\n관리자 페이지에서 비밀번호를 새로 변경할 수 있습니다.\n`);
   window.location.href = `mailto:${email}?subject=${subject}&body=${body}`;
 }
 function openStudentEditor(id){
@@ -4079,6 +4153,67 @@ function adminCardDrop(e, i){
   applyAdminCardOrder();
 }
 
+/* ============================================================
+   대시보드 사이드바 카드 순서 편집 (드래그 앤 드롭)
+============================================================ */
+const DASH_CARD_LABELS = {
+  timetable: '🕐 오늘 시간표',
+  lunchMenu: '🍱 오늘의 점심메뉴',
+  characterWord: '🌱 오늘의 인성 단어',
+  dailyLearning: '📚 오늘의 영어 한 문장 & 사자성어',
+  tagCloud: '🏷 공지 태그 모아보기',
+  visitStats: '방문자 수',
+};
+const DASH_CARD_DEFAULT_ORDER = ['timetable', 'lunchMenu', 'characterWord', 'dailyLearning', 'tagCloud', 'visitStats'];
+let dashCardEditMode = false;
+let dashCardDragIndex = null;
+function getDashCardOrder(){
+  const allKeys = Object.keys(DASH_CARD_LABELS);
+  const order = (settingsCache.dashCardOrder && settingsCache.dashCardOrder.length) ? [...settingsCache.dashCardOrder] : [...DASH_CARD_DEFAULT_ORDER];
+  allKeys.forEach(k => { if (!order.includes(k)) order.push(k); });
+  return order.filter(k => allKeys.includes(k));
+}
+function applyDashCardOrder(){
+  const wrap = document.getElementById('dashSidebarCards');
+  if (!wrap) return;
+  getDashCardOrder().forEach(key => {
+    const card = wrap.querySelector(`[data-dash-card="${key}"]`);
+    if (card) wrap.appendChild(card);
+  });
+}
+function toggleDashCardEditMode(){
+  dashCardEditMode = !dashCardEditMode;
+  document.getElementById('dashCardEditToggleBtn').textContent = dashCardEditMode ? '✅ 완료' : '✏️ 순서 편집';
+  renderDashCardOrderList();
+}
+function renderDashCardOrderList(){
+  const listEl = document.getElementById('dashCardOrderList');
+  listEl.classList.toggle('hidden', !dashCardEditMode);
+  if (!dashCardEditMode) return;
+  const order = getDashCardOrder();
+  listEl.innerHTML = order.map((k,i) => `
+    <div class="flex items-center gap-2 bg-card border border-forest cursor-move rounded-lg px-3 py-2"
+      draggable="true" ondragstart="dashCardDragStart(event,${i})" ondragover="dashCardDragOver(event)" ondrop="dashCardDrop(event,${i})">
+      <span class="text-gray-500 text-sm">⠿</span>
+      <span class="text-sm flex-1">${escapeHtml(DASH_CARD_LABELS[k] || k)}</span>
+    </div>
+  `).join('');
+}
+function dashCardDragStart(e, i){ dashCardDragIndex = i; e.dataTransfer.effectAllowed = 'move'; }
+function dashCardDragOver(e){ e.preventDefault(); }
+function dashCardDrop(e, i){
+  e.preventDefault();
+  if (dashCardDragIndex === null || dashCardDragIndex === i) return;
+  const order = getDashCardOrder();
+  const [moved] = order.splice(dashCardDragIndex, 1);
+  order.splice(i, 0, moved);
+  dashCardDragIndex = null;
+  settingsCache.dashCardOrder = order;
+  db.collection('settings').doc('general').set({ dashCardOrder: order }, { merge: true });
+  renderDashCardOrderList();
+  applyDashCardOrder();
+}
+
 function addWallColumn(){
   const val = document.getElementById('newWallColumn').value.trim();
   if (!val) return;
@@ -4229,6 +4364,7 @@ function renderAdmin(){
   renderCertRoadmapForm();
   renderAdminCardOrderList();
   applyAdminCardOrder();
+  renderDashCardOrderList();
   const link = location.href.split('#')[0];
   document.getElementById('shareLinkField').value = link;
   document.getElementById('shareQr').src = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(link)}`;
@@ -4236,6 +4372,7 @@ function renderAdmin(){
   document.getElementById('healthPasswordField').value = settingsCache.healthPassword || 'health1234';
   document.getElementById('healthRecoveryEmailField').value = settingsCache.healthRecoveryEmail || TEACHER_EMAIL || '';
   document.getElementById('consultPasswordField').value = settingsCache.consultPassword || 'consult1234';
+  document.getElementById('rosterImportPasswordField').value = settingsCache.rosterImportPassword || 'roster1234';
   const isAdminView = isTeacher && currentView === 'admin';
   const unlockTrigger = document.getElementById('healthPasswordUnlockTrigger');
   if (unlockTrigger) {
