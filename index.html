@@ -718,10 +718,13 @@ service cloud.firestore {
         <h2 class="font-display text-lg mb-2 text-forest-dark">🔗 학생 공유 링크 &amp; QR</h2>
         <p class="text-xs text-gray-500 mb-3">아래 링크(또는 QR코드)를 학생들에게 공유하거나 전자칠판에 띄워두세요. 대시보드·시간표/학사일정·자격증안내·청소구역/동아리가 실시간으로 보이고, 학생명단·공유페이지·관리자는 로그인 없이는 보이지 않습니다.</p>
         <div class="flex items-center gap-2 mb-3">
-          <input id="shareLinkField" readonly class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-xs font-mono bg-white">
+          <input id="shareLinkField" readonly class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-xs font-mono bg-white text-gray-800">
           <button onclick="copyShareLink()" class="bg-forest text-white px-3 py-2 rounded-lg text-xs font-semibold shrink-0">링크 복사</button>
         </div>
-        <img id="shareQr" class="w-40 h-40 border border-gray-200 rounded-lg bg-white" alt="공유 QR코드">
+        <img id="shareQr" onclick="openShareQrZoom()" class="w-40 h-40 border border-gray-200 rounded-lg bg-white cursor-zoom-in" alt="공유 QR코드">
+        <div id="shareQrZoomModal" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-6" onclick="closeShareQrZoom()">
+          <img id="shareQrZoomImg" src="" alt="공유 QR코드 확대" class="w-full max-w-md bg-white rounded-xl p-4">
+        </div>
       </div>
       <div class="bg-card border border-gray-200 rounded-xl p-5" data-admin-card="taskChecklist">
         <h2 class="font-display text-lg mb-2 text-forest-dark">📋 학급 업무 체크리스트</h2>
@@ -811,6 +814,15 @@ service cloud.firestore {
             <button onclick="saveHealthRecoveryEmail()" class="bg-amber text-white px-4 rounded-lg text-sm font-semibold">저장</button>
           </div>
           <button onclick="recoverHealthPassword()" class="mt-2 text-xs text-forest-dark font-semibold hover:underline">비밀번호를 잊었어요 — 복구 메일 보내기</button>
+
+          <label class="text-xs font-semibold text-gray-500 mt-4 block">상담 비밀번호 설정</label>
+          <p class="text-[11px] text-gray-400 mb-2">상담 일지를 보기 전 비밀번호를 한 번 더 확인합니다. 기본값은 <b>consult1234</b>이며, 아래에서 바꿀 수 있어요.</p>
+          <div class="flex gap-2 mt-1 mb-2">
+            <input id="consultPasswordField" type="password" placeholder="상담 비밀번호" class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm">
+            <button onclick="saveConsultPassword()" class="bg-forest text-white px-4 rounded-lg text-sm font-semibold">저장</button>
+          </div>
+          <p class="text-[11px] text-gray-400 mb-1">복구용 이메일은 위 건강 비밀번호 설정과 같은 걸 사용해요.</p>
+          <button onclick="recoverConsultPassword()" class="mt-1 text-xs text-forest-dark font-semibold hover:underline">비밀번호를 잊었어요 — 복구 메일 보내기</button>
         </div>
 
         <label class="text-xs font-semibold text-gray-500">자격증 종류 관리</label>
@@ -960,6 +972,18 @@ service cloud.firestore {
     <div class="flex gap-2">
       <button onclick="closeAddStudentModal()" class="flex-1 border border-gray-300 rounded-lg py-2 text-sm font-semibold hover:bg-gray-50">취소</button>
       <button onclick="confirmAddStudent()" class="flex-1 bg-forest text-white rounded-lg py-2 text-sm font-semibold hover:bg-forest-dark">추가</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== 비밀번호 확인 모달 (별표 마스킹) ===================== -->
+<div id="passwordPromptModal" class="hidden fixed inset-0 bg-ink/60 z-50 flex items-center justify-center p-4">
+  <div class="bg-card rounded-2xl shadow-xl w-full max-w-sm p-6">
+    <p id="passwordPromptMessage" class="text-sm mb-3">비밀번호를 입력하세요.</p>
+    <input id="passwordPromptInput" type="password" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mb-4" placeholder="비밀번호">
+    <div class="flex gap-2">
+      <button onclick="cancelPasswordPrompt()" class="flex-1 border border-gray-300 py-2.5 rounded-lg text-sm font-semibold hover:bg-gray-50">취소</button>
+      <button onclick="confirmPasswordPrompt()" class="flex-1 bg-forest text-white py-2.5 rounded-lg text-sm font-semibold hover:bg-forest-dark">확인</button>
     </div>
   </div>
 </div>
@@ -1422,6 +1446,7 @@ function defaultSettings(){
   return {
     className: '학급 수첩', certificateTypes: [...DEFAULT_CERT_TYPES], timetable: {}, certGuide: '', certRoadmap: null,
     healthPassword: 'health1234',
+    consultPassword: 'consult1234',
     healthRecoveryEmail: TEACHER_EMAIL || '',
     weatherLocation: { name: '서울시 구로구', lat: 37.4954, lon: 126.8874 },
     certLinks: { '한국사능력검정시험': 'https://www.historyexam.go.kr/?link=examSchedule' },
@@ -3368,7 +3393,7 @@ function commitStudentBulk(){
    학생 상세 모달
 ============================================================ */
 let currentStudentId = null;
-let currentModalTab = 'consult';
+let currentModalTab = 'cleaning';
 const MODAL_TABS = [
   { key: 'consult', label: '상담 일지' }, { key: 'health', label: '건강 상태' },
   { key: 'elective', label: '고교학점제' }, { key: 'cert', label: '자격증' },
@@ -3417,10 +3442,62 @@ function recoverHealthPassword(){
   const body = encodeURIComponent(`안녕하세요.\n\n건강 정보 수정 비밀번호를 잊어버렸습니다.\n현재 설정된 비밀번호는 "${getHealthPassword()}" 입니다.\n\n관리자 페이지에서 비밀번호를 새로 변경할 수 있습니다.\n`);
   window.location.href = `mailto:${email}?subject=${subject}&body=${body}`;
 }
+// 별표로 가려서 입력받는 공용 비밀번호 확인 모달 (window.prompt는 입력을 가릴 수 없어서 직접 만든다).
+let passwordPromptCallback = null;
+function openPasswordPrompt(message, onConfirm){
+  document.getElementById('passwordPromptMessage').textContent = message;
+  document.getElementById('passwordPromptInput').value = '';
+  document.getElementById('passwordPromptModal').classList.remove('hidden');
+  passwordPromptCallback = onConfirm;
+  setTimeout(() => document.getElementById('passwordPromptInput').focus(), 50);
+}
+function cancelPasswordPrompt(){
+  document.getElementById('passwordPromptModal').classList.add('hidden');
+  passwordPromptCallback = null;
+}
+function confirmPasswordPrompt(){
+  const value = document.getElementById('passwordPromptInput').value;
+  document.getElementById('passwordPromptModal').classList.add('hidden');
+  const cb = passwordPromptCallback;
+  passwordPromptCallback = null;
+  if (cb) cb(value);
+}
+function getConsultPassword(){
+  return (settingsCache && settingsCache.consultPassword) ? String(settingsCache.consultPassword).trim() : 'consult1234';
+}
+let consultPasswordSessionUnlocked = false;
+function requireConsultPassword(onSuccess){
+  if (consultPasswordSessionUnlocked) { onSuccess(); return; }
+  openPasswordPrompt('상담 일지를 보려면 비밀번호를 입력하세요.', (input) => {
+    if (!input) return;
+    if (input.trim() !== getConsultPassword()) { alert('상담 비밀번호가 올바르지 않습니다.'); return; }
+    consultPasswordSessionUnlocked = true;
+    onSuccess();
+  });
+}
+function clearConsultPasswordSession(){
+  consultPasswordSessionUnlocked = false;
+}
+function saveConsultPassword(){
+  const value = document.getElementById('consultPasswordField').value.trim();
+  settingsCache.consultPassword = value || 'consult1234';
+  db.collection('settings').doc('general').set({ consultPassword: settingsCache.consultPassword }, { merge: true });
+  alert('상담 비밀번호가 저장되었습니다.');
+}
+function recoverConsultPassword(){
+  const email = (settingsCache && settingsCache.healthRecoveryEmail) ? String(settingsCache.healthRecoveryEmail).trim() : '';
+  if (!email) {
+    alert('복구용 이메일이 아직 설정되지 않았습니다. 관리자 설정에서 복구용 이메일을 먼저 등록해주세요.');
+    return;
+  }
+  const subject = encodeURIComponent('[학급 수첩] 상담 비밀번호 복구 요청');
+  const body = encodeURIComponent(`안녕하세요.\n\n상담 일지 비밀번호를 잊어버렸습니다.\n현재 설정된 비밀번호는 "${getConsultPassword()}" 입니다.\n\n관리자 페이지에서 비밀번호를 새로 변경할 수 있습니다.\n`);
+  window.location.href = `mailto:${email}?subject=${subject}&body=${body}`;
+}
 function openStudentEditor(id){
   if (!isTeacher || !id) return;
   currentStudentId = id;
-  currentModalTab = 'consult';
+  currentModalTab = 'cleaning';
   document.getElementById('studentModal').classList.remove('hidden');
   renderModal();
 }
@@ -3443,10 +3520,12 @@ function confirmAddStudent(){
 }
 document.getElementById('addStudentName').addEventListener('keydown', (e) => { if (e.key === 'Enter') confirmAddStudent(); });
 document.getElementById('addStudentNumber').addEventListener('keydown', (e) => { if (e.key === 'Enter') confirmAddStudent(); });
+document.getElementById('passwordPromptInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') confirmPasswordPrompt(); });
 function closeStudentModal(){
   document.getElementById('studentModal').classList.add('hidden');
   currentStudentId = null;
   clearHealthPasswordSession();
+  clearConsultPasswordSession();
   renderStudents();
 }
 function deleteCurrentStudent(){
@@ -3472,10 +3551,20 @@ function renderModal(){
 function switchModalTab(key){
   if (key === 'health') {
     if (!requireHealthPassword()) {
-      currentModalTab = 'consult';
+      currentModalTab = 'cleaning';
       renderModal();
       return;
     }
+    currentModalTab = key;
+    renderModal();
+    return;
+  }
+  if (key === 'consult') {
+    requireConsultPassword(() => {
+      currentModalTab = 'consult';
+      renderModal();
+    });
+    return;
   }
   currentModalTab = key;
   renderModal();
@@ -3946,6 +4035,7 @@ function renderAdmin(){
   document.getElementById('classNameField').value = settingsCache.className || '';
   document.getElementById('healthPasswordField').value = settingsCache.healthPassword || 'health1234';
   document.getElementById('healthRecoveryEmailField').value = settingsCache.healthRecoveryEmail || TEACHER_EMAIL || '';
+  document.getElementById('consultPasswordField').value = settingsCache.consultPassword || 'consult1234';
   const isAdminView = isTeacher && currentView === 'admin';
   const unlockTrigger = document.getElementById('healthPasswordUnlockTrigger');
   if (unlockTrigger) {
@@ -4033,6 +4123,15 @@ function renderAdmin(){
 }
 function copyShareLink(){
   navigator.clipboard.writeText(document.getElementById('shareLinkField').value).then(() => alert('링크가 복사되었습니다.'));
+}
+function openShareQrZoom(){
+  const link = document.getElementById('shareLinkField').value;
+  if (!link) return;
+  document.getElementById('shareQrZoomImg').src = `https://api.qrserver.com/v1/create-qr-code/?size=480x480&data=${encodeURIComponent(link)}`;
+  document.getElementById('shareQrZoomModal').classList.remove('hidden');
+}
+function closeShareQrZoom(){
+  document.getElementById('shareQrZoomModal').classList.add('hidden');
 }
 function saveClassName(){
   settingsCache.className = document.getElementById('classNameField').value.trim();
