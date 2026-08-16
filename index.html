@@ -209,8 +209,10 @@ service cloud.firestore {
         <h1 class="font-display text-2xl mt-1">오늘의 학급 브리핑</h1>
       </div>
       <div class="flex items-center justify-between sm:justify-start gap-3">
+        <div id="dashCbtQrBox" class="hidden bg-card border border-gray-200 rounded-xl px-3 py-2.5 text-center min-w-[76px] self-stretch flex flex-col items-center justify-center shrink-0"></div>
         <button onclick="openAnimalLadderGame()" class="bg-card border border-gray-200 rounded-xl px-3 py-2.5 text-center min-w-[52px] self-stretch flex flex-col items-center justify-center hover:bg-gray-50 shrink-0" title="동물 달리기 경주 (랜덤 뽑기)">
           <span class="text-2xl leading-none">🏁</span>
+          <span class="text-[10px] text-gray-400 mt-0.5 leading-none">순서정하기</span>
         </button>
         <div id="dashWeather" class="bg-card border border-gray-200 rounded-xl px-4 py-2.5 text-center min-w-[100px]">
           <p class="text-2xl leading-none" id="dashWeatherIcon">🌡</p>
@@ -234,7 +236,7 @@ service cloud.firestore {
         </div>
 
         <div id="animalLadderSetupPanel">
-          <p class="text-sm text-gray-400 mb-3">동물을 눌러 참가자를 추가하세요 (최대 20명, 최소 2명, 같은 동물도 여러 번 추가할 수 있어요). 이름을 넣고 싶으면 아래 "학생 명단 불러오기"를 이용하세요(비밀번호 필요).</p>
+          <p class="text-sm text-gray-400 mb-3">동물을 눌러 참가자를 추가하세요 (최대 20명, 최소 2명, 동물마다 한 명씩만 선택돼요 — 다시 누르면 선택이 풀려요). 이름을 넣고 싶으면 아래 "학생 명단 불러오기"를 이용하세요(비밀번호 필요).</p>
           <div id="animalPalette" class="flex flex-wrap gap-2 mb-3"></div>
           <div class="flex gap-2 mb-3">
             <button onclick="selectAllAnimalPalette()" class="text-xs border border-gray-300 px-3 py-1.5 rounded-full hover:bg-gray-50">전체 선택</button>
@@ -336,13 +338,8 @@ service cloud.firestore {
           <div id="dashNotices" class="space-y-3 text-sm"></div>
         </div>
         <div class="bg-card border border-gray-200 rounded-xl p-5">
-          <div class="flex items-start justify-between gap-4">
-            <div class="flex-1 min-w-0">
-              <h2 class="font-display text-lg mb-3 text-forest-dark">📌 오늘의 학사일정</h2>
-              <div id="dashTodaySchedule" class="space-y-2 text-sm"></div>
-            </div>
-            <div id="dashCbtQrBox" class="shrink-0"></div>
-          </div>
+          <h2 class="font-display text-lg mb-3 text-forest-dark">📌 오늘의 학사일정</h2>
+          <div id="dashTodaySchedule" class="space-y-2 text-sm"></div>
           <h2 class="font-display text-lg mt-5 mb-3 text-forest-dark">🗓 다가오는 일정</h2>
           <div id="dashUpcoming" class="space-y-2 text-sm"></div>
         </div>
@@ -2121,20 +2118,23 @@ function renderCbtQrWidget(){
   const el = document.getElementById('dashCbtQrBox');
   if (!el) return;
   db.collection('cbtSettings').doc('checkin_' + todayStr()).get().then(doc => {
-    if (!doc.exists || !doc.data().token) { el.innerHTML = ''; return; }
+    if (!doc.exists || !doc.data().token) { el.classList.add('hidden'); el.innerHTML = ''; return; }
     const data = doc.data();
+    el.classList.remove('hidden');
     if (!cbtQrCutoffExpired(data.generatedAt)) {
       const url = `${CBT_PROGRAM_ORIGIN}/?checkin=${data.token}`;
       const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(url)}`;
       el.innerHTML = `
         <a href="${escapeAttr(url)}" target="_blank" rel="noopener" class="block text-center">
-          <img src="${qrUrl}" class="w-28 h-28 border border-gray-200 rounded-lg bg-white mx-auto" alt="CBT 오늘의 QR">
-          <p class="text-[10px] text-gray-400 mt-1">CBT 오늘의 QR</p>
+          <div class="w-14 h-14 mx-auto rounded-lg bg-white border-2 border-forest p-0.5 shadow-sm">
+            <img src="${qrUrl}" class="w-full h-full rounded" alt="CBT 오늘의 QR">
+          </div>
+          <p class="text-[10px] text-gray-400 mt-1 leading-none">CBT QR</p>
         </a>`;
     } else {
       el.innerHTML = `
-        <div class="w-28 h-28 mx-auto rounded-lg bg-white border border-gray-200 flex items-center justify-center">
-          <svg viewBox="0 0 100 100" class="w-20 h-20">
+        <div class="w-14 h-14 mx-auto rounded-lg bg-white border-2 border-gray-200 flex items-center justify-center">
+          <svg viewBox="0 0 100 100" class="w-10 h-10">
             <circle cx="50" cy="52" r="34" fill="#F8F1E4"/>
             <path d="M20 40 Q18 18 45 15 Q75 12 78 38 Q80 44 74 42 Q72 30 65 26 Q68 34 64 40 Q58 24 46 24 Q30 24 26 42 Q22 44 20 40Z" fill="#2A2A2A"/>
             <circle cx="50" cy="55" r="30" fill="none" stroke="#2A2A2A" stroke-width="2.5"/>
@@ -2147,7 +2147,7 @@ function renderCbtQrWidget(){
             <path d="M28 82 Q50 92 72 82 L72 100 L28 100Z" fill="#2A2A2A"/>
           </svg>
         </div>
-        <p class="text-[10px] text-gray-400 mt-1 text-center">오늘 QR 마감</p>`;
+        <p class="text-[10px] text-gray-400 mt-1 leading-none">QR 마감</p>`;
     }
   }).catch(err => console.error('CBT QR 조회 실패:', err));
 }
@@ -3372,6 +3372,7 @@ function renderStudents(){
    사다리타기 (학생 명단 툴바에서 실행하는 무작위 순서 뽑기)
 ============================================================ */
 const LADDER_ANIMALS = ['🐶','🐱','🐰','🦊','🐻','🐼','🐨','🐯','🦁','🐮','🐷','🐸','🐵','🐔','🐧','🐤','🦆','🦉','🐺','🦝','🐹','🐭','🐴','🐗'];
+const ANIMAL_NAMES = { '🐶':'강아지', '🐱':'고양이', '🐰':'토끼', '🦊':'여우', '🐻':'곰', '🐼':'판다', '🐨':'코알라', '🐯':'호랑이', '🦁':'사자', '🐮':'소', '🐷':'돼지', '🐸':'개구리', '🐵':'원숭이', '🐔':'닭', '🐧':'펭귄', '🐤':'병아리', '🦆':'오리', '🦉':'부엉이', '🐺':'늑대', '🦝':'너구리', '🐹':'햄스터', '🐭':'쥐', '🐴':'말', '🐗':'멧돼지' };
 const LADDER_COLORS = ['#D97862','#3B8B63','#D99C4A','#6FE0A0','#8B5CF6','#EC4899','#0EA5E9','#F59E0B','#10B981','#EF4444','#6366F1','#14B8A6','#F97316','#84CC16','#06B6D4','#A855F7','#F43F5E','#22C55E','#EAB308','#3B82F6'];
 let ladderParticipants = []; // { id, name, animal }
 let ladderSelectedIds = new Set();
@@ -3540,11 +3541,10 @@ function renderLadderRound(participants, opts){
 let animalLadderQueue = []; // [{ uid, animal, name }] — 같은 동물을 여러 번 추가할 수 있어 uid로 구분. name은 학생 명단을 불러왔을 때만 채워진다.
 function openAnimalLadderGame(){
   animalLadderQueue = [];
-  document.getElementById('animalPalette').innerHTML = LADDER_ANIMALS.map(a => `
-    <button onclick="addAnimalToLadderQueue('${a}')" class="text-2xl w-11 h-11 flex items-center justify-center rounded-lg border border-gray-200 hover:bg-forest-light hover:border-forest">${a}</button>`).join('');
   document.getElementById('animalLadderModal').classList.remove('hidden');
   document.getElementById('animalLadderSetupPanel').classList.remove('hidden');
   document.getElementById('animalLadderGamePanel').classList.add('hidden');
+  renderAnimalPalette();
   renderAnimalLadderQueue();
 }
 function closeAnimalLadderGame(){
@@ -3554,24 +3554,43 @@ function backToAnimalLadderSetup(){
   document.getElementById('animalLadderSetupPanel').classList.remove('hidden');
   document.getElementById('animalLadderGamePanel').classList.add('hidden');
 }
+// 동물 하나당 한 명만 선택할 수 있게 한다(팔레트를 누르면 선택/해제 토글) — 같은 동물을
+// 여러 번 눌러 여러 명이 되는 걸 막아서, 항상 동물 = 참가자 1명으로 알아보기 쉽게 유지한다.
+function renderAnimalPalette(){
+  const selected = new Set(animalLadderQueue.map(a => a.animal));
+  document.getElementById('animalPalette').innerHTML = LADDER_ANIMALS.map(a => `
+    <button onclick="addAnimalToLadderQueue('${a}')" class="text-2xl w-11 h-11 flex items-center justify-center rounded-lg border ${selected.has(a) ? 'bg-forest-light border-forest' : 'border-gray-200 hover:bg-forest-light hover:border-forest'}">${a}</button>`).join('');
+}
 function addAnimalToLadderQueue(animal){
+  const existing = animalLadderQueue.find(a => a.animal === animal);
+  if (existing) {
+    animalLadderQueue = animalLadderQueue.filter(a => a.animal !== animal);
+    renderAnimalPalette();
+    renderAnimalLadderQueue();
+    return;
+  }
   if (animalLadderQueue.length >= 20) return alert('최대 20명까지 추가할 수 있어요.');
-  animalLadderQueue.push({ uid: Date.now() + '_' + Math.random(), animal, name: '' });
+  animalLadderQueue.push({ uid: Date.now() + '_' + Math.random(), animal, name: ANIMAL_NAMES[animal] || animal });
+  renderAnimalPalette();
   renderAnimalLadderQueue();
 }
 function selectAllAnimalPalette(){
+  const selected = new Set(animalLadderQueue.map(a => a.animal));
   LADDER_ANIMALS.forEach(a => {
-    if (animalLadderQueue.length >= 20) return;
-    animalLadderQueue.push({ uid: Date.now() + '_' + Math.random(), animal: a, name: '' });
+    if (selected.has(a) || animalLadderQueue.length >= 20) return;
+    animalLadderQueue.push({ uid: Date.now() + '_' + Math.random(), animal: a, name: ANIMAL_NAMES[a] || a });
   });
+  renderAnimalPalette();
   renderAnimalLadderQueue();
 }
 function removeAnimalFromLadderQueue(uid){
   animalLadderQueue = animalLadderQueue.filter(a => a.uid !== uid);
+  renderAnimalPalette();
   renderAnimalLadderQueue();
 }
 function clearAnimalLadderSelection(){
   animalLadderQueue = [];
+  renderAnimalPalette();
   renderAnimalLadderQueue();
 }
 // 대시보드는 로그인 없이 누구나 보는 공개 화면이라, 실제 학생 이름을 불러오는 건 비밀번호로 막아둔다
@@ -3586,6 +3605,7 @@ function importStudentsToAnimalLadder(){
       .sort((a,b) => (parseInt(a.number) || 0) - (parseInt(b.number) || 0))
       .slice(0, 20)
       .map((s, i) => ({ uid: s.id, animal: animals[i % animals.length], name: displayStudentName(s.name) }));
+    renderAnimalPalette();
     renderAnimalLadderQueue();
   });
 }
