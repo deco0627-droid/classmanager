@@ -336,8 +336,13 @@ service cloud.firestore {
           <div id="dashNotices" class="space-y-3 text-sm"></div>
         </div>
         <div class="bg-card border border-gray-200 rounded-xl p-5">
-          <h2 class="font-display text-lg mb-3 text-forest-dark">📌 오늘의 학사일정</h2>
-          <div id="dashTodaySchedule" class="space-y-2 text-sm"></div>
+          <div class="flex items-start justify-between gap-4">
+            <div class="flex-1 min-w-0">
+              <h2 class="font-display text-lg mb-3 text-forest-dark">📌 오늘의 학사일정</h2>
+              <div id="dashTodaySchedule" class="space-y-2 text-sm"></div>
+            </div>
+            <div id="dashCbtQrBox" class="shrink-0"></div>
+          </div>
           <h2 class="font-display text-lg mt-5 mb-3 text-forest-dark">🗓 다가오는 일정</h2>
           <div id="dashUpcoming" class="space-y-2 text-sm"></div>
         </div>
@@ -2100,6 +2105,54 @@ function renderDailyLearning(){
 }
 
 /* ============================================================
+   CBT 자격증 학습(cbt-program.pages.dev)의 오늘의 QR을 학사일정 카드
+   옆에 그대로 띄운다 — 같은 Firebase 프로젝트를 쓰기 때문에 cbtSettings
+   컬렉션을 바로 읽을 수 있다(cbtSettings는 공개 읽기로 열려 있음).
+   오후 2시가 지나면 CBT 쪽 QR도 만료되므로, 그 시점부터는 QR 대신
+   배움꿈나무 선생님 아이콘으로 바뀐다.
+============================================================ */
+const CBT_PROGRAM_ORIGIN = 'https://cbt-program.pages.dev';
+function cbtQrCutoffExpired(generatedAt){
+  const cutoff = new Date();
+  cutoff.setHours(14, 0, 0, 0);
+  return Date.now() >= cutoff.getTime() && (generatedAt || 0) < cutoff.getTime();
+}
+function renderCbtQrWidget(){
+  const el = document.getElementById('dashCbtQrBox');
+  if (!el) return;
+  db.collection('cbtSettings').doc('checkin_' + todayStr()).get().then(doc => {
+    if (!doc.exists || !doc.data().token) { el.innerHTML = ''; return; }
+    const data = doc.data();
+    if (!cbtQrCutoffExpired(data.generatedAt)) {
+      const url = `${CBT_PROGRAM_ORIGIN}/?checkin=${data.token}`;
+      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(url)}`;
+      el.innerHTML = `
+        <a href="${escapeAttr(url)}" target="_blank" rel="noopener" class="block text-center">
+          <img src="${qrUrl}" class="w-28 h-28 border border-gray-200 rounded-lg bg-white mx-auto" alt="CBT 오늘의 QR">
+          <p class="text-[10px] text-gray-400 mt-1">CBT 오늘의 QR</p>
+        </a>`;
+    } else {
+      el.innerHTML = `
+        <div class="w-28 h-28 mx-auto rounded-lg bg-white border border-gray-200 flex items-center justify-center">
+          <svg viewBox="0 0 100 100" class="w-20 h-20">
+            <circle cx="50" cy="52" r="34" fill="#F8F1E4"/>
+            <path d="M20 40 Q18 18 45 15 Q75 12 78 38 Q80 44 74 42 Q72 30 65 26 Q68 34 64 40 Q58 24 46 24 Q30 24 26 42 Q22 44 20 40Z" fill="#2A2A2A"/>
+            <circle cx="50" cy="55" r="30" fill="none" stroke="#2A2A2A" stroke-width="2.5"/>
+            <rect x="27" y="46" width="17" height="14" rx="3" fill="none" stroke="#2A2A2A" stroke-width="2.8"/>
+            <rect x="56" y="46" width="17" height="14" rx="3" fill="none" stroke="#2A2A2A" stroke-width="2.8"/>
+            <line x1="44" y1="53" x2="56" y2="53" stroke="#2A2A2A" stroke-width="2.8"/>
+            <circle cx="35" cy="53" r="2.6" fill="#2A2A2A"/>
+            <circle cx="64" cy="53" r="2.6" fill="#2A2A2A"/>
+            <path d="M38 68 Q50 76 62 68" fill="none" stroke="#2A2A2A" stroke-width="2.8" stroke-linecap="round"/>
+            <path d="M28 82 Q50 92 72 82 L72 100 L28 100Z" fill="#2A2A2A"/>
+          </svg>
+        </div>
+        <p class="text-[10px] text-gray-400 mt-1 text-center">오늘 QR 마감</p>`;
+    }
+  }).catch(err => console.error('CBT QR 조회 실패:', err));
+}
+
+/* ============================================================
    대시보드 (공개 데이터만 사용)
 ============================================================ */
 function renderDashboard(){
@@ -2110,6 +2163,7 @@ function renderDashboard(){
   document.getElementById('dashStampDow').textContent = dow+'요일';
   renderCharacterWord();
   renderDailyLearning();
+  renderCbtQrWidget();
   applyDashCardOrder();
 
   const today = todayStr();
