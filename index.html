@@ -128,6 +128,8 @@
 
   @keyframes fadeIn { from { opacity:0; transform: translateY(6px);} to {opacity:1; transform:translateY(0);} }
   .fade-in { animation: fadeIn .18s ease; }
+  @keyframes raceLegBounce { 0%, 100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-3px) rotate(-8deg); } }
+  .race-bounce { animation: raceLegBounce 0.26s ease-in-out infinite; display: inline-block; }
   .badge-public { font-size: 10px; font-weight: 700; color: #6FE0A0; background:#28483C; padding:2px 8px; border-radius:9999px; letter-spacing:.03em; }
   .badge-private { font-size: 10px; font-weight: 700; color: #D97862; background:#3D241E; padding:2px 8px; border-radius:9999px; letter-spacing:.03em; }
 </style>
@@ -3636,44 +3638,74 @@ function runAnimalLadderRound(){
   const participants = animalLadderQueue.map(a => ({ animal: a.animal, name: a.name }));
   renderAnimalRace(participants);
 }
-// 동물들이 각자 다른 무작위 시간(2.5~5초) 동안 트랙 끝까지 달려서 도착 순서로 순위를 매긴다.
-// CSS transition의 transitionend 이벤트로 실제 도착 순서를 그대로 결과에 반영한다.
+// 등속으로 쭉 가는 대신 "스퍼트 - 멈칫"을 몇 차례 반복하며 트랙 끝까지 가게 만든다(총
+// 6~8초, 평균 7초). 멈칫하는 구간에서는 다리(아이콘) 통통 튀는 애니메이션도 같이 멈춰서
+// 실제로 달리다 멈추는 느낌을 준다.
+function buildRaceSteps(){
+  const finishPct = 88 + Math.random() * 6; // 트랙 폭 대비 88~94%까지 이동(나머지는 아이콘 폭 여유)
+  const stepCount = 5 + Math.floor(Math.random() * 3); // 5~7구간
+  const targetTotal = 6 + Math.random() * 2; // 6~8초
+  const steps = [];
+  let pos = 0, elapsed = 0;
+  for (let i = 0; i < stepCount; i++) {
+    const isLast = i === stepCount - 1;
+    const isPause = !isLast && Math.random() < 0.4;
+    let duration = isPause ? (0.25 + Math.random() * 0.35) : (targetTotal / stepCount) * (0.7 + Math.random() * 0.8);
+    if (isLast) duration = Math.max(0.5, targetTotal - elapsed);
+    let advance;
+    if (isLast) advance = finishPct - pos;
+    else if (isPause) advance = (finishPct - pos) * 0.03;
+    else advance = (finishPct - pos) / (stepCount - i) * (0.8 + Math.random() * 1.0);
+    pos = Math.min(finishPct, pos + advance);
+    elapsed += duration;
+    steps.push({ duration: Math.round(duration * 100) / 100, pos: Math.round(pos * 10) / 10, running: !isPause });
+  }
+  return steps;
+}
 function renderAnimalRace(participants){
   const wrap = document.getElementById('animalLadderSvgWrap');
   const resultEl = document.getElementById('animalLadderResultList');
   resultEl.innerHTML = '';
-  const durations = participants.map(() => 2.5 + Math.random() * 2.5);
 
   wrap.innerHTML = `<div class="space-y-2">${participants.map((p, i) => `
     <div class="relative h-10 bg-forest-light rounded-lg overflow-hidden">
       <span class="absolute inset-y-0 right-2 flex items-center text-sm">🏁</span>
-      <span id="racer${i}" class="absolute inset-y-0 flex items-center gap-1 text-2xl" style="left:0%">${p.animal}${p.name ? `<span class="text-xs font-semibold">${escapeHtml(p.name)}</span>` : ''}</span>
+      <span id="racer${i}" class="absolute inset-y-0 flex items-center gap-1" style="left:0%">
+        <span id="racerLeg${i}" class="race-bounce text-2xl">${p.animal}</span>${p.name ? `<span class="text-xs font-semibold">${escapeHtml(p.name)}</span>` : ''}
+      </span>
     </div>`).join('')}</div>`;
 
   const finishOrder = [];
-  participants.forEach((p, i) => {
+  function markFinish(i){
+    if (finishOrder.includes(i)) return;
+    finishOrder.push(i);
+    if (finishOrder.length === participants.length) {
+      resultEl.innerHTML = finishOrder.map((idx, rank) => `
+        <div class="flex items-center gap-2 text-sm">
+          <span class="font-mono font-bold text-forest-dark w-10">${rank+1}등</span>
+          <span class="text-lg">${participants[idx].animal}</span>
+          ${participants[idx].name ? `<span class="font-semibold">${escapeHtml(participants[idx].name)}</span>` : ''}
+        </div>`).join('');
+    }
+  }
+
+  const starters = participants.map((p, i) => {
     const el = document.getElementById(`racer${i}`);
-    el.addEventListener('transitionend', () => {
-      if (finishOrder.includes(i)) return;
-      finishOrder.push(i);
-      if (finishOrder.length === participants.length) {
-        resultEl.innerHTML = finishOrder.map((idx, rank) => `
-          <div class="flex items-center gap-2 text-sm">
-            <span class="font-mono font-bold text-forest-dark w-10">${rank+1}등</span>
-            <span class="text-lg">${participants[idx].animal}</span>
-            ${participants[idx].name ? `<span class="font-semibold">${escapeHtml(participants[idx].name)}</span>` : ''}
-          </div>`).join('');
-      }
-    }, { once: true });
+    const legEl = document.getElementById(`racerLeg${i}`);
+    const steps = buildRaceSteps();
+    function playStep(idx){
+      if (idx >= steps.length) { markFinish(i); return; }
+      const step = steps[idx];
+      legEl.classList.toggle('race-bounce', step.running);
+      const isLast = idx === steps.length - 1;
+      el.style.transition = `left ${step.duration}s ${step.running ? 'cubic-bezier(0.3,0,0.4,1)' : 'linear'}`;
+      el.style.left = isLast ? `calc(${step.pos}% - 2.25rem)` : `${step.pos}%`;
+      setTimeout(() => playStep(idx + 1), step.duration * 1000);
+    }
+    return playStep;
   });
 
-  requestAnimationFrame(() => {
-    participants.forEach((p, i) => {
-      const el = document.getElementById(`racer${i}`);
-      el.style.transition = `left ${durations[i].toFixed(2)}s linear`;
-      el.style.left = 'calc(100% - 2.25rem)';
-    });
-  });
+  requestAnimationFrame(() => starters.forEach(playStep => playStep(0)));
 }
 
 /* --- 학생 명단 붙여넣기 일괄 등록 --- */
