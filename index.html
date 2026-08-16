@@ -1603,7 +1603,6 @@ function bootstrapApp(){
     isTeacher = !!(user && user.email === TEACHER_EMAIL);
     currentUserEmail = user ? user.email : null;
     if (user && isTeacher) {
-      resetVisitStats();
       if (anonymousVisitCountedThisSession) rollbackAnonymousVisit();
     } else if (!user || !isTeacher) {
       trackVisit();
@@ -2374,12 +2373,6 @@ function selectMealSchool(i){
 /* ============================================================
    방문자 통계 (같은 IP는 10분 이내 재방문 시 카운트 제외)
 ============================================================ */
-function resetVisitStats(){
-  if (!db) return;
-  const statsRef = db.collection('stats').doc('visits');
-  statsRef.set({ total: 0, dailyDate: todayStr(), dailyCount: 0 }, { merge: true }).catch(() => {});
-  anonymousVisitCountedThisSession = false;
-}
 function rollbackAnonymousVisit(){
   if (!db || !anonymousVisitCountedThisSession) return;
   anonymousVisitCountedThisSession = false;
