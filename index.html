@@ -3671,7 +3671,7 @@ function renderAnimalRace(participants){
     <div class="relative h-10 bg-forest-light rounded-lg overflow-hidden">
       <span class="absolute inset-y-0 right-2 flex items-center text-sm">🏁</span>
       <span id="racer${i}" class="absolute inset-y-0 flex items-center gap-1" style="left:0%">
-        <span id="racerLeg${i}" class="race-bounce text-2xl">${p.animal}</span>${p.name ? `<span class="text-xs font-semibold">${escapeHtml(p.name)}</span>` : ''}
+        ${p.name ? `<span class="text-xs font-semibold">${escapeHtml(p.name)}</span>` : ''}<span id="racerLeg${i}" class="race-bounce text-2xl">${p.animal}</span>
       </span>
     </div>`).join('')}</div>`;
 
