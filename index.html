@@ -229,7 +229,7 @@ service cloud.firestore {
     <div id="animalLadderModal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
       <div class="bg-card rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6">
         <div class="flex items-center justify-between mb-4">
-          <h2 class="font-display text-xl text-forest-dark">🪜 사다리타기 (동물 랜덤 뽑기)</h2>
+          <h2 class="font-display text-xl text-forest-dark">🏁 동물 달리기 경주 (랜덤 뽑기)</h2>
           <button onclick="closeAnimalLadderGame()" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
         </div>
 
@@ -241,14 +241,14 @@ service cloud.firestore {
             <button onclick="clearAnimalLadderSelection()" class="text-xs border border-gray-300 px-3 py-1.5 rounded-full hover:bg-gray-50">전체 선택 해제</button>
           </div>
           <div id="animalLadderSelectedList" class="flex flex-wrap gap-1.5 mb-4 min-h-[2.5rem] border border-gray-200 rounded-lg p-2"></div>
-          <button id="animalLadderStartBtn" onclick="startAnimalLadderGame()" class="w-full bg-forest text-white px-5 py-2.5 rounded-lg text-sm font-semibold hover:bg-forest-dark disabled:opacity-40 disabled:cursor-not-allowed">사다리 타기 시작</button>
+          <button id="animalLadderStartBtn" onclick="startAnimalLadderGame()" class="w-full bg-forest text-white px-5 py-2.5 rounded-lg text-sm font-semibold hover:bg-forest-dark disabled:opacity-40 disabled:cursor-not-allowed">경주 시작</button>
         </div>
 
         <div id="animalLadderGamePanel" class="hidden">
           <div id="animalLadderSvgWrap" class="overflow-x-auto mb-4"></div>
           <div id="animalLadderResultList" class="space-y-1 mb-4"></div>
           <div class="flex gap-2">
-            <button onclick="redoAnimalLadderGame()" class="flex-1 border border-gray-300 py-2.5 rounded-lg text-sm font-semibold hover:bg-gray-50">🔁 다시 타기</button>
+            <button onclick="redoAnimalLadderGame()" class="flex-1 border border-gray-300 py-2.5 rounded-lg text-sm font-semibold hover:bg-gray-50">🔁 다시 경주</button>
             <button onclick="backToAnimalLadderSetup()" class="flex-1 border border-gray-300 py-2.5 rounded-lg text-sm font-semibold hover:bg-gray-50">🐾 참가자 다시 선택</button>
             <button onclick="closeAnimalLadderGame()" class="flex-1 bg-forest text-white py-2.5 rounded-lg text-sm font-semibold hover:bg-forest-dark">닫기</button>
           </div>
@@ -3510,7 +3510,45 @@ function redoAnimalLadderGame(){
 }
 function runAnimalLadderRound(){
   const participants = animalLadderQueue.map(a => ({ animal: a.animal }));
-  renderLadderRound(participants, { idPrefix: 'animalLadder', svgWrapId: 'animalLadderSvgWrap', resultListId: 'animalLadderResultList', showNames: false });
+  renderAnimalRace(participants);
+}
+// 동물들이 각자 다른 무작위 시간(2.5~5초) 동안 트랙 끝까지 달려서 도착 순서로 순위를 매긴다.
+// CSS transition의 transitionend 이벤트로 실제 도착 순서를 그대로 결과에 반영한다.
+function renderAnimalRace(participants){
+  const wrap = document.getElementById('animalLadderSvgWrap');
+  const resultEl = document.getElementById('animalLadderResultList');
+  resultEl.innerHTML = '';
+  const durations = participants.map(() => 2.5 + Math.random() * 2.5);
+
+  wrap.innerHTML = `<div class="space-y-2">${participants.map((p, i) => `
+    <div class="relative h-10 bg-forest-light rounded-lg overflow-hidden">
+      <span class="absolute inset-y-0 right-2 flex items-center text-sm">🏁</span>
+      <span id="racer${i}" class="absolute inset-y-0 flex items-center text-2xl" style="left:0%">${p.animal}</span>
+    </div>`).join('')}</div>`;
+
+  const finishOrder = [];
+  participants.forEach((p, i) => {
+    const el = document.getElementById(`racer${i}`);
+    el.addEventListener('transitionend', () => {
+      if (finishOrder.includes(i)) return;
+      finishOrder.push(i);
+      if (finishOrder.length === participants.length) {
+        resultEl.innerHTML = finishOrder.map((idx, rank) => `
+          <div class="flex items-center gap-2 text-sm">
+            <span class="font-mono font-bold text-forest-dark w-10">${rank+1}등</span>
+            <span class="text-lg">${participants[idx].animal}</span>
+          </div>`).join('');
+      }
+    }, { once: true });
+  });
+
+  requestAnimationFrame(() => {
+    participants.forEach((p, i) => {
+      const el = document.getElementById(`racer${i}`);
+      el.style.transition = `left ${durations[i].toFixed(2)}s linear`;
+      el.style.left = 'calc(100% - 2.25rem)';
+    });
+  });
 }
 
 /* --- 학생 명단 붙여넣기 일괄 등록 --- */
