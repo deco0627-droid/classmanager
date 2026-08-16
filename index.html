@@ -702,11 +702,14 @@ service cloud.firestore {
     <h1 class="font-display text-2xl mt-1 mb-5">공유 페이지 · 공지사항</h1>
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
       <div id="noticeWriteForm" class="hidden bg-card border border-gray-200 rounded-xl p-5 h-fit">
-        <h2 class="font-display text-lg mb-3 text-forest-dark">새 공지 작성</h2>
+        <h2 class="font-display text-lg mb-3 text-forest-dark" id="noticeFormTitle">새 공지 작성</h2>
         <input id="noticeTitle" placeholder="제목" class="border border-gray-300 rounded-lg px-3 py-2 text-sm w-full mb-2">
         <textarea id="noticeContent" placeholder="내용을 입력하세요" rows="5" class="border border-gray-300 rounded-lg px-3 py-2 text-sm w-full mb-2"></textarea>
         <input id="noticeTags" placeholder="태그 (예: #시험 #준비물)" class="border border-gray-300 rounded-lg px-3 py-2 text-sm w-full mb-3">
-        <button onclick="addNotice()" class="w-full bg-forest text-white py-2 rounded-lg text-sm font-semibold hover:bg-forest-dark">공지 등록</button>
+        <div class="flex gap-2">
+          <button onclick="saveNotice()" id="noticeSaveBtn" class="flex-1 bg-forest text-white py-2 rounded-lg text-sm font-semibold hover:bg-forest-dark">공지 등록</button>
+          <button onclick="cancelNoticeEdit()" id="noticeCancelBtn" class="hidden px-4 py-2 rounded-lg text-sm font-semibold border border-gray-300 hover:bg-gray-50">취소</button>
+        </div>
       </div>
       <div class="lg:col-span-2 space-y-3">
         <div class="flex flex-wrap gap-1.5" id="tagFilterBar"></div>
@@ -4063,18 +4066,47 @@ function deleteAward(i){ const s = getCurrentStudent(); s.awards.splice(i,1); pe
    공유 페이지 (공지사항) — 공개 열람, 작성은 교사만
 ============================================================ */
 let activeTagFilter = null;
-function addNotice(){
+let editingNoticeId = null;
+function saveNotice(){
   const title = document.getElementById('noticeTitle').value.trim();
   const content = document.getElementById('noticeContent').value.trim();
   const rawTags = document.getElementById('noticeTags').value.trim();
   if (!title || !content) return alert('제목과 내용을 입력해주세요.');
   const tags = rawTags.split(/[\s,]+/).map(t => t.replace(/^#/, '')).filter(Boolean);
-  db.collection('notices').add({ date: todayStr(), title, content, tags });
+  if (editingNoticeId) {
+    db.collection('notices').doc(editingNoticeId).update({ title, content, tags });
+  } else {
+    db.collection('notices').add({ date: todayStr(), title, content, tags });
+  }
+  cancelNoticeEdit();
+}
+function editNotice(id){
+  const n = noticesCache.find(x => x.id === id);
+  if (!n) return;
+  editingNoticeId = id;
+  document.getElementById('noticeTitle').value = n.title || '';
+  document.getElementById('noticeContent').value = n.content || '';
+  document.getElementById('noticeTags').value = (n.tags || []).map(t => '#' + t).join(' ');
+  document.getElementById('noticeFormTitle').textContent = '공지 수정';
+  document.getElementById('noticeSaveBtn').textContent = '수정 완료';
+  document.getElementById('noticeCancelBtn').classList.remove('hidden');
+  const form = document.getElementById('noticeWriteForm');
+  form.classList.remove('hidden');
+  form.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+function cancelNoticeEdit(){
+  editingNoticeId = null;
   document.getElementById('noticeTitle').value = '';
   document.getElementById('noticeContent').value = '';
   document.getElementById('noticeTags').value = '';
+  document.getElementById('noticeFormTitle').textContent = '새 공지 작성';
+  document.getElementById('noticeSaveBtn').textContent = '공지 등록';
+  document.getElementById('noticeCancelBtn').classList.add('hidden');
 }
-function deleteNotice(id){ db.collection('notices').doc(id).delete(); }
+function deleteNotice(id){
+  if (editingNoticeId === id) cancelNoticeEdit();
+  db.collection('notices').doc(id).delete();
+}
 function setTagFilter(tag){ activeTagFilter = activeTagFilter === tag ? null : tag; renderNotices(); }
 function renderNotices(){
   const allTags = [...new Set(noticesCache.flatMap(n => n.tags || []))];
@@ -4085,9 +4117,12 @@ function renderNotices(){
   const list = activeTagFilter ? noticesCache.filter(n => (n.tags||[]).includes(activeTagFilter)) : noticesCache;
   document.getElementById('noticeList').innerHTML = list.length ? list.map(n => `
     <div class="bg-card border border-gray-200 rounded-xl p-4">
-      <div class="flex justify-between items-start">
+      <div class="flex justify-between items-start gap-2">
         <p class="font-display text-lg">${escapeHtml(n.title)}</p>
-        ${isTeacher ? `<button onclick="deleteNotice('${n.id}')" class="text-gray-300 hover:text-brick text-lg leading-none">&times;</button>` : ''}
+        ${isTeacher ? `<div class="flex items-center gap-2 shrink-0">
+          <button onclick="editNotice('${n.id}')" class="text-gray-300 hover:text-forest-dark text-sm leading-none" title="수정">✏️</button>
+          <button onclick="deleteNotice('${n.id}')" class="text-gray-300 hover:text-brick text-lg leading-none" title="삭제">&times;</button>
+        </div>` : ''}
       </div>
       <p class="font-mono text-xs text-gray-400 mb-2">${n.date}</p>
       <p class="text-sm text-gray-700 whitespace-pre-line">${escapeHtml(n.content)}</p>
