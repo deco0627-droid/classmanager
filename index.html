@@ -3056,7 +3056,7 @@ function openNoticesListModal(){
     <div class="bg-card border border-gray-200 rounded-xl p-4">
       <p class="font-display text-lg">${escapeHtml(n.title)}</p>
       <p class="font-mono text-xs text-gray-400 mb-2">${n.date}</p>
-      <p class="text-sm text-gray-700 whitespace-pre-line">${escapeHtml(n.content)}</p>
+      <p class="text-base text-gray-700 whitespace-pre-line">${escapeHtml(n.content)}</p>
       <div class="flex gap-1.5 mt-3 flex-wrap">
         ${(n.tags||[]).map(t => `<span class="text-xs bg-amber-light text-amber px-2 py-0.5 rounded-full">#${escapeHtml(t)}</span>`).join('')}
       </div>
@@ -4125,7 +4125,7 @@ function renderNotices(){
         </div>` : ''}
       </div>
       <p class="font-mono text-xs text-gray-400 mb-2">${n.date}</p>
-      <p class="text-sm text-gray-700 whitespace-pre-line">${escapeHtml(n.content)}</p>
+      <p class="text-base text-gray-700 whitespace-pre-line">${escapeHtml(n.content)}</p>
       <div class="flex gap-1.5 mt-3 flex-wrap">
         ${(n.tags||[]).map(t => `<span class="text-xs bg-amber-light text-amber px-2 py-0.5 rounded-full">#${escapeHtml(t)}</span>`).join('')}
       </div>
