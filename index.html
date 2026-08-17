@@ -133,7 +133,6 @@
   @keyframes raceLegKick { 0%, 100% { transform: rotate(-28deg); } 50% { transform: rotate(28deg); } }
   .race-legs span { display: inline-block; width: 4px; height: 11px; background: #2A2A2A; border-radius: 1px; transform-origin: top center; animation: raceLegKick 0.22s ease-in-out infinite; }
   .race-legs span:nth-child(2) { animation-delay: 0.11s; }
-  .race-legs.paused span { animation-play-state: paused; transform: rotate(0deg); }
   .badge-public { font-size: 10px; font-weight: 700; color: #6FE0A0; background:#28483C; padding:2px 8px; border-radius:9999px; letter-spacing:.03em; }
   .badge-private { font-size: 10px; font-weight: 700; color: #D97862; background:#3D241E; padding:2px 8px; border-radius:9999px; letter-spacing:.03em; }
   .admin-collapse-btn { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px; text-align: left; }
@@ -960,13 +959,7 @@ service cloud.firestore {
           <p class="text-[11px] text-gray-400 mb-1">복구용 이메일은 위 건강 비밀번호 설정과 같은 걸 사용해요.</p>
           <button onclick="recoverConsultPassword()" class="mt-1 text-xs text-forest-dark font-semibold hover:underline">비밀번호를 잊었어요 — 복구 메일 보내기</button>
 
-          <label class="text-xs font-semibold text-gray-500 mt-4 block">대시보드 학생 명단 불러오기 비밀번호</label>
-          <p class="text-[11px] text-gray-400 mb-2">대시보드는 로그인 없이 누구나 볼 수 있어서, 동물 달리기 경주에 실제 학생 이름을 불러올 때만 이 비밀번호로 한 번 더 확인합니다. 기본값은 <b>roster1234</b>입니다.</p>
-          <div class="flex gap-2 mt-1 mb-2">
-            <input id="rosterImportPasswordField" type="password" placeholder="학생 명단 불러오기 비밀번호" class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm">
-            <button onclick="saveRosterImportPassword()" class="bg-forest text-white px-4 rounded-lg text-sm font-semibold">저장</button>
-          </div>
-          <button onclick="recoverRosterImportPassword()" class="mt-1 text-xs text-forest-dark font-semibold hover:underline">비밀번호를 잊었어요 — 복구 메일 보내기</button>
+          <p class="text-[11px] text-gray-400 mt-4">💡 대시보드 동물 달리기 경주에서 실제 학생 이름을 불러올 때도 이 건강 비밀번호로 확인해요 — 비밀번호가 여러 개로 늘어나지 않게 같은 걸 재사용합니다.</p>
         </div>
 
         <label class="text-xs font-semibold text-gray-500">자격증 종류 관리</label>
@@ -1612,7 +1605,6 @@ function defaultSettings(){
     className: '학급 수첩', certificateTypes: [...DEFAULT_CERT_TYPES], timetable: {}, certGuide: '', certRoadmap: null,
     healthPassword: 'health1234',
     consultPassword: 'consult1234',
-    rosterImportPassword: 'roster1234',
     healthRecoveryEmail: TEACHER_EMAIL || '',
     weatherLocation: { name: '서울시 구로구', lat: 37.4954, lon: 126.8874 },
     certLinks: { '한국사능력검정시험': 'https://www.historyexam.go.kr/?link=examSchedule' },
@@ -3955,47 +3947,35 @@ function runAnimalLadderRound(){
   renderAnimalRace(participants);
 }
 // 등속으로 쭉 가는 대신 "스퍼트 - 멈칫"을 몇 차례 반복하며 트랙 끝까지 가게 만든다(총
-// 8~12초, 평균 10초). 멈칫하는 구간에서는 다리(아이콘) 통통 튀는 애니메이션도 같이 멈춰서
-// 실제로 달리다 멈추는 느낌을 준다.
-function buildRaceSteps(){
-  const finishPct = 80 + Math.random() * 8; // 트랙 폭 대비 80~88%까지 이동 — 캐릭터 블록 자체 너비만큼은
-  // 여유를 둬서 도착했을 때 깃발과 겹치듯 딱 붙어 보이게 하고, 잘려서 안 보이지 않게 한다.
-  const stepCount = 6 + Math.floor(Math.random() * 4); // 6~9구간
-  const targetTotal = 8 + Math.random() * 4; // 8~12초
-
-  // 구간별 시간을 먼저 "비율"로만 정한 다음, 합이 정확히 targetTotal이 되도록 나중에
-  // 한 번에 맞춘다 — 그래야 멈칫 구간이 많이 뽑힌 참가자가 우연히 훨씬 오래 걸려서
-  // "혼자 결승선에 안 가는 것처럼" 보이는 일이 없다(모든 참가자가 8~12초 안에 도착).
-  const isPauseList = [];
-  const rawDurations = [];
-  for (let i = 0; i < stepCount; i++) {
-    const isLast = i === stepCount - 1;
-    const isPause = !isLast && Math.random() < 0.4;
-    isPauseList.push(isPause);
-    rawDurations.push(isPause ? (0.25 + Math.random() * 0.35) : (0.7 + Math.random() * 0.8));
-  }
-  const rawTotal = rawDurations.reduce((a, b) => a + b, 0);
-  const scale = targetTotal / rawTotal;
-
-  const steps = [];
+// 8~12초, 평균 10초). JS setTimeout으로 매 구간을 이어붙이는 대신 CSS @keyframes 하나로
+// 통째로 만들어서 브라우저(컴포지터)가 애니메이션을 전담하게 한다 — 참가자가 많거나
+// 브라우저가 타이머를 스로틀링해도 각자 자기 keyframe을 끝까지 재생하고 animationend가
+// 반드시 발생하므로, 일부만 결승선에 못 가는 문제가 생기지 않는다.
+function buildRaceKeyframeCss(name, finishPct){
+  const segCount = 6 + Math.floor(Math.random() * 4); // 6~9구간
+  const isPause = [];
+  for (let i = 0; i < segCount; i++) isPause.push(i < segCount - 1 && Math.random() < 0.4); // 마지막 구간은 항상 전진
   let pos = 0;
-  for (let i = 0; i < stepCount; i++) {
-    const isLast = i === stepCount - 1;
-    const isPause = isPauseList[i];
-    const duration = Math.max(0.2, rawDurations[i] * scale);
-    let advance;
-    if (isLast) advance = finishPct - pos;
-    else if (isPause) advance = (finishPct - pos) * 0.03;
-    else advance = (finishPct - pos) / (stepCount - i) * (0.8 + Math.random() * 1.0);
-    pos = Math.min(finishPct, pos + advance);
-    steps.push({ duration: Math.round(duration * 100) / 100, pos: Math.round(pos * 10) / 10, running: !isPause });
+  const frames = ['0% { left: 0%; }'];
+  for (let i = 0; i < segCount; i++) {
+    const isLast = i === segCount - 1;
+    if (isLast) {
+      pos = finishPct;
+    } else if (!isPause[i]) {
+      const remainRun = isPause.slice(i).filter(p => !p).length; // 자기 포함 남은 전진 구간 수
+      pos = Math.min(finishPct, pos + (finishPct - pos) / remainRun * (0.7 + Math.random() * 0.6));
+    }
+    const t = (((i + 1) / segCount) * 100).toFixed(2);
+    frames.push(`${t}% { left: ${pos.toFixed(1)}%; }`);
   }
-  return steps;
+  return `@keyframes ${name} { ${frames.join(' ')} }`;
 }
+let raceStyleEl = null;
 function renderAnimalRace(participants){
   const wrap = document.getElementById('animalLadderSvgWrap');
   const resultEl = document.getElementById('animalLadderResultList');
   resultEl.innerHTML = '';
+  if (raceStyleEl) { raceStyleEl.remove(); raceStyleEl = null; } // 이전 "다시 타기"에서 넣어둔 keyframe 정리
 
   wrap.innerHTML = `<div class="space-y-2">${participants.map((p, i) => `
     <div class="relative h-10 bg-forest-light rounded-lg overflow-hidden">
@@ -4003,8 +3983,8 @@ function renderAnimalRace(participants){
       <span id="racer${i}" class="absolute inset-y-0 flex items-center gap-1" style="left:0%">
         ${p.name ? `<span class="text-xs font-semibold">${escapeHtml(p.name)}</span>` : ''}
         <span class="flex flex-col items-center leading-none">
-          <span id="racerLeg${i}" class="race-bounce text-2xl">${p.animal}</span>
-          <span id="racerFeet${i}" class="race-legs flex gap-0.5"><span></span><span></span></span>
+          <span class="race-bounce text-2xl">${p.animal}</span>
+          <span class="race-legs flex gap-0.5"><span></span><span></span></span>
         </span>
       </span>
     </div>`).join('')}</div>`;
@@ -4023,24 +4003,21 @@ function renderAnimalRace(participants){
     }
   }
 
-  const starters = participants.map((p, i) => {
+  const raceToken = Date.now();
+  let cssText = '';
+  participants.forEach((p, i) => {
+    const finishPct = 80 + Math.random() * 8; // 트랙 폭 대비 80~88%까지 — 캐릭터 자체 너비만큼 여유를 둬서
+    // 깃발에 딱 붙어 보이면서도 잘려서 안 보이는 일이 없게 한다.
+    const duration = (8 + Math.random() * 4).toFixed(2); // 8~12초
+    const name = `raceRun${raceToken}_${i}`;
+    cssText += buildRaceKeyframeCss(name, finishPct) + '\n';
     const el = document.getElementById(`racer${i}`);
-    const legEl = document.getElementById(`racerLeg${i}`);
-    const feetEl = document.getElementById(`racerFeet${i}`);
-    const steps = buildRaceSteps();
-    function playStep(idx){
-      if (idx >= steps.length) { markFinish(i); return; }
-      const step = steps[idx];
-      legEl.classList.toggle('race-bounce', step.running);
-      feetEl.classList.toggle('paused', !step.running);
-      el.style.transition = `left ${step.duration}s ${step.running ? 'cubic-bezier(0.3,0,0.4,1)' : 'linear'}`;
-      el.style.left = `${step.pos}%`;
-      setTimeout(() => playStep(idx + 1), step.duration * 1000);
-    }
-    return playStep;
+    el.style.animation = `${name} ${duration}s cubic-bezier(0.3,0,0.4,1) forwards`;
+    el.addEventListener('animationend', () => markFinish(i), { once: true });
   });
-
-  requestAnimationFrame(() => starters.forEach(playStep => playStep(0)));
+  raceStyleEl = document.createElement('style');
+  raceStyleEl.textContent = cssText;
+  document.head.appendChild(raceStyleEl);
 }
 
 /* --- 학생 명단 붙여넣기 일괄 등록 --- */
@@ -4186,8 +4163,10 @@ function recoverConsultPassword(){
   const body = encodeURIComponent(`안녕하세요.\n\n상담 일지 비밀번호를 잊어버렸습니다.\n현재 설정된 비밀번호는 "${getConsultPassword()}" 입니다.\n\n관리자 페이지에서 비밀번호를 새로 변경할 수 있습니다.\n`);
   window.location.href = `mailto:${email}?subject=${subject}&body=${body}`;
 }
+// 대시보드 학생 명단 불러오기는 별도 비밀번호를 두지 않고 건강 비밀번호를 그대로 재사용한다
+// (요청: "건강상태의 비밀번호와 동일하게 해달라") — 비밀번호가 여러 개로 늘어나 헷갈리지 않게.
 function getRosterImportPassword(){
-  return (settingsCache && settingsCache.rosterImportPassword) ? String(settingsCache.rosterImportPassword).trim() : 'roster1234';
+  return getHealthPassword();
 }
 function requireRosterImportPassword(onSuccess){
   openPasswordPrompt('학생 명단을 불러오려면 비밀번호를 입력하세요.', (input) => {
@@ -4195,22 +4174,6 @@ function requireRosterImportPassword(onSuccess){
     if (input.trim() !== getRosterImportPassword()) { alert('비밀번호가 올바르지 않습니다.'); return; }
     onSuccess();
   });
-}
-function saveRosterImportPassword(){
-  const value = document.getElementById('rosterImportPasswordField').value.trim();
-  settingsCache.rosterImportPassword = value || 'roster1234';
-  db.collection('settings').doc('general').set({ rosterImportPassword: settingsCache.rosterImportPassword }, { merge: true });
-  alert('학생 명단 불러오기 비밀번호가 저장되었습니다.');
-}
-function recoverRosterImportPassword(){
-  const email = (settingsCache && settingsCache.healthRecoveryEmail) ? String(settingsCache.healthRecoveryEmail).trim() : '';
-  if (!email) {
-    alert('복구용 이메일이 아직 설정되지 않았습니다. 관리자 설정에서 복구용 이메일을 먼저 등록해주세요.');
-    return;
-  }
-  const subject = encodeURIComponent('[학급 수첩] 학생 명단 불러오기 비밀번호 복구 요청');
-  const body = encodeURIComponent(`안녕하세요.\n\n대시보드 사다리타기/경주에서 학생 명단 불러오기 비밀번호를 잊어버렸습니다.\n현재 설정된 비밀번호는 "${getRosterImportPassword()}" 입니다.\n\n관리자 페이지에서 비밀번호를 새로 변경할 수 있습니다.\n`);
-  window.location.href = `mailto:${email}?subject=${subject}&body=${body}`;
 }
 function openStudentEditor(id){
   if (!isTeacher || !id) return;
@@ -4857,7 +4820,6 @@ function renderAdmin(){
   document.getElementById('healthPasswordField').value = settingsCache.healthPassword || 'health1234';
   document.getElementById('healthRecoveryEmailField').value = settingsCache.healthRecoveryEmail || TEACHER_EMAIL || '';
   document.getElementById('consultPasswordField').value = settingsCache.consultPassword || 'consult1234';
-  document.getElementById('rosterImportPasswordField').value = settingsCache.rosterImportPassword || 'roster1234';
   const isAdminView = isTeacher && currentView === 'admin';
   const unlockTrigger = document.getElementById('healthPasswordUnlockTrigger');
   if (unlockTrigger) {
