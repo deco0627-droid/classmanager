@@ -3958,7 +3958,8 @@ function runAnimalLadderRound(){
 // 8~12초, 평균 10초). 멈칫하는 구간에서는 다리(아이콘) 통통 튀는 애니메이션도 같이 멈춰서
 // 실제로 달리다 멈추는 느낌을 준다.
 function buildRaceSteps(){
-  const finishPct = 88 + Math.random() * 6; // 트랙 폭 대비 88~94%까지 이동(나머지는 아이콘 폭 여유)
+  const finishPct = 80 + Math.random() * 8; // 트랙 폭 대비 80~88%까지 이동 — 캐릭터 블록 자체 너비만큼은
+  // 여유를 둬서 도착했을 때 깃발과 겹치듯 딱 붙어 보이게 하고, 잘려서 안 보이지 않게 한다.
   const stepCount = 6 + Math.floor(Math.random() * 4); // 6~9구간
   const targetTotal = 8 + Math.random() * 4; // 8~12초
 
@@ -4032,9 +4033,8 @@ function renderAnimalRace(participants){
       const step = steps[idx];
       legEl.classList.toggle('race-bounce', step.running);
       feetEl.classList.toggle('paused', !step.running);
-      const isLast = idx === steps.length - 1;
       el.style.transition = `left ${step.duration}s ${step.running ? 'cubic-bezier(0.3,0,0.4,1)' : 'linear'}`;
-      el.style.left = isLast ? `calc(${step.pos}% - 2.25rem)` : `${step.pos}%`;
+      el.style.left = `${step.pos}%`;
       setTimeout(() => playStep(idx + 1), step.duration * 1000);
     }
     return playStep;
