@@ -4034,24 +4034,55 @@ function renderAnimalRace(participants){
     }
   }
 
-  const starters = participants.map((p, i) => {
+  // 각 참가자의 구간(step)들을 누적 시간 구간(timeline)으로 바꿔두고, 매 프레임마다 실제
+  // 경과 시간(performance.now() 기준)으로 현재 위치를 직접 계산해서 적용한다. CSS
+  // transition이나 @keyframes에 애니메이션 완료를 맡기지 않는 방식이라 — 브라우저나
+  // 타이밍에 따라 일부만 애니메이션이 시작·완료되지 않는 문제 자체가 생길 수 없다
+  // (매 프레임 "지금 몇 초 지났으니 몇 % 위치여야 한다"를 직접 계산해서 그대로 반영).
+  const racers = participants.map((p, i) => {
     const el = document.getElementById(`racer${i}`);
     const legEl = document.getElementById(`racerLeg${i}`);
     const feetEl = document.getElementById(`racerFeet${i}`);
     const steps = buildRaceSteps();
-    function playStep(idx){
-      if (idx >= steps.length) { markFinish(i); return; }
-      const step = steps[idx];
-      legEl.classList.toggle('race-bounce', step.running);
-      feetEl.classList.toggle('paused', !step.running);
-      el.style.transition = `left ${step.duration}s ${step.running ? 'cubic-bezier(0.3,0,0.4,1)' : 'linear'}`;
-      el.style.left = `${step.pos}%`;
-      setTimeout(() => playStep(idx + 1), step.duration * 1000);
-    }
-    return playStep;
+    let t = 0, prevPos = 0;
+    const timeline = steps.map(s => {
+      const seg = { tStart: t, tEnd: t + s.duration, posStart: prevPos, posEnd: s.pos, running: s.running };
+      t += s.duration;
+      prevPos = s.pos;
+      return seg;
+    });
+    return { el, legEl, feetEl, timeline, totalDuration: t, finished: false, lastRunning: null };
   });
 
-  requestAnimationFrame(() => starters.forEach(playStep => playStep(0)));
+  const startTime = performance.now();
+  function tick(now){
+    const elapsed = (now - startTime) / 1000;
+    let stillRunning = false;
+    racers.forEach((r, i) => {
+      if (r.finished) return;
+      const lastSeg = r.timeline[r.timeline.length - 1];
+      if (elapsed >= r.totalDuration) {
+        r.el.style.left = `${lastSeg.posEnd}%`;
+        r.finished = true;
+        markFinish(i);
+        return;
+      }
+      stillRunning = true;
+      const seg = r.timeline.find(s => elapsed < s.tEnd) || lastSeg;
+      const span = seg.tEnd - seg.tStart;
+      const progress = span > 0 ? Math.min(1, (elapsed - seg.tStart) / span) : 1;
+      const eased = seg.running ? (1 - Math.pow(1 - progress, 3)) : progress; // 스퍼트 구간만 살짝 감속 곡선
+      const pos = seg.posStart + (seg.posEnd - seg.posStart) * eased;
+      r.el.style.left = `${pos.toFixed(2)}%`;
+      if (r.lastRunning !== seg.running) {
+        r.legEl.classList.toggle('race-bounce', seg.running);
+        r.feetEl.classList.toggle('paused', !seg.running);
+        r.lastRunning = seg.running;
+      }
+    });
+    if (stillRunning) requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
 }
 
 /* --- 학생 명단 붙여넣기 일괄 등록 --- */
