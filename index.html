@@ -596,6 +596,7 @@ service cloud.firestore {
       <h1 class="font-display text-2xl">학생 명단</h1>
       <div class="flex items-center gap-2 flex-wrap">
         <button onclick="openLadderGame()" class="bg-card border border-gray-300 text-forest-dark px-3 py-1.5 rounded-lg text-sm font-semibold hover:bg-gray-50">🪜 사다리타기</button>
+        <button onclick="openBasicIntakeModal()" class="bg-card border-2 border-amber text-amber px-3 py-1.5 rounded-lg text-sm font-semibold hover:bg-amber-light">📋 기초 상담지</button>
         <input id="studentSearch" oninput="renderStudents()" placeholder="이름 검색..." class="border border-gray-300 rounded-lg px-3 py-1.5 text-sm w-40">
         <div class="flex bg-card border border-gray-300 rounded-lg overflow-hidden text-xs">
           <button onclick="setStudentView('card')" id="viewBtnCard" class="px-3 py-1.5 font-semibold bg-forest text-white">카드형</button>
@@ -635,6 +636,77 @@ service cloud.firestore {
             <button onclick="backToLadderSetup()" class="flex-1 border border-gray-300 py-2.5 rounded-lg text-sm font-semibold hover:bg-gray-50">👥 인원 다시 선택</button>
             <button onclick="closeLadderGame()" class="flex-1 bg-forest text-white py-2.5 rounded-lg text-sm font-semibold hover:bg-forest-dark">닫기</button>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="basicIntakeModal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+      <div class="bg-card rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="font-display text-xl text-forest-dark">📋 기초 상담지</h2>
+          <button onclick="closeBasicIntakeModal()" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+        </div>
+
+        <div id="basicIntakeListPanel">
+          <p class="text-xs text-gray-400 mb-3">1학년 신입생 기초 파악용 상담지예요. 자주 쓰는 상담 기록은 학생 카드의 "상담 일지" 탭을 계속 이용해주세요 — 이건 학기 초에 한 번 정리해두는 기초 정보용이에요.</p>
+          <input id="basicIntakeSearch" oninput="renderBasicIntakeList()" placeholder="이름 검색..." class="border border-gray-300 rounded-lg px-3 py-2 text-sm w-full mb-3">
+          <div id="basicIntakeList" class="space-y-1.5 max-h-[420px] overflow-y-auto pr-1"></div>
+        </div>
+
+        <div id="basicIntakeFormPanel" class="hidden">
+          <button onclick="backToBasicIntakeList()" class="text-xs text-gray-400 hover:text-forest-dark mb-3">← 목록으로</button>
+          <p class="font-display text-lg text-forest-dark mb-3" id="basicIntakeStudentName"></p>
+          <div class="space-y-3">
+            <label class="block text-xs font-semibold text-gray-500">특성화고 입학 동기
+              <select id="biMotivation" class="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                <option value="">선택 안 함</option>
+                <option value="자의">스스로 선택함(자의)</option>
+                <option value="타의">부모님(보호자) 권유(타의)</option>
+                <option value="성적">성적에 맞춰서</option>
+                <option value="기타">기타</option>
+              </select>
+            </label>
+            <label class="block text-xs font-semibold text-gray-500">희망 진로·직종
+              <input id="biHopeCareer" placeholder="예: 전기기사, 로봇 관련 직무 등" class="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm">
+            </label>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <label class="block text-xs font-semibold text-gray-500">1학기 이후 진로 결정 상태
+                <select id="biCareerStatus" class="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                  <option value="">선택 안 함</option>
+                  <option value="결정함">결정함</option>
+                  <option value="고민중">고민 중</option>
+                  <option value="미정">아직 미정</option>
+                </select>
+              </label>
+              <label class="block text-xs font-semibold text-gray-500">졸업 후 희망 진로
+                <select id="biAfterGraduation" class="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                  <option value="">선택 안 함</option>
+                  <option value="취업">취업</option>
+                  <option value="진학">대학 진학</option>
+                  <option value="미정">미정</option>
+                </select>
+              </label>
+            </div>
+            <label class="block text-xs font-semibold text-gray-500">진로 결정 내용(구체적으로)
+              <input id="biCareerDetail" placeholder="결정했다면 구체적으로 어떤 진로인지" class="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm">
+            </label>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <label class="block text-xs font-semibold text-gray-500">같은 학교에 다니는 형제자매·가족
+                <select id="biFamilyAtSchool" class="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                  <option value="">선택 안 함</option>
+                  <option value="있음">있음</option>
+                  <option value="없음">없음</option>
+                </select>
+              </label>
+              <label class="block text-xs font-semibold text-gray-500">관계·이름(학년반)
+                <input id="biFamilyDetail" placeholder="예: 언니, 3학년 2반 홍길동" class="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm">
+              </label>
+            </div>
+            <label class="block text-xs font-semibold text-gray-500">상담 시 참고할 점 (교우관계·특이사항 등)
+              <textarea id="biNote" rows="4" class="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm"></textarea>
+            </label>
+          </div>
+          <button onclick="saveBasicIntake()" class="mt-4 w-full bg-forest text-white py-2.5 rounded-lg text-sm font-semibold hover:bg-forest-dark">저장</button>
         </div>
       </div>
     </div>
@@ -3493,6 +3565,76 @@ function shuffleArray(arr){
     [a[i], a[j]] = [a[j], a[i]];
   }
   return a;
+}
+/* ============================================================
+   기초 상담지 — 학기 초에 한 번 정리해두는 신입생 기초 파악용 상담지.
+   자주 쓰는 상담 기록(상담 일지 탭)과는 별개로, 학생별 구조화된 항목을
+   목록에서 골라 채워 넣는 방식이다.
+============================================================ */
+let basicIntakeStudentId = null;
+function openBasicIntakeModal(){
+  document.getElementById('basicIntakeModal').classList.remove('hidden');
+  document.getElementById('basicIntakeListPanel').classList.remove('hidden');
+  document.getElementById('basicIntakeFormPanel').classList.add('hidden');
+  document.getElementById('basicIntakeSearch').value = '';
+  renderBasicIntakeList();
+}
+function closeBasicIntakeModal(){
+  document.getElementById('basicIntakeModal').classList.add('hidden');
+  basicIntakeStudentId = null;
+}
+function renderBasicIntakeList(){
+  const q = document.getElementById('basicIntakeSearch').value.trim();
+  const list = studentsCache
+    .filter(s => !q || displayStudentName(s.name).includes(q))
+    .slice()
+    .sort((a,b) => (parseInt(a.number) || 0) - (parseInt(b.number) || 0));
+  document.getElementById('basicIntakeList').innerHTML = list.length ? list.map(s => `
+    <button onclick="openBasicIntakeForm('${s.id}')" class="w-full flex items-center justify-between gap-2 text-left bg-card border border-gray-200 rounded-lg px-3 py-2 hover:border-forest">
+      <span class="text-sm"><span class="font-mono text-gray-400 mr-2">${escapeHtml(s.number || '')}</span>${escapeHtml(displayStudentName(s.name))}</span>
+      <span class="text-xs ${s.basicIntake ? 'text-forest-dark font-semibold' : 'text-gray-400'}">${s.basicIntake ? '작성됨' : '미작성'}</span>
+    </button>`).join('') : `<p class="text-gray-400 text-sm">학생이 없습니다.</p>`;
+}
+function openBasicIntakeForm(id){
+  const s = studentsCache.find(x => x.id === id);
+  if (!s) return;
+  basicIntakeStudentId = id;
+  const bi = s.basicIntake || {};
+  document.getElementById('basicIntakeStudentName').textContent = `${s.number ? s.number + '번 ' : ''}${displayStudentName(s.name)}`;
+  document.getElementById('biMotivation').value = bi.motivation || '';
+  document.getElementById('biHopeCareer').value = bi.hopeCareer || '';
+  document.getElementById('biCareerStatus').value = bi.careerStatus || '';
+  document.getElementById('biAfterGraduation').value = bi.afterGraduation || '';
+  document.getElementById('biCareerDetail').value = bi.careerDetail || '';
+  document.getElementById('biFamilyAtSchool').value = bi.familyAtSchool || '';
+  document.getElementById('biFamilyDetail').value = bi.familyDetail || '';
+  document.getElementById('biNote').value = bi.note || '';
+  document.getElementById('basicIntakeListPanel').classList.add('hidden');
+  document.getElementById('basicIntakeFormPanel').classList.remove('hidden');
+}
+function backToBasicIntakeList(){
+  document.getElementById('basicIntakeFormPanel').classList.add('hidden');
+  document.getElementById('basicIntakeListPanel').classList.remove('hidden');
+  renderBasicIntakeList();
+}
+function saveBasicIntake(){
+  if (!basicIntakeStudentId) return;
+  const s = studentsCache.find(x => x.id === basicIntakeStudentId);
+  if (!s) return;
+  s.basicIntake = {
+    motivation: document.getElementById('biMotivation').value,
+    hopeCareer: document.getElementById('biHopeCareer').value.trim(),
+    careerStatus: document.getElementById('biCareerStatus').value,
+    afterGraduation: document.getElementById('biAfterGraduation').value,
+    careerDetail: document.getElementById('biCareerDetail').value.trim(),
+    familyAtSchool: document.getElementById('biFamilyAtSchool').value,
+    familyDetail: document.getElementById('biFamilyDetail').value.trim(),
+    note: document.getElementById('biNote').value.trim(),
+    updatedAt: Date.now(),
+  };
+  persistStudent(s);
+  alert('저장되었습니다.');
+  backToBasicIntakeList();
 }
 function openLadderGame(){
   const query = (document.getElementById('studentSearch')?.value || '').trim();
