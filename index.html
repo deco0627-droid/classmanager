@@ -133,6 +133,7 @@
   @keyframes raceLegKick { 0%, 100% { transform: rotate(-28deg); } 50% { transform: rotate(28deg); } }
   .race-legs span { display: inline-block; width: 4px; height: 11px; background: #2A2A2A; border-radius: 1px; transform-origin: top center; animation: raceLegKick 0.22s ease-in-out infinite; }
   .race-legs span:nth-child(2) { animation-delay: 0.11s; }
+  .race-legs.paused span { animation-play-state: paused; transform: rotate(0deg); }
   .badge-public { font-size: 10px; font-weight: 700; color: #6FE0A0; background:#28483C; padding:2px 8px; border-radius:9999px; letter-spacing:.03em; }
   .badge-private { font-size: 10px; font-weight: 700; color: #D97862; background:#3D241E; padding:2px 8px; border-radius:9999px; letter-spacing:.03em; }
   .admin-collapse-btn { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px; text-align: left; }
@@ -3959,35 +3960,49 @@ function runAnimalLadderRound(){
   renderAnimalRace(participants);
 }
 // 등속으로 쭉 가는 대신 "스퍼트 - 멈칫"을 몇 차례 반복하며 트랙 끝까지 가게 만든다(총
-// 8~12초, 평균 10초). JS setTimeout으로 매 구간을 이어붙이는 대신 CSS @keyframes 하나로
-// 통째로 만들어서 브라우저(컴포지터)가 애니메이션을 전담하게 한다 — 참가자가 많거나
-// 브라우저가 타이머를 스로틀링해도 각자 자기 keyframe을 끝까지 재생하고 animationend가
-// 반드시 발생하므로, 일부만 결승선에 못 가는 문제가 생기지 않는다.
-function buildRaceKeyframeCss(name, finishPct){
-  const segCount = 6 + Math.floor(Math.random() * 4); // 6~9구간
-  const isPause = [];
-  for (let i = 0; i < segCount; i++) isPause.push(i < segCount - 1 && Math.random() < 0.4); // 마지막 구간은 항상 전진
-  let pos = 0;
-  const frames = ['0% { left: 0%; }'];
-  for (let i = 0; i < segCount; i++) {
-    const isLast = i === segCount - 1;
-    if (isLast) {
-      pos = finishPct;
-    } else if (!isPause[i]) {
-      const remainRun = isPause.slice(i).filter(p => !p).length; // 자기 포함 남은 전진 구간 수
-      pos = Math.min(finishPct, pos + (finishPct - pos) / remainRun * (0.7 + Math.random() * 0.6));
-    }
-    const t = (((i + 1) / segCount) * 100).toFixed(2);
-    frames.push(`${t}% { left: ${pos.toFixed(1)}%; }`);
+// 8~12초, 평균 10초). 동적으로 만든 CSS @keyframes를 참조하는 방식은 브라우저에 따라
+// (특히 모바일 브라우저) 등록 타이밍이 어긋나 일부만 애니메이션이 아예 시작되지 않는
+// 문제가 있었다 — 그래서 stylesheet 등록 없이 순수 JS로 매 구간마다 transition+left를
+// 직접 갱신하는 훨씬 단순하고 널리 호환되는 방식으로 되돌렸다.
+function buildRaceSteps(){
+  const finishPct = 80 + Math.random() * 8; // 트랙 폭 대비 80~88%까지 — 캐릭터 자체 너비만큼 여유를 둬서
+  // 깃발에 딱 붙어 보이면서도 잘려서 안 보이는 일이 없게 한다.
+  const stepCount = 6 + Math.floor(Math.random() * 4); // 6~9구간
+  const targetTotal = 8 + Math.random() * 4; // 8~12초
+
+  // 구간별 시간을 먼저 "비율"로만 정한 다음, 합이 정확히 targetTotal이 되도록 나중에
+  // 한 번에 맞춘다 — 그래야 멈칫 구간이 많이 뽑힌 참가자가 우연히 훨씬 오래 걸려서
+  // "혼자 결승선에 안 가는 것처럼" 보이는 일이 없다(모든 참가자가 8~12초 안에 도착).
+  const isPauseList = [];
+  const rawDurations = [];
+  for (let i = 0; i < stepCount; i++) {
+    const isLast = i === stepCount - 1;
+    const isPause = !isLast && Math.random() < 0.4;
+    isPauseList.push(isPause);
+    rawDurations.push(isPause ? (0.25 + Math.random() * 0.35) : (0.7 + Math.random() * 0.8));
   }
-  return `@keyframes ${name} { ${frames.join(' ')} }`;
+  const rawTotal = rawDurations.reduce((a, b) => a + b, 0);
+  const scale = targetTotal / rawTotal;
+
+  const steps = [];
+  let pos = 0;
+  for (let i = 0; i < stepCount; i++) {
+    const isLast = i === stepCount - 1;
+    const isPause = isPauseList[i];
+    const duration = Math.max(0.2, rawDurations[i] * scale);
+    let advance;
+    if (isLast) advance = finishPct - pos;
+    else if (isPause) advance = (finishPct - pos) * 0.03;
+    else advance = (finishPct - pos) / (stepCount - i) * (0.8 + Math.random() * 1.0);
+    pos = Math.min(finishPct, pos + advance);
+    steps.push({ duration: Math.round(duration * 100) / 100, pos: Math.round(pos * 10) / 10, running: !isPause });
+  }
+  return steps;
 }
-let raceStyleEl = null;
 function renderAnimalRace(participants){
   const wrap = document.getElementById('animalLadderSvgWrap');
   const resultEl = document.getElementById('animalLadderResultList');
   resultEl.innerHTML = '';
-  if (raceStyleEl) { raceStyleEl.remove(); raceStyleEl = null; } // 이전 "다시 타기"에서 넣어둔 keyframe 정리
 
   wrap.innerHTML = `<div class="space-y-2 w-full">${participants.map((p, i) => `
     <div class="relative h-10 w-full bg-forest-light rounded-lg overflow-hidden">
@@ -3995,8 +4010,8 @@ function renderAnimalRace(participants){
       <span id="racer${i}" class="absolute inset-y-0 flex items-center gap-1" style="left:0%">
         ${p.name ? `<span class="text-xs font-semibold">${escapeHtml(p.name)}</span>` : ''}
         <span class="flex flex-col items-center leading-none">
-          <span class="race-bounce text-2xl">${p.animal}</span>
-          <span class="race-legs flex gap-0.5"><span></span><span></span></span>
+          <span id="racerLeg${i}" class="race-bounce text-2xl">${p.animal}</span>
+          <span id="racerFeet${i}" class="race-legs flex gap-0.5"><span></span><span></span></span>
         </span>
       </span>
     </div>`).join('')}</div>`;
@@ -4015,30 +4030,24 @@ function renderAnimalRace(participants){
     }
   }
 
-  // keyframes를 담은 <style>을 문서에 먼저 넣어 브라우저가 인식하게 한 "다음"에 animation을
-  // 걸어야 한다 — 순서가 반대면(스타일시트를 넣기 전에 animation부터 걸면) 브라우저가 해당
-  // keyframes를 못 찾아 애니메이션이 조용히 아예 시작되지 않는다(위치는 안 바뀌고 다리만
-  // 움직이는 것처럼 보였던 원인이 바로 이거였다).
-  const raceToken = Date.now();
-  let cssText = '';
-  const animConfigs = participants.map((p, i) => {
-    const finishPct = 80 + Math.random() * 8; // 트랙 폭 대비 80~88%까지 — 캐릭터 자체 너비만큼 여유를 둬서
-    // 깃발에 딱 붙어 보이면서도 잘려서 안 보이는 일이 없게 한다.
-    const duration = (8 + Math.random() * 4).toFixed(2); // 8~12초
-    const name = `raceRun${raceToken}_${i}`;
-    cssText += buildRaceKeyframeCss(name, finishPct) + '\n';
-    return { i, name, duration };
-  });
-  raceStyleEl = document.createElement('style');
-  raceStyleEl.textContent = cssText;
-  document.head.appendChild(raceStyleEl);
-  void raceStyleEl.sheet; // 스타일시트 반영을 강제로 확정시킨다
-
-  animConfigs.forEach(({ i, name, duration }) => {
+  const starters = participants.map((p, i) => {
     const el = document.getElementById(`racer${i}`);
-    el.style.animation = `${name} ${duration}s cubic-bezier(0.3,0,0.4,1) forwards`;
-    el.addEventListener('animationend', () => markFinish(i), { once: true });
+    const legEl = document.getElementById(`racerLeg${i}`);
+    const feetEl = document.getElementById(`racerFeet${i}`);
+    const steps = buildRaceSteps();
+    function playStep(idx){
+      if (idx >= steps.length) { markFinish(i); return; }
+      const step = steps[idx];
+      legEl.classList.toggle('race-bounce', step.running);
+      feetEl.classList.toggle('paused', !step.running);
+      el.style.transition = `left ${step.duration}s ${step.running ? 'cubic-bezier(0.3,0,0.4,1)' : 'linear'}`;
+      el.style.left = `${step.pos}%`;
+      setTimeout(() => playStep(idx + 1), step.duration * 1000);
+    }
+    return playStep;
   });
+
+  requestAnimationFrame(() => starters.forEach(playStep => playStep(0)));
 }
 
 /* --- 학생 명단 붙여넣기 일괄 등록 --- */
