@@ -658,13 +658,16 @@ service cloud.firestore {
           <p class="font-display text-lg text-forest-dark mb-3" id="basicIntakeStudentName"></p>
           <div class="space-y-3">
             <label class="block text-xs font-semibold text-gray-500">특성화고 입학 동기
-              <select id="biMotivation" class="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm">
+              <select id="biMotivation" onchange="document.getElementById('biMotivationOtherWrap').classList.toggle('hidden', this.value !== '기타')" class="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm">
                 <option value="">선택 안 함</option>
                 <option value="자의">스스로 선택함(자의)</option>
                 <option value="타의">부모님(보호자) 권유(타의)</option>
                 <option value="성적">성적에 맞춰서</option>
                 <option value="기타">기타</option>
               </select>
+            </label>
+            <label id="biMotivationOtherWrap" class="hidden block text-xs font-semibold text-gray-500">기타 내용
+              <input id="biMotivationOther" placeholder="구체적으로 어떤 이유인지" class="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm">
             </label>
             <label class="block text-xs font-semibold text-gray-500">희망 진로·직종
               <input id="biHopeCareer" placeholder="예: 전기기사, 로봇 관련 직무 등" class="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm">
@@ -3258,21 +3261,38 @@ function setStudentView(mode){
 const CARD_COLORS = ['bg-forest','bg-amber','bg-brick'];
 
 /* --- 엑셀 내보내기 (나이스 입력용) --- */
+// 특성화고 입학 동기가 "기타"면 구체적인 내용까지 한 칸에 같이 담아서 보여준다.
+function basicIntakeMotivationLabel(bi){
+  if (!bi || !bi.motivation) return '';
+  return bi.motivation === '기타' && bi.motivationOther ? `기타(${bi.motivationOther})` : bi.motivation;
+}
 function exportStudentsExcel(){
   if (!studentsCache.length) return alert('등록된 학생이 없습니다.');
   const rows = [...studentsCache]
     .sort((a,b) => (parseInt(a.number) || 0) - (parseInt(b.number) || 0))
-    .map(s => ({
-      '번호': s.number || '', '이름': s.name || '',
-      '청소구역': s.cleaningArea || '', '동아리': s.club || '', '지도교사': s.clubTeacher || '',
-      '건강상태 및 특이사항': s.health || '',
-      '고교학점제 수강과목': (s.electiveCourses || []).join(', '),
-      '자격증': (s.certificates || []).map(c => `${c.type}(${c.date || '-'})`).join(', '),
-      '수상실적': (s.awards || []).map(a => `${a.title}(${a.date || '-'}${a.org ? ', ' + a.org : ''})`).join(', '),
-      '상담일지 건수': (s.consultLogs || []).length,
-    }));
+    .map(s => {
+      const bi = s.basicIntake || {};
+      return {
+        '번호': s.number || '', '이름': s.name || '',
+        '청소구역': s.cleaningArea || '', '동아리': s.club || '', '지도교사': s.clubTeacher || '',
+        '건강상태 및 특이사항': s.health || '',
+        '고교학점제 수강과목': (s.electiveCourses || []).join(', '),
+        '자격증': (s.certificates || []).map(c => `${c.type}(${c.date || '-'})`).join(', '),
+        '수상실적': (s.awards || []).map(a => `${a.title}(${a.date || '-'}${a.org ? ', ' + a.org : ''})`).join(', '),
+        '상담일지 건수': (s.consultLogs || []).length,
+        '특성화고 입학 동기': basicIntakeMotivationLabel(bi),
+        '희망 진로·직종': bi.hopeCareer || '',
+        '1학기 이후 진로 결정 상태': bi.careerStatus || '',
+        '진로 결정 내용': bi.careerDetail || '',
+        '졸업 후 희망 진로': bi.afterGraduation || '',
+        '재학 중인 형제자매·가족': bi.familyAtSchool || '',
+        '가족 관계·이름': bi.familyDetail || '',
+        '기초 상담 참고사항': bi.note || '',
+      };
+    });
   const ws = XLSX.utils.json_to_sheet(rows);
-  ws['!cols'] = [{wch:6},{wch:10},{wch:14},{wch:14},{wch:14},{wch:24},{wch:24},{wch:24},{wch:30},{wch:10}];
+  ws['!cols'] = [{wch:6},{wch:10},{wch:14},{wch:14},{wch:14},{wch:24},{wch:24},{wch:24},{wch:30},{wch:10},
+    {wch:16},{wch:20},{wch:16},{wch:24},{wch:14},{wch:14},{wch:24},{wch:30}];
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, '학생명단');
   XLSX.writeFile(wb, `${settingsCache.className || '학급'}_학생명단_${todayStr()}.xlsx`);
@@ -3289,6 +3309,21 @@ function exportStudentExcel(){
   ]);
   infoWs['!cols'] = [{wch:20},{wch:40}];
   XLSX.utils.book_append_sheet(wb, infoWs, '기본정보');
+
+  const bi = s.basicIntake || {};
+  const intakeWs = XLSX.utils.aoa_to_sheet([
+    ['항목', '내용'],
+    ['특성화고 입학 동기', basicIntakeMotivationLabel(bi)],
+    ['희망 진로·직종', bi.hopeCareer || ''],
+    ['1학기 이후 진로 결정 상태', bi.careerStatus || ''],
+    ['진로 결정 내용', bi.careerDetail || ''],
+    ['졸업 후 희망 진로', bi.afterGraduation || ''],
+    ['재학 중인 형제자매·가족', bi.familyAtSchool || ''],
+    ['가족 관계·이름', bi.familyDetail || ''],
+    ['상담 시 참고할 점', bi.note || ''],
+  ]);
+  intakeWs['!cols'] = [{wch:20},{wch:40}];
+  XLSX.utils.book_append_sheet(wb, intakeWs, '기초상담');
 
   const consultWs = XLSX.utils.json_to_sheet([...(s.consultLogs||[])]
     .sort((a,b) => String(b?.date || '').localeCompare(String(a?.date || '')))
@@ -3602,6 +3637,8 @@ function openBasicIntakeForm(id){
   const bi = s.basicIntake || {};
   document.getElementById('basicIntakeStudentName').textContent = `${s.number ? s.number + '번 ' : ''}${displayStudentName(s.name)}`;
   document.getElementById('biMotivation').value = bi.motivation || '';
+  document.getElementById('biMotivationOther').value = bi.motivationOther || '';
+  document.getElementById('biMotivationOtherWrap').classList.toggle('hidden', bi.motivation !== '기타');
   document.getElementById('biHopeCareer').value = bi.hopeCareer || '';
   document.getElementById('biCareerStatus').value = bi.careerStatus || '';
   document.getElementById('biAfterGraduation').value = bi.afterGraduation || '';
@@ -3623,6 +3660,7 @@ function saveBasicIntake(){
   if (!s) return;
   s.basicIntake = {
     motivation: document.getElementById('biMotivation').value,
+    motivationOther: document.getElementById('biMotivationOther').value.trim(),
     hopeCareer: document.getElementById('biHopeCareer').value.trim(),
     careerStatus: document.getElementById('biCareerStatus').value,
     afterGraduation: document.getElementById('biAfterGraduation').value,
