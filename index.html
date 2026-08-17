@@ -131,7 +131,7 @@
   @keyframes raceLegBounce { 0%, 100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-3px) rotate(-8deg); } }
   .race-bounce { animation: raceLegBounce 0.26s ease-in-out infinite; display: inline-block; }
   @keyframes raceLegKick { 0%, 100% { transform: rotate(-28deg); } 50% { transform: rotate(28deg); } }
-  .race-legs span { display: inline-block; width: 3px; height: 7px; background: #2A2A2A; border-radius: 1px; transform-origin: top center; animation: raceLegKick 0.22s ease-in-out infinite; }
+  .race-legs span { display: inline-block; width: 4px; height: 11px; background: #2A2A2A; border-radius: 1px; transform-origin: top center; animation: raceLegKick 0.22s ease-in-out infinite; }
   .race-legs span:nth-child(2) { animation-delay: 0.11s; }
   .race-legs.paused span { animation-play-state: paused; transform: rotate(0deg); }
   .badge-public { font-size: 10px; font-weight: 700; color: #6FE0A0; background:#28483C; padding:2px 8px; border-radius:9999px; letter-spacing:.03em; }
@@ -3961,19 +3961,32 @@ function buildRaceSteps(){
   const finishPct = 88 + Math.random() * 6; // 트랙 폭 대비 88~94%까지 이동(나머지는 아이콘 폭 여유)
   const stepCount = 6 + Math.floor(Math.random() * 4); // 6~9구간
   const targetTotal = 8 + Math.random() * 4; // 8~12초
-  const steps = [];
-  let pos = 0, elapsed = 0;
+
+  // 구간별 시간을 먼저 "비율"로만 정한 다음, 합이 정확히 targetTotal이 되도록 나중에
+  // 한 번에 맞춘다 — 그래야 멈칫 구간이 많이 뽑힌 참가자가 우연히 훨씬 오래 걸려서
+  // "혼자 결승선에 안 가는 것처럼" 보이는 일이 없다(모든 참가자가 8~12초 안에 도착).
+  const isPauseList = [];
+  const rawDurations = [];
   for (let i = 0; i < stepCount; i++) {
     const isLast = i === stepCount - 1;
     const isPause = !isLast && Math.random() < 0.4;
-    let duration = isPause ? (0.25 + Math.random() * 0.35) : (targetTotal / stepCount) * (0.7 + Math.random() * 0.8);
-    if (isLast) duration = Math.max(0.5, targetTotal - elapsed);
+    isPauseList.push(isPause);
+    rawDurations.push(isPause ? (0.25 + Math.random() * 0.35) : (0.7 + Math.random() * 0.8));
+  }
+  const rawTotal = rawDurations.reduce((a, b) => a + b, 0);
+  const scale = targetTotal / rawTotal;
+
+  const steps = [];
+  let pos = 0;
+  for (let i = 0; i < stepCount; i++) {
+    const isLast = i === stepCount - 1;
+    const isPause = isPauseList[i];
+    const duration = Math.max(0.2, rawDurations[i] * scale);
     let advance;
     if (isLast) advance = finishPct - pos;
     else if (isPause) advance = (finishPct - pos) * 0.03;
     else advance = (finishPct - pos) / (stepCount - i) * (0.8 + Math.random() * 1.0);
     pos = Math.min(finishPct, pos + advance);
-    elapsed += duration;
     steps.push({ duration: Math.round(duration * 100) / 100, pos: Math.round(pos * 10) / 10, running: !isPause });
   }
   return steps;
