@@ -130,6 +130,10 @@
   .fade-in { animation: fadeIn .18s ease; }
   @keyframes raceLegBounce { 0%, 100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-3px) rotate(-8deg); } }
   .race-bounce { animation: raceLegBounce 0.26s ease-in-out infinite; display: inline-block; }
+  @keyframes raceLegKick { 0%, 100% { transform: rotate(-28deg); } 50% { transform: rotate(28deg); } }
+  .race-legs span { display: inline-block; width: 3px; height: 7px; background: #2A2A2A; border-radius: 1px; transform-origin: top center; animation: raceLegKick 0.22s ease-in-out infinite; }
+  .race-legs span:nth-child(2) { animation-delay: 0.11s; }
+  .race-legs.paused span { animation-play-state: paused; transform: rotate(0deg); }
   .badge-public { font-size: 10px; font-weight: 700; color: #6FE0A0; background:#28483C; padding:2px 8px; border-radius:9999px; letter-spacing:.03em; }
   .badge-private { font-size: 10px; font-weight: 700; color: #D97862; background:#3D241E; padding:2px 8px; border-radius:9999px; letter-spacing:.03em; }
   .admin-collapse-btn { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px; text-align: left; }
@@ -3951,12 +3955,12 @@ function runAnimalLadderRound(){
   renderAnimalRace(participants);
 }
 // 등속으로 쭉 가는 대신 "스퍼트 - 멈칫"을 몇 차례 반복하며 트랙 끝까지 가게 만든다(총
-// 6~8초, 평균 7초). 멈칫하는 구간에서는 다리(아이콘) 통통 튀는 애니메이션도 같이 멈춰서
+// 8~12초, 평균 10초). 멈칫하는 구간에서는 다리(아이콘) 통통 튀는 애니메이션도 같이 멈춰서
 // 실제로 달리다 멈추는 느낌을 준다.
 function buildRaceSteps(){
   const finishPct = 88 + Math.random() * 6; // 트랙 폭 대비 88~94%까지 이동(나머지는 아이콘 폭 여유)
-  const stepCount = 5 + Math.floor(Math.random() * 3); // 5~7구간
-  const targetTotal = 6 + Math.random() * 2; // 6~8초
+  const stepCount = 6 + Math.floor(Math.random() * 4); // 6~9구간
+  const targetTotal = 8 + Math.random() * 4; // 8~12초
   const steps = [];
   let pos = 0, elapsed = 0;
   for (let i = 0; i < stepCount; i++) {
@@ -3983,7 +3987,11 @@ function renderAnimalRace(participants){
     <div class="relative h-10 bg-forest-light rounded-lg overflow-hidden">
       <span class="absolute inset-y-0 right-2 flex items-center text-sm">🏁</span>
       <span id="racer${i}" class="absolute inset-y-0 flex items-center gap-1" style="left:0%">
-        ${p.name ? `<span class="text-xs font-semibold">${escapeHtml(p.name)}</span>` : ''}<span id="racerLeg${i}" class="race-bounce text-2xl">${p.animal}</span>
+        ${p.name ? `<span class="text-xs font-semibold">${escapeHtml(p.name)}</span>` : ''}
+        <span class="flex flex-col items-center leading-none">
+          <span id="racerLeg${i}" class="race-bounce text-2xl">${p.animal}</span>
+          <span id="racerFeet${i}" class="race-legs flex gap-0.5"><span></span><span></span></span>
+        </span>
       </span>
     </div>`).join('')}</div>`;
 
@@ -4004,11 +4012,13 @@ function renderAnimalRace(participants){
   const starters = participants.map((p, i) => {
     const el = document.getElementById(`racer${i}`);
     const legEl = document.getElementById(`racerLeg${i}`);
+    const feetEl = document.getElementById(`racerFeet${i}`);
     const steps = buildRaceSteps();
     function playStep(idx){
       if (idx >= steps.length) { markFinish(i); return; }
       const step = steps[idx];
       legEl.classList.toggle('race-bounce', step.running);
+      feetEl.classList.toggle('paused', !step.running);
       const isLast = idx === steps.length - 1;
       el.style.transition = `left ${step.duration}s ${step.running ? 'cubic-bezier(0.3,0,0.4,1)' : 'linear'}`;
       el.style.left = isLast ? `calc(${step.pos}% - 2.25rem)` : `${step.pos}%`;
