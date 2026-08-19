@@ -1445,6 +1445,9 @@ function syncAssignmentPhotoButtons(){
   if (clubBtn) clubBtn.classList.toggle('hidden', false);
 }
 function renderPhotosView(){
+  // Firestore 실시간 리스너가 currentView==='photos'만 보고 이 함수를 다시 부르는 경로가
+  // 있어서, 비밀번호를 아직 안 풀었으면 여기서도 한 번 더 막아야 사진이 뒤에서 새지 않는다.
+  if (!isTeacher && !assignmentPasswordSessionUnlocked) return;
   document.getElementById('cleaningPhotoView').innerHTML = cleaningPhotoCache
     ? `<img src="${cleaningPhotoCache}" class="w-full h-auto cursor-pointer" onclick="openPhotoZoom(this.src)">`
     : `<p class="text-gray-400 text-sm p-8">등록된 사진이 없습니다.</p>`;
