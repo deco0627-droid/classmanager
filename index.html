@@ -1209,6 +1209,11 @@ const NEIS_API_KEY = "d055f7a3a83d4294aeed8f38b5fb1a9e";
 const DEFAULT_CERT_TYPES = ['전기기능사', '승강기기능사', '컴퓨터활용능력 2급', '지게차운전기능사', '한국사능력검정시험'];
 const DAYS = ['월','화','수','목','금'];
 const PERIODS = [1,2,3,4,5,6,7];
+const PERIOD_TIMES = {
+  1: ['08:50','09:40'], 2: ['09:40','10:30'], 3: ['10:30','11:20'], 4: ['11:20','12:10'],
+  5: ['13:30','14:20'], 6: ['14:20','15:10'], 7: ['15:10','16:00'],
+};
+const LUNCH_TIME = ['12:40','13:30'];
 
 function todayStr(){ return new Date().toISOString().slice(0,10); }
 function pad2(n){ return String(n).padStart(2,'0'); }
@@ -2412,12 +2417,17 @@ function renderDashboard(){
 
   const dowKr = ['일','월','화','수','목','금','토'][now.getDay()];
   const todayCols = PERIODS.map(p => settingsCache.timetable[dowKr+'-'+p]).filter(Boolean);
-  document.getElementById('dashTodayTimetable').innerHTML = (DAYS.includes(dowKr) && todayCols.length)
+  const todayDateHtml = `<p class="text-xs text-gray-400 font-body mb-2">${now.getMonth()+1}월 ${now.getDate()}일 (${dowKr})</p>`;
+  const timetableBodyHtml = (DAYS.includes(dowKr) && todayCols.length)
     ? PERIODS.map(p => {
         const v = settingsCache.timetable[dowKr+'-'+p];
-        return v ? `<div class="flex justify-between items-center py-1.5 border-b border-gray-200 last:border-b-0"><span class="text-[13px] font-semibold text-gray-700">${p}교시</span><span class="text-[14px] font-bold text-gray-800">${escapeHtml(v)}</span></div>` : '';
+        const time = PERIOD_TIMES[p] ? `<span class="text-[11px] text-gray-400 font-normal ml-1.5">${PERIOD_TIMES[p][0]}~${PERIOD_TIMES[p][1]}</span>` : '';
+        const row = v ? `<div class="flex justify-between items-center py-1.5 border-b border-gray-200 last:border-b-0"><span class="text-[13px] font-semibold text-gray-700">${p}교시${time}</span><span class="text-[14px] font-bold text-gray-800">${escapeHtml(v)}</span></div>` : '';
+        const lunch = p === 4 ? `<div class="flex justify-between items-center py-1.5 border-b border-gray-200"><span class="text-[12px] font-semibold text-gray-400">점심시간</span><span class="text-[11px] text-gray-400">${LUNCH_TIME[0]}~${LUNCH_TIME[1]}</span></div>` : '';
+        return row + lunch;
       }).join('')
     : `<p class="text-gray-500 font-body font-medium">오늘은 등록된 시간표가 없습니다.</p>`;
+  document.getElementById('dashTodayTimetable').innerHTML = todayDateHtml + timetableBodyHtml;
 
   const allTags = [...new Set(noticesCache.flatMap(n => n.tags || []))];
   document.getElementById('dashTagCloud').innerHTML = allTags.length
