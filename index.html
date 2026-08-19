@@ -506,9 +506,9 @@ service cloud.firestore {
     </div>
   </section>
 
-  <!-- ===================== 청소구역·동아리 배정표 (사진, 공개) ===================== -->
+  <!-- ===================== 청소구역·동아리 배정표 (사진, 비밀번호 보호) ===================== -->
   <section id="view-photos" class="view hidden fade-in">
-    <span class="badge-public">전체 공개</span>
+    <span class="badge-private">🔒 비밀번호 필요</span>
     <h1 class="font-display text-2xl mt-1 mb-5">청소구역·동아리 배정표</h1>
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
       <div class="assignment-layout-card p-5">
@@ -521,6 +521,7 @@ service cloud.firestore {
           </label>
           <button id="cleaningDeletePhotoBtn" onclick="deleteAssignmentPhoto('cleaning')" class="text-xs border border-gray-300 bg-card px-3 py-1.5 rounded-lg hover:bg-gray-50">사진 삭제</button>
         </div>
+        <p class="text-[11px] text-gray-400 mt-1">이 카드를 클릭한 뒤 Ctrl+V로 캡처한 화면을 바로 붙여넣을 수도 있어요.</p>
         <div id="cleaningAssignmentTable" class="mt-4 overflow-x-auto"></div>
       </div>
       <div class="assignment-layout-card p-5">
@@ -533,6 +534,7 @@ service cloud.firestore {
           </label>
           <button id="clubDeletePhotoBtn" onclick="deleteAssignmentPhoto('club')" class="text-xs border border-gray-300 bg-card px-3 py-1.5 rounded-lg hover:bg-gray-50">사진 삭제</button>
         </div>
+        <p class="text-[11px] text-gray-400 mt-1">이 카드를 클릭한 뒤 Ctrl+V로 캡처한 화면을 바로 붙여넣을 수도 있어요.</p>
         <div id="clubAssignmentTable" class="mt-4 overflow-x-auto"></div>
       </div>
     </div>
@@ -975,6 +977,13 @@ service cloud.firestore {
           <p class="text-[11px] text-gray-400 mb-1">복구용 이메일은 위 건강 비밀번호 설정과 같은 걸 사용해요.</p>
           <button onclick="recoverConsultPassword()" class="mt-1 text-xs text-forest-dark font-semibold hover:underline">비밀번호를 잊었어요 — 복구 메일 보내기</button>
 
+          <label class="text-xs font-semibold text-gray-500 mt-4 block">청소구역·동아리 배정표 비밀번호 설정</label>
+          <p class="text-[11px] text-gray-400 mb-2">실명이 그대로 담긴 배정표라 비밀번호를 아는 사람만 볼 수 있게 했어요. 교사는 로그인만으로 바로 보이고, 기본값은 <b>class1234</b>예요.</p>
+          <div class="flex gap-2 mt-1 mb-2">
+            <input id="assignmentPasswordField" type="password" placeholder="배정표 비밀번호" class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm">
+            <button onclick="saveAssignmentPassword()" class="bg-forest text-white px-4 rounded-lg text-sm font-semibold">저장</button>
+          </div>
+
           <p class="text-[11px] text-gray-400 mt-4">💡 대시보드 동물 달리기 경주에서 실제 학생 이름을 불러올 때도 이 건강 비밀번호로 확인해요 — 비밀번호가 여러 개로 늘어나지 않게 같은 걸 재사용합니다.</p>
         </div>
 
@@ -1267,6 +1276,30 @@ function handleClubPhotoUpload(e){
     renderPhotosView();
   }).catch(() => alert('사진을 처리하는 중 문제가 발생했습니다.'));
 }
+// 청소구역/동아리 어느 쪽에 붙여넣을지는 클립보드만으로 알 수 없으니, 마지막으로 클릭한
+// 카드를 기억해뒀다가 Ctrl+V로 캡처 화면을 바로 붙여넣을 수 있게 한다.
+let assignmentPastePhotoTarget = 'cleaning';
+document.addEventListener('click', (e) => {
+  if (currentView !== 'photos' || !e.target.closest) return;
+  if (e.target.closest('#clubPhotoView, #clubPhotoUploadLabel, #clubDeletePhotoBtn')) assignmentPastePhotoTarget = 'club';
+  else if (e.target.closest('#cleaningPhotoView, #cleaningPhotoUploadLabel, #cleaningDeletePhotoBtn')) assignmentPastePhotoTarget = 'cleaning';
+});
+document.addEventListener('paste', (e) => {
+  if (currentView !== 'photos') return;
+  const items = e.clipboardData && e.clipboardData.items;
+  if (!items) return;
+  for (const item of items) {
+    if (item.type && item.type.startsWith('image/')) {
+      const file = item.getAsFile();
+      if (!file) continue;
+      const fakeEvent = { target: { files: [file] } };
+      if (assignmentPastePhotoTarget === 'club') handleClubPhotoUpload(fakeEvent);
+      else handleCleaningPhotoUpload(fakeEvent);
+      e.preventDefault();
+      break;
+    }
+  }
+});
 function safeSetObject(target, key, value){
   const next = { ...(target || {}) };
   next[key] = value;
@@ -1626,6 +1659,7 @@ function defaultSettings(){
     className: '학급 수첩', certificateTypes: [...DEFAULT_CERT_TYPES], timetable: {}, certGuide: '', certRoadmap: null,
     healthPassword: 'health1234',
     consultPassword: 'consult1234',
+    assignmentPassword: 'class1234',
     healthRecoveryEmail: TEACHER_EMAIL || '',
     personalLinks: [],
     weatherLocation: { name: '서울시 구로구', lat: 37.4954, lon: 126.8874 },
@@ -1915,7 +1949,7 @@ function renderView(key){
     if (key==='dashboard') renderDashboard();
     if (key==='schedule') { renderTimetable(); renderScheduleList(); renderScheduleCalendar(); }
     if (key==='certinfo') renderCertInfo();
-    if (key==='photos') renderPhotosView();
+    if (key==='photos') requireAssignmentPassword(renderPhotosView);
     if (key==='wall') renderWall();
     if (key==='students') renderStudents();
     if (key==='notices') renderNotices();
@@ -4276,6 +4310,31 @@ function recoverConsultPassword(){
 function getRosterImportPassword(){
   return getHealthPassword();
 }
+function getAssignmentPassword(){
+  return (settingsCache && settingsCache.assignmentPassword) ? String(settingsCache.assignmentPassword).trim() : 'class1234';
+}
+let assignmentPasswordSessionUnlocked = false;
+// 청소구역·동아리 배정표는 실명이 그대로 담긴 사진/표라 "전체 공개"에서 비밀번호 보호로 바꿨다.
+// 교사는 이미 로그인으로 확인됐으니 비밀번호를 또 묻지 않는다.
+function requireAssignmentPassword(onSuccess){
+  if (isTeacher || assignmentPasswordSessionUnlocked) { onSuccess(); return; }
+  openPasswordPrompt('청소구역·동아리 배정표를 보려면 비밀번호를 입력하세요.', (input) => {
+    if (!input) { switchView('dashboard'); return; }
+    if (input.trim() !== getAssignmentPassword()) {
+      alert('비밀번호가 올바르지 않습니다.');
+      switchView('dashboard');
+      return;
+    }
+    assignmentPasswordSessionUnlocked = true;
+    onSuccess();
+  });
+}
+function saveAssignmentPassword(){
+  const value = document.getElementById('assignmentPasswordField').value.trim();
+  settingsCache.assignmentPassword = value || 'class1234';
+  db.collection('settings').doc('general').set({ assignmentPassword: settingsCache.assignmentPassword }, { merge: true });
+  alert('청소구역·동아리 배정표 비밀번호가 저장되었습니다.');
+}
 function requireRosterImportPassword(onSuccess){
   openPasswordPrompt('학생 명단을 불러오려면 비밀번호를 입력하세요.', (input) => {
     if (!input) return;
@@ -4975,6 +5034,7 @@ function renderAdmin(){
   document.getElementById('healthPasswordField').value = settingsCache.healthPassword || 'health1234';
   document.getElementById('healthRecoveryEmailField').value = settingsCache.healthRecoveryEmail || TEACHER_EMAIL || '';
   document.getElementById('consultPasswordField').value = settingsCache.consultPassword || 'consult1234';
+  document.getElementById('assignmentPasswordField').value = settingsCache.assignmentPassword || 'class1234';
   const isAdminView = isTeacher && currentView === 'admin';
   const unlockTrigger = document.getElementById('healthPasswordUnlockTrigger');
   if (unlockTrigger) {
