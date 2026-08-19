@@ -218,7 +218,7 @@ service cloud.firestore {
         <h1 class="font-display text-2xl mt-1">오늘의 학급 브리핑</h1>
       </div>
       <div class="flex items-center justify-between sm:justify-start gap-3">
-        <div id="dashCbtQrBox" class="hidden bg-card border border-gray-200 rounded-xl px-3 py-2.5 text-center min-w-[76px] self-stretch flex flex-col items-center justify-center shrink-0"></div>
+        <div id="dashCbtQrBox" class="hidden bg-card border border-gray-200 rounded-xl px-3 py-2.5 text-center min-w-[76px] self-stretch flex flex-row items-center justify-center gap-3 shrink-0"></div>
         <button onclick="openAnimalLadderGame()" class="bg-card border border-gray-200 rounded-xl px-3 py-2.5 text-center min-w-[52px] self-stretch flex flex-col items-center justify-center hover:bg-gray-50 shrink-0" title="동물 달리기 경주 (랜덤 뽑기)">
           <svg viewBox="0 0 24 20" class="w-6 h-5" aria-hidden="true"><rect width="24" height="20" fill="#fff"/><rect x="0" y="0" width="6" height="5" fill="#1a1a1a"/><rect x="12" y="0" width="6" height="5" fill="#1a1a1a"/><rect x="6" y="5" width="6" height="5" fill="#1a1a1a"/><rect x="18" y="5" width="6" height="5" fill="#1a1a1a"/><rect x="0" y="10" width="6" height="5" fill="#1a1a1a"/><rect x="12" y="10" width="6" height="5" fill="#1a1a1a"/><rect x="6" y="15" width="6" height="5" fill="#1a1a1a"/><rect x="18" y="15" width="6" height="5" fill="#1a1a1a"/></svg>
           <span class="text-[10px] text-gray-400 mt-0.5 leading-none">순서정하기</span>
@@ -2316,46 +2316,62 @@ function renderDailyLearning(){
    배움꿈나무 선생님 아이콘으로 바뀐다.
 ============================================================ */
 const CBT_PROGRAM_ORIGIN = 'https://cbt-program.pages.dev';
+const CBT_QR_SLOTS = ['A', 'B']; // CBT-Program 쪽도 하루 최대 2개(QR1/QR2)까지 운영할 수 있다.
 function cbtQrCutoffExpired(generatedAt){
   const cutoff = new Date();
   cutoff.setHours(14, 0, 0, 0);
   return Date.now() >= cutoff.getTime() && (generatedAt || 0) < cutoff.getTime();
 }
+function cbtQrExamLabel(c){
+  if (!c) return '';
+  if (c.scope === 'category') return c.category + (c.round ? ` · ${c.round}` : '');
+  return '';
+}
 function renderCbtQrWidget(){
   const el = document.getElementById('dashCbtQrBox');
   if (!el) return;
-  db.collection('cbtSettings').doc('checkin_' + todayStr()).get().then(doc => {
-    if (!doc.exists || !doc.data().token) { el.classList.add('hidden'); el.innerHTML = ''; return; }
-    const data = doc.data();
+  Promise.all(CBT_QR_SLOTS.map(slot =>
+    db.collection('cbtSettings').doc('checkin_' + todayStr() + '_' + slot).get()
+      .then(doc => (doc.exists && doc.data().token) ? doc.data() : null)
+  )).then(results => {
+    const active = results.filter(Boolean);
+    if (!active.length) { el.classList.add('hidden'); el.innerHTML = ''; return; }
     el.classList.remove('hidden');
-    if (!cbtQrCutoffExpired(data.generatedAt)) {
-      const url = `${CBT_PROGRAM_ORIGIN}/?checkin=${data.token}`;
-      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(url)}`;
-      el.innerHTML = `
-        <a href="${escapeAttr(url)}" target="_blank" rel="noopener" class="block text-center">
-          <div class="w-14 h-14 mx-auto rounded-lg bg-white border-2 border-forest p-0.5 shadow-sm">
-            <img src="${qrUrl}" class="w-full h-full rounded" alt="CBT 오늘의 QR">
+    el.innerHTML = active.map(data => {
+      const label = cbtQrExamLabel(data.examConfig);
+      const labelHtml = label ? `<p class="text-[9px] text-forest-dark font-semibold leading-none mb-0.5 truncate max-w-[56px] mx-auto" title="${escapeAttr(label)}">${escapeHtml(label)}</p>` : '';
+      if (!cbtQrCutoffExpired(data.generatedAt)) {
+        const url = `${CBT_PROGRAM_ORIGIN}/?checkin=${data.token}`;
+        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(url)}`;
+        return `
+          <a href="${escapeAttr(url)}" target="_blank" rel="noopener" class="block text-center">
+            ${labelHtml}
+            <div class="w-14 h-14 mx-auto rounded-lg bg-white border-2 border-forest p-0.5 shadow-sm">
+              <img src="${qrUrl}" class="w-full h-full rounded" alt="CBT 오늘의 QR">
+            </div>
+            <p class="text-[10px] text-gray-400 mt-1 leading-none">CBT QR</p>
+          </a>`;
+      }
+      return `
+        <div class="text-center">
+          ${labelHtml}
+          <div class="w-14 h-14 mx-auto rounded-lg bg-white border-2 border-gray-200 flex items-center justify-center">
+            <svg viewBox="0 0 100 100" class="w-10 h-10">
+              <circle cx="50" cy="52" r="34" fill="#F8F1E4"/>
+              <path d="M20 40 Q18 18 45 15 Q75 12 78 38 Q80 44 74 42 Q72 30 65 26 Q68 34 64 40 Q58 24 46 24 Q30 24 26 42 Q22 44 20 40Z" fill="#2A2A2A"/>
+              <circle cx="50" cy="55" r="30" fill="none" stroke="#2A2A2A" stroke-width="2.5"/>
+              <rect x="27" y="46" width="17" height="14" rx="3" fill="none" stroke="#2A2A2A" stroke-width="2.8"/>
+              <rect x="56" y="46" width="17" height="14" rx="3" fill="none" stroke="#2A2A2A" stroke-width="2.8"/>
+              <line x1="44" y1="53" x2="56" y2="53" stroke="#2A2A2A" stroke-width="2.8"/>
+              <circle cx="35" cy="53" r="2.6" fill="#2A2A2A"/>
+              <circle cx="64" cy="53" r="2.6" fill="#2A2A2A"/>
+              <path d="M38 68 Q50 76 62 68" fill="none" stroke="#2A2A2A" stroke-width="2.8" stroke-linecap="round"/>
+              <path d="M28 82 Q50 92 72 82 L72 100 L28 100Z" fill="#2A2A2A"/>
+            </svg>
           </div>
-          <p class="text-[10px] text-gray-400 mt-1 leading-none">CBT QR</p>
-        </a>`;
-    } else {
-      el.innerHTML = `
-        <div class="w-14 h-14 mx-auto rounded-lg bg-white border-2 border-gray-200 flex items-center justify-center">
-          <svg viewBox="0 0 100 100" class="w-10 h-10">
-            <circle cx="50" cy="52" r="34" fill="#F8F1E4"/>
-            <path d="M20 40 Q18 18 45 15 Q75 12 78 38 Q80 44 74 42 Q72 30 65 26 Q68 34 64 40 Q58 24 46 24 Q30 24 26 42 Q22 44 20 40Z" fill="#2A2A2A"/>
-            <circle cx="50" cy="55" r="30" fill="none" stroke="#2A2A2A" stroke-width="2.5"/>
-            <rect x="27" y="46" width="17" height="14" rx="3" fill="none" stroke="#2A2A2A" stroke-width="2.8"/>
-            <rect x="56" y="46" width="17" height="14" rx="3" fill="none" stroke="#2A2A2A" stroke-width="2.8"/>
-            <line x1="44" y1="53" x2="56" y2="53" stroke="#2A2A2A" stroke-width="2.8"/>
-            <circle cx="35" cy="53" r="2.6" fill="#2A2A2A"/>
-            <circle cx="64" cy="53" r="2.6" fill="#2A2A2A"/>
-            <path d="M38 68 Q50 76 62 68" fill="none" stroke="#2A2A2A" stroke-width="2.8" stroke-linecap="round"/>
-            <path d="M28 82 Q50 92 72 82 L72 100 L28 100Z" fill="#2A2A2A"/>
-          </svg>
-        </div>
-        <p class="text-[10px] text-gray-400 mt-1 leading-none">QR 마감</p>`;
-    }
+          <p class="text-[10px] text-gray-400 mt-1 leading-none">QR 마감</p>
+        </div>`;
+    }).join('');
   }).catch(err => console.error('CBT QR 조회 실패:', err));
 }
 
