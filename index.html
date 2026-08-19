@@ -3278,7 +3278,10 @@ function openNoticesListModal(){
   const sorted = [...noticesCache];
   document.getElementById('noticesListModalContent').innerHTML = sorted.length ? sorted.map(n => `
     <div class="bg-card border border-gray-200 rounded-xl p-4">
-      <p class="font-display text-lg">${escapeHtml(n.title)}</p>
+      <div class="flex items-start justify-between gap-2">
+        <p class="font-display text-lg">${escapeHtml(n.title)}</p>
+        <span class="text-xs text-gray-400 font-mono shrink-0">👁 ${(n.viewCount || 0) + 1}회 확인</span>
+      </div>
       <p class="font-mono text-xs text-gray-400 mb-2">${n.date}</p>
       <p class="text-base text-gray-700 whitespace-pre-line">${escapeHtml(n.content)}</p>
       <div class="flex gap-1.5 mt-3 flex-wrap">
@@ -3286,6 +3289,13 @@ function openNoticesListModal(){
       </div>
     </div>`).join('') : `<p class="text-gray-400">등록된 공지사항이 없습니다.</p>`;
   document.getElementById('noticesListModal').classList.remove('hidden');
+  // 목록을 열어본 것을 "확인"으로 보고, 지금 보이는 공지 각각의 조회수를 1씩 올린다.
+  // 누가 봤는지는 남기지 않고 단순 카운트만 기록한다.
+  if (sorted.length) {
+    const batch = db.batch();
+    sorted.forEach(n => batch.update(db.collection('notices').doc(n.id), { viewCount: firebase.firestore.FieldValue.increment(1) }));
+    batch.commit().catch(err => console.error('공지 조회수 기록 실패:', err));
+  }
 }
 function closeNoticesListModal(){ document.getElementById('noticesListModal').classList.add('hidden'); }
 
@@ -4547,10 +4557,11 @@ function renderNotices(){
     <div class="bg-card border border-gray-200 rounded-xl p-4">
       <div class="flex justify-between items-start gap-2">
         <p class="font-display text-lg">${escapeHtml(n.title)}</p>
-        ${isTeacher ? `<div class="flex items-center gap-2 shrink-0">
-          <button onclick="editNotice('${n.id}')" class="text-gray-300 hover:text-forest-dark text-sm leading-none" title="수정">✏️</button>
-          <button onclick="deleteNotice('${n.id}')" class="text-gray-300 hover:text-brick text-lg leading-none" title="삭제">&times;</button>
-        </div>` : ''}
+        <div class="flex items-center gap-2 shrink-0">
+          <span class="text-xs text-gray-400 font-mono">👁 ${n.viewCount || 0}회 확인</span>
+          ${isTeacher ? `<button onclick="editNotice('${n.id}')" class="text-gray-300 hover:text-forest-dark text-sm leading-none" title="수정">✏️</button>
+          <button onclick="deleteNotice('${n.id}')" class="text-gray-300 hover:text-brick text-lg leading-none" title="삭제">&times;</button>` : ''}
+        </div>
       </div>
       <p class="font-mono text-xs text-gray-400 mb-2">${n.date}</p>
       <p class="text-base text-gray-700 whitespace-pre-line">${escapeHtml(n.content)}</p>
