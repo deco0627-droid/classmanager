@@ -2340,7 +2340,7 @@ function renderCbtQrWidget(){
     el.innerHTML = active.map(data => {
       const label = cbtQrExamLabel(data.examConfig);
       const labelHtml = label ? `<p class="text-[9px] text-forest-dark font-semibold leading-tight mb-0.5 w-max max-w-[120px] mx-auto whitespace-normal break-keep">${escapeHtml(label)}</p>` : '';
-      if (!cbtQrCutoffExpired(data.generatedAt)) {
+      if (!data.disabled && !cbtQrCutoffExpired(data.generatedAt)) {
         const url = `${CBT_PROGRAM_ORIGIN}/?checkin=${data.token}`;
         const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(url)}`;
         return `
