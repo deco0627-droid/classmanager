@@ -219,6 +219,10 @@ service cloud.firestore {
       </div>
       <div class="flex items-center justify-between sm:justify-start gap-3">
         <div id="dashCbtQrBox" class="hidden bg-card border border-gray-200 rounded-xl px-3 py-2.5 text-center min-w-[76px] self-stretch flex flex-row items-center justify-center gap-3 shrink-0"></div>
+        <div class="bg-card border border-gray-200 rounded-xl px-3 py-2 text-center min-w-[76px] self-stretch flex flex-col items-center justify-center gap-1 shrink-0">
+          <p class="text-[9px] text-forest-dark font-semibold leading-tight">📍 등교 확인</p>
+          <img id="dashCheckinQr" class="w-14 h-14 rounded bg-white border border-gray-200 cursor-zoom-in" onclick="openCheckinQrZoom()" alt="등교 확인 QR">
+        </div>
         <button onclick="openAnimalLadderGame()" class="bg-card border border-gray-200 rounded-xl px-3 py-2.5 text-center min-w-[52px] self-stretch flex flex-col items-center justify-center hover:bg-gray-50 shrink-0" title="동물 달리기 경주 (랜덤 뽑기)">
           <svg viewBox="0 0 24 20" class="w-6 h-5" aria-hidden="true"><rect width="24" height="20" fill="#fff"/><rect x="0" y="0" width="6" height="5" fill="#1a1a1a"/><rect x="12" y="0" width="6" height="5" fill="#1a1a1a"/><rect x="6" y="5" width="6" height="5" fill="#1a1a1a"/><rect x="18" y="5" width="6" height="5" fill="#1a1a1a"/><rect x="0" y="10" width="6" height="5" fill="#1a1a1a"/><rect x="12" y="10" width="6" height="5" fill="#1a1a1a"/><rect x="6" y="15" width="6" height="5" fill="#1a1a1a"/><rect x="18" y="15" width="6" height="5" fill="#1a1a1a"/></svg>
           <span class="text-[10px] text-gray-400 mt-0.5 leading-none">순서정하기</span>
@@ -1881,6 +1885,14 @@ function syncPublicRosterIndex(){
       .catch(err => console.error('공개 명단 색인 갱신 실패:', err));
   }, 800);
 }
+function checkinQrLink(){
+  return `${location.origin}${location.pathname}?geocheckin=1`;
+}
+function renderCheckinQrBox(){
+  const img = document.getElementById('dashCheckinQr');
+  if (!img) return;
+  img.src = `https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(checkinQrLink())}`;
+}
 let checkinPublicRoster = [];
 let checkinLastDistance = null;
 function renderCheckinView(){
@@ -2567,6 +2579,7 @@ function renderDashboard(){
   renderCharacterWord();
   renderDailyLearning();
   renderCbtQrWidget();
+  renderCheckinQrBox();
   applyDashCardOrder();
 
   const today = todayStr();
@@ -5172,8 +5185,7 @@ function renderAdmin(){
   const link = location.href.split('#')[0];
   document.getElementById('shareLinkField').value = link;
   document.getElementById('shareQr').src = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(link)}`;
-  const checkinLink = `${location.origin}${location.pathname}?geocheckin=1`;
-  document.getElementById('checkinQr').src = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(checkinLink)}`;
+  document.getElementById('checkinQr').src = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(checkinQrLink())}`;
   document.getElementById('classNameField').value = settingsCache.className || '';
   document.getElementById('healthPasswordField').value = settingsCache.healthPassword || 'health1234';
   document.getElementById('healthRecoveryEmailField').value = settingsCache.healthRecoveryEmail || TEACHER_EMAIL || '';
@@ -5277,8 +5289,7 @@ function closeShareQrZoom(){
   document.getElementById('shareQrZoomModal').classList.add('hidden');
 }
 function openCheckinQrZoom(){
-  const link = `${location.origin}${location.pathname}?geocheckin=1`;
-  document.getElementById('checkinQrZoomImg').src = `https://api.qrserver.com/v1/create-qr-code/?size=480x480&data=${encodeURIComponent(link)}`;
+  document.getElementById('checkinQrZoomImg').src = `https://api.qrserver.com/v1/create-qr-code/?size=480x480&data=${encodeURIComponent(checkinQrLink())}`;
   document.getElementById('checkinQrZoomModal').classList.remove('hidden');
 }
 function closeCheckinQrZoom(){
