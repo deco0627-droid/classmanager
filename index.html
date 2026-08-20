@@ -880,7 +880,7 @@ service cloud.firestore {
           <span class="admin-collapse-chevron">▶</span>
         </button>
         <div id="adminCollapseBody_attendanceGeo" class="hidden mt-3">
-          <p class="text-xs text-gray-500 mb-3">이 QR을 교문 등에 붙여두면, 학생이 스캔했을 때 운동장 50m 이내인 경우에만 이름을 골라 등교를 기록할 수 있어요. 로그인은 필요 없어요.</p>
+          <p class="text-xs text-gray-500 mb-3" id="checkinAdminDesc">이 QR을 교문 등에 붙여두면, 학생이 스캔했을 때 운동장 안(반경 설정값 이내)인 경우에만 이름을 골라 등교를 기록할 수 있어요. 로그인은 필요 없어요.</p>
           <img id="checkinQr" onclick="openCheckinQrZoom()" class="w-40 h-40 border border-gray-200 rounded-lg bg-white cursor-zoom-in" alt="등교 확인 QR코드">
           <div id="checkinQrZoomModal" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-6" onclick="closeCheckinQrZoom()">
             <img id="checkinQrZoomImg" src="" alt="등교 확인 QR코드 확대" class="w-full max-w-md bg-white rounded-xl p-4">
@@ -1241,10 +1241,10 @@ const TEACHER_EMAIL = "deco0627@nate.com"; // Firestore 보안 규칙의 이메�
    비워두면 대시보드에 점심메뉴가 표시되지 않습니다. */
 const NEIS_API_KEY = "d055f7a3a83d4294aeed8f38b5fb1a9e";
 
-/* 위치기반 등교 확인 QR — 유한공고 운동장 중심 반경 50m 안에서만 통과된다.
+/* 위치기반 등교 확인 QR — 유한공고 운동장 중심 반경(radiusM) 안에서만 통과된다.
    좌표는 사용자가 공유한 구글 지도 핀(Plus Code FRQF+5HP, 서울특별시)을
    공식 Open Location Code 라이브러리로 디코딩해서 얻었다. */
-const SCHOOL_GEOFENCE = { lat: 37.487963, lng: 126.823953, radiusM: 50 };
+const SCHOOL_GEOFENCE = { lat: 37.487963, lng: 126.823953, radiusM: 120 };
 function haversineDistanceM(lat1, lng1, lat2, lng2){
   const R = 6371000;
   const toRad = d => d * Math.PI / 180;
@@ -1912,7 +1912,7 @@ function renderCheckinView(){
     } else {
       statusEl.innerHTML = `
         <p class="text-brick font-semibold">❌ 학교 반경 밖이에요 (거리 약 ${checkinLastDistance}m)</p>
-        <p class="text-xs text-gray-400 mt-1">운동장 50m 이내에서 다시 시도해주세요.</p>
+        <p class="text-xs text-gray-400 mt-1">운동장 ${SCHOOL_GEOFENCE.radiusM}m 이내에서 다시 시도해주세요.</p>
         <button onclick="renderCheckinView()" class="mt-3 text-xs border border-gray-300 bg-card px-3 py-1.5 rounded-lg hover:bg-gray-50">다시 확인</button>`;
     }
   }, err => {
@@ -5186,6 +5186,7 @@ function renderAdmin(){
   document.getElementById('shareLinkField').value = link;
   document.getElementById('shareQr').src = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(link)}`;
   document.getElementById('checkinQr').src = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(checkinQrLink())}`;
+  document.getElementById('checkinAdminDesc').textContent = `이 QR을 교문 등에 붙여두면, 학생이 스캔했을 때 운동장 ${SCHOOL_GEOFENCE.radiusM}m 이내인 경우에만 이름을 골라 등교를 기록할 수 있어요. 로그인은 필요 없어요.`;
   document.getElementById('classNameField').value = settingsCache.className || '';
   document.getElementById('healthPasswordField').value = settingsCache.healthPassword || 'health1234';
   document.getElementById('healthRecoveryEmailField').value = settingsCache.healthRecoveryEmail || TEACHER_EMAIL || '';
