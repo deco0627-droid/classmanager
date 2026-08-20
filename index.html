@@ -1244,7 +1244,7 @@ const NEIS_API_KEY = "d055f7a3a83d4294aeed8f38b5fb1a9e";
 /* 위치기반 등교 확인 QR — 유한공고 운동장 중심 반경(radiusM) 안에서만 통과된다.
    좌표는 사용자가 공유한 구글 지도 핀(Plus Code FRQF+5HP, 서울특별시)을
    공식 Open Location Code 라이브러리로 디코딩해서 얻었다. */
-const SCHOOL_GEOFENCE = { lat: 37.487963, lng: 126.823953, radiusM: 120 };
+const SCHOOL_GEOFENCE = { lat: 37.487963, lng: 126.823953, radiusM: 200 };
 function haversineDistanceM(lat1, lng1, lat2, lng2){
   const R = 6371000;
   const toRad = d => d * Math.PI / 180;
