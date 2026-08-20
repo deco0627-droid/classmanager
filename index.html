@@ -227,6 +227,10 @@ service cloud.firestore {
           <svg viewBox="0 0 24 20" class="w-6 h-5" aria-hidden="true"><rect width="24" height="20" fill="#fff"/><rect x="0" y="0" width="6" height="5" fill="#1a1a1a"/><rect x="12" y="0" width="6" height="5" fill="#1a1a1a"/><rect x="6" y="5" width="6" height="5" fill="#1a1a1a"/><rect x="18" y="5" width="6" height="5" fill="#1a1a1a"/><rect x="0" y="10" width="6" height="5" fill="#1a1a1a"/><rect x="12" y="10" width="6" height="5" fill="#1a1a1a"/><rect x="6" y="15" width="6" height="5" fill="#1a1a1a"/><rect x="18" y="15" width="6" height="5" fill="#1a1a1a"/></svg>
           <span class="text-[10px] text-gray-400 mt-0.5 leading-none">순서정하기</span>
         </button>
+        <button onclick="openTetrisGame()" class="bg-card border border-gray-200 rounded-xl px-3 py-2.5 text-center min-w-[52px] self-stretch flex flex-col items-center justify-center hover:bg-gray-50 shrink-0" title="테트리스">
+          <span class="text-xl leading-none">🧱</span>
+          <span class="text-[10px] text-gray-400 mt-0.5 leading-none">테트리스</span>
+        </button>
         <div id="dashWeather" class="bg-card border border-gray-200 rounded-xl px-4 py-2.5 text-center min-w-[100px]">
           <p class="text-2xl leading-none" id="dashWeatherIcon">🌡</p>
           <p class="font-mono text-sm font-semibold mt-1" id="dashWeatherTemp">-</p>
@@ -272,6 +276,37 @@ service cloud.firestore {
             <button onclick="closeAnimalLadderGame()" class="flex-1 bg-forest text-white py-2.5 rounded-lg text-sm font-semibold hover:bg-forest-dark">닫기</button>
           </div>
         </div>
+      </div>
+    </div>
+
+    <div id="tetrisModal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onclick="if(event.target===this) closeTetrisGame()">
+      <div class="bg-card rounded-2xl shadow-xl w-full max-w-md p-6">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="font-display text-xl text-forest-dark">🧱 테트리스</h2>
+          <button onclick="closeTetrisGame()" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+        </div>
+        <div class="flex items-center justify-center gap-4 mb-3 text-xs text-gray-500">
+          <span>점수 <b id="tetrisScore" class="text-forest-dark">0</b></span>
+          <span>레벨 <b id="tetrisLevel" class="text-forest-dark">1</b></span>
+          <span>줄 <b id="tetrisLines" class="text-forest-dark">0</b></span>
+          <button onclick="tetrisTogglePause()" class="border border-gray-300 rounded-full px-2 py-0.5 hover:bg-gray-50">⏸ 일시정지</button>
+        </div>
+        <div class="relative mx-auto" style="width:240px;">
+          <canvas id="tetrisCanvas" width="240" height="480" class="rounded-lg border border-gray-300 mx-auto block" style="background:#16302A;"></canvas>
+          <div id="tetrisPauseOverlay" class="hidden absolute inset-0 bg-black/60 rounded-lg flex items-center justify-center text-white font-bold">일시정지</div>
+          <div id="tetrisGameOverPanel" class="hidden absolute inset-0 bg-black/75 rounded-lg flex flex-col items-center justify-center text-white gap-2">
+            <p class="font-bold text-lg">게임 오버</p>
+            <p class="text-sm">점수: <span id="tetrisFinalScore">0</span></p>
+            <button onclick="tetrisInit()" class="bg-forest text-white px-4 py-1.5 rounded-lg text-sm font-semibold">다시 하기</button>
+          </div>
+        </div>
+        <div class="grid grid-cols-4 gap-2 mt-4 max-w-xs mx-auto">
+          <button onclick="tetrisMove(-1)" class="bg-card border border-gray-300 rounded-lg py-2 text-lg hover:bg-gray-50">◀</button>
+          <button onclick="tetrisRotate()" class="bg-card border border-gray-300 rounded-lg py-2 text-lg hover:bg-gray-50">↻</button>
+          <button onclick="tetrisMove(1)" class="bg-card border border-gray-300 rounded-lg py-2 text-lg hover:bg-gray-50">▶</button>
+          <button onclick="tetrisHardDrop()" class="bg-forest text-white rounded-lg py-2 text-lg hover:bg-forest-dark">⬇︎</button>
+        </div>
+        <p class="text-[11px] text-gray-400 text-center mt-3">키보드: ← → 이동 · ↑ 회전 · ↓ 소프트드롭 · 스페이스 하드드롭 · P 일시정지</p>
       </div>
     </div>
 
@@ -4094,6 +4129,187 @@ function renderLadderRound(participants, opts){
       </div>`).join('');
   }, n * 150 + 900);
 }
+
+/* ============================================================
+   테트리스 (대시보드 상단 위젯) — 캔버스 기반, 표준 7종 블록
+============================================================ */
+const TETRIS_COLS = 10, TETRIS_ROWS = 20, TETRIS_BLOCK = 24;
+const TETROMINOES = {
+  I: { color: '#4DD0E1', shape: [[1,1,1,1]] },
+  O: { color: '#FFD54F', shape: [[1,1],[1,1]] },
+  T: { color: '#BA68C8', shape: [[0,1,0],[1,1,1]] },
+  S: { color: '#81C784', shape: [[0,1,1],[1,1,0]] },
+  Z: { color: '#E57373', shape: [[1,1,0],[0,1,1]] },
+  J: { color: '#64B5F6', shape: [[1,0,0],[1,1,1]] },
+  L: { color: '#FFB74D', shape: [[0,0,1],[1,1,1]] },
+};
+const TETRIS_KEYS = Object.keys(TETROMINOES);
+let tetrisState = null;
+let tetrisTimer = null;
+function openTetrisGame(){
+  document.getElementById('tetrisModal').classList.remove('hidden');
+  tetrisInit();
+}
+function closeTetrisGame(){
+  document.getElementById('tetrisModal').classList.add('hidden');
+  clearInterval(tetrisTimer);
+  tetrisTimer = null;
+}
+function tetrisInit(){
+  clearInterval(tetrisTimer);
+  const grid = Array.from({ length: TETRIS_ROWS }, () => Array(TETRIS_COLS).fill(0));
+  tetrisState = { grid, score: 0, lines: 0, level: 1, dropInterval: 700, gameOver: false, paused: false, current: null, nextKey: null };
+  document.getElementById('tetrisGameOverPanel').classList.add('hidden');
+  document.getElementById('tetrisPauseOverlay').classList.add('hidden');
+  tetrisSpawnPiece();
+  tetrisDraw();
+  tetrisUpdateScoreUI();
+  tetrisRestartTimer();
+}
+function tetrisRestartTimer(){
+  clearInterval(tetrisTimer);
+  tetrisTimer = setInterval(tetrisTick, tetrisState.dropInterval);
+}
+function tetrisRotateMatrix(shape){
+  const rows = shape.length, cols = shape[0].length;
+  const result = [];
+  for (let c = 0; c < cols; c++) {
+    const row = [];
+    for (let r = rows - 1; r >= 0; r--) row.push(shape[r][c]);
+    result.push(row);
+  }
+  return result;
+}
+function tetrisCollide(shape, offX, offY){
+  for (let r = 0; r < shape.length; r++) {
+    for (let c = 0; c < shape[r].length; c++) {
+      if (!shape[r][c]) continue;
+      const x = offX + c, y = offY + r;
+      if (x < 0 || x >= TETRIS_COLS || y >= TETRIS_ROWS) return true;
+      if (y >= 0 && tetrisState.grid[y][x]) return true;
+    }
+  }
+  return false;
+}
+function tetrisSpawnPiece(){
+  const key = tetrisState.nextKey || TETRIS_KEYS[Math.floor(Math.random() * TETRIS_KEYS.length)];
+  const shape = TETROMINOES[key].shape.map(row => [...row]);
+  const x = Math.floor((TETRIS_COLS - shape[0].length) / 2);
+  tetrisState.current = { shape, color: TETROMINOES[key].color, x, y: -1 };
+  tetrisState.nextKey = TETRIS_KEYS[Math.floor(Math.random() * TETRIS_KEYS.length)];
+  if (tetrisCollide(tetrisState.current.shape, tetrisState.current.x, tetrisState.current.y)) tetrisGameOver();
+}
+function tetrisLockPiece(){
+  const p = tetrisState.current;
+  p.shape.forEach((row, r) => row.forEach((v, c) => {
+    if (v && p.y + r >= 0) tetrisState.grid[p.y + r][p.x + c] = p.color;
+  }));
+  let cleared = 0;
+  for (let y = TETRIS_ROWS - 1; y >= 0; y--) {
+    if (tetrisState.grid[y].every(v => v)) {
+      tetrisState.grid.splice(y, 1);
+      tetrisState.grid.unshift(Array(TETRIS_COLS).fill(0));
+      cleared++;
+      y++;
+    }
+  }
+  if (cleared) {
+    const points = [0, 100, 300, 500, 800][cleared] * tetrisState.level;
+    tetrisState.score += points;
+    tetrisState.lines += cleared;
+    tetrisState.level = Math.floor(tetrisState.lines / 10) + 1;
+    tetrisState.dropInterval = Math.max(120, 700 - (tetrisState.level - 1) * 60);
+    tetrisRestartTimer();
+  }
+  tetrisSpawnPiece();
+}
+function tetrisTick(){
+  if (!tetrisState || tetrisState.gameOver || tetrisState.paused) return;
+  const p = tetrisState.current;
+  if (!tetrisCollide(p.shape, p.x, p.y + 1)) p.y++;
+  else tetrisLockPiece();
+  tetrisDraw();
+}
+function tetrisMove(dx){
+  if (!tetrisState || tetrisState.gameOver || tetrisState.paused) return;
+  const p = tetrisState.current;
+  if (!tetrisCollide(p.shape, p.x + dx, p.y)) { p.x += dx; tetrisDraw(); }
+}
+function tetrisRotate(){
+  if (!tetrisState || tetrisState.gameOver || tetrisState.paused) return;
+  const p = tetrisState.current;
+  const rotated = tetrisRotateMatrix(p.shape);
+  for (const k of [0, -1, 1, -2, 2]) {
+    if (!tetrisCollide(rotated, p.x + k, p.y)) { p.shape = rotated; p.x += k; tetrisDraw(); return; }
+  }
+}
+function tetrisSoftDrop(){
+  if (!tetrisState || tetrisState.gameOver || tetrisState.paused) return;
+  tetrisTick();
+  tetrisState.score += 1;
+  tetrisUpdateScoreUI();
+}
+function tetrisHardDrop(){
+  if (!tetrisState || tetrisState.gameOver || tetrisState.paused) return;
+  const p = tetrisState.current;
+  let dist = 0;
+  while (!tetrisCollide(p.shape, p.x, p.y + 1)) { p.y++; dist++; }
+  tetrisState.score += dist * 2;
+  tetrisLockPiece();
+  tetrisDraw();
+  tetrisUpdateScoreUI();
+}
+function tetrisTogglePause(){
+  if (!tetrisState || tetrisState.gameOver) return;
+  tetrisState.paused = !tetrisState.paused;
+  document.getElementById('tetrisPauseOverlay').classList.toggle('hidden', !tetrisState.paused);
+}
+function tetrisGameOver(){
+  tetrisState.gameOver = true;
+  clearInterval(tetrisTimer);
+  document.getElementById('tetrisGameOverPanel').classList.remove('hidden');
+  document.getElementById('tetrisFinalScore').textContent = tetrisState.score;
+}
+function tetrisUpdateScoreUI(){
+  document.getElementById('tetrisScore').textContent = tetrisState.score;
+  document.getElementById('tetrisLevel').textContent = tetrisState.level;
+  document.getElementById('tetrisLines').textContent = tetrisState.lines;
+}
+function tetrisDrawBlock(ctx, x, y, color){
+  ctx.fillStyle = color;
+  ctx.fillRect(x * TETRIS_BLOCK + 1, y * TETRIS_BLOCK + 1, TETRIS_BLOCK - 2, TETRIS_BLOCK - 2);
+}
+function tetrisDraw(){
+  const canvas = document.getElementById('tetrisCanvas');
+  if (!canvas || !tetrisState) return;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#16302A';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  for (let y = 0; y < TETRIS_ROWS; y++) {
+    for (let x = 0; x < TETRIS_COLS; x++) {
+      if (tetrisState.grid[y][x]) tetrisDrawBlock(ctx, x, y, tetrisState.grid[y][x]);
+    }
+  }
+  const p = tetrisState.current;
+  if (p) {
+    p.shape.forEach((row, r) => row.forEach((v, c) => {
+      if (v && p.y + r >= 0) tetrisDrawBlock(ctx, p.x + c, p.y + r, p.color);
+    }));
+  }
+  ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+  for (let x = 0; x <= TETRIS_COLS; x++) { ctx.beginPath(); ctx.moveTo(x * TETRIS_BLOCK, 0); ctx.lineTo(x * TETRIS_BLOCK, TETRIS_ROWS * TETRIS_BLOCK); ctx.stroke(); }
+  for (let y = 0; y <= TETRIS_ROWS; y++) { ctx.beginPath(); ctx.moveTo(0, y * TETRIS_BLOCK); ctx.lineTo(TETRIS_COLS * TETRIS_BLOCK, y * TETRIS_BLOCK); ctx.stroke(); }
+}
+document.addEventListener('keydown', (e) => {
+  const modal = document.getElementById('tetrisModal');
+  if (!modal || modal.classList.contains('hidden')) return;
+  if (e.key === 'ArrowLeft') { tetrisMove(-1); e.preventDefault(); }
+  else if (e.key === 'ArrowRight') { tetrisMove(1); e.preventDefault(); }
+  else if (e.key === 'ArrowDown') { tetrisSoftDrop(); e.preventDefault(); }
+  else if (e.key === 'ArrowUp') { tetrisRotate(); e.preventDefault(); }
+  else if (e.key === ' ') { tetrisHardDrop(); e.preventDefault(); }
+  else if (e.key === 'p' || e.key === 'P') { tetrisTogglePause(); }
+});
 
 /* ============================================================
    익명 동물 사다리타기 (대시보드, 날씨 위젯 앞) — 학생 명단과 무관하게
