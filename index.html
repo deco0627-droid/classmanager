@@ -1051,9 +1051,9 @@ service cloud.firestore {
 
         <div id="healthPasswordAdminPanel" class="hidden mt-4 pt-4 border-t border-gray-200">
           <label class="text-xs font-semibold text-gray-500">건강 비밀번호 설정</label>
-          <p class="text-[11px] text-gray-400 mb-2">건강 정보 수정 전 비밀번호를 한 번 더 확인합니다. 기본값은 <b>health1234</b>이며, 아래에서 바꿀 수 있어요.</p>
+          <p class="text-[11px] text-gray-400 mb-2">건강 정보 수정 전 비밀번호를 한 번 더 확인합니다. 기본값은 <b>health1234</b>예요. 보안을 위해 암호화해서 저장하기 때문에 현재 값은 보이지 않아요 — 바꾸고 싶을 때만 새 비밀번호를 입력하고 저장하세요.</p>
           <div class="flex gap-2 mt-1 mb-2">
-            <input id="healthPasswordField" type="password" placeholder="건강 비밀번호" class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm">
+            <input id="healthPasswordField" type="password" placeholder="새 비밀번호 입력 (안 바꾸면 비워두세요)" class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm">
             <button onclick="saveHealthPassword()" class="bg-forest text-white px-4 rounded-lg text-sm font-semibold">저장</button>
           </div>
           <label class="text-xs font-semibold text-gray-500">복구용 이메일</label>
@@ -1064,18 +1064,18 @@ service cloud.firestore {
           <button onclick="recoverHealthPassword()" class="mt-2 text-xs text-forest-dark font-semibold hover:underline">비밀번호를 잊었어요 — 복구 메일 보내기</button>
 
           <label class="text-xs font-semibold text-gray-500 mt-4 block">상담 비밀번호 설정</label>
-          <p class="text-[11px] text-gray-400 mb-2">상담 일지를 보기 전 비밀번호를 한 번 더 확인합니다. 기본값은 <b>consult1234</b>이며, 아래에서 바꿀 수 있어요.</p>
+          <p class="text-[11px] text-gray-400 mb-2">상담 일지를 보기 전 비밀번호를 한 번 더 확인합니다. 기본값은 <b>consult1234</b>예요. 암호화해서 저장하므로 현재 값은 보이지 않아요 — 바꾸고 싶을 때만 새 비밀번호를 입력하고 저장하세요.</p>
           <div class="flex gap-2 mt-1 mb-2">
-            <input id="consultPasswordField" type="password" placeholder="상담 비밀번호" class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm">
+            <input id="consultPasswordField" type="password" placeholder="새 비밀번호 입력 (안 바꾸면 비워두세요)" class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm">
             <button onclick="saveConsultPassword()" class="bg-forest text-white px-4 rounded-lg text-sm font-semibold">저장</button>
           </div>
           <p class="text-[11px] text-gray-400 mb-1">복구용 이메일은 위 건강 비밀번호 설정과 같은 걸 사용해요.</p>
           <button onclick="recoverConsultPassword()" class="mt-1 text-xs text-forest-dark font-semibold hover:underline">비밀번호를 잊었어요 — 복구 메일 보내기</button>
 
           <label class="text-xs font-semibold text-gray-500 mt-4 block">청소구역·동아리 배정표 · 등교 확인 비밀번호 설정</label>
-          <p class="text-[11px] text-gray-400 mb-2">실명이 그대로 보이는 청소구역·동아리 배정표와 등교 확인 화면이 이 비밀번호를 같이 써요. 교사는 로그인만으로 바로 보이고, 한 번 맞히면 그 기기에서는 다시 안 물어봐요. 기본값은 <b>class0627</b>이에요.</p>
+          <p class="text-[11px] text-gray-400 mb-2">실명이 그대로 보이는 청소구역·동아리 배정표와 등교 확인 화면이 이 비밀번호를 같이 써요. 교사는 로그인만으로 바로 보이고, 한 번 맞히면 그 기기에서는 다시 안 물어봐요. 기본값은 <b>class0627</b>이에요. 암호화해서 저장하므로 현재 값은 보이지 않아요 — 바꾸고 싶을 때만 새 비밀번호를 입력하고 저장하세요.</p>
           <div class="flex gap-2 mt-1 mb-2">
-            <input id="assignmentPasswordField" type="password" placeholder="배정표 비밀번호" class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm">
+            <input id="assignmentPasswordField" type="password" placeholder="새 비밀번호 입력 (안 바꾸면 비워두세요)" class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm">
             <button onclick="saveAssignmentPassword()" class="bg-forest text-white px-4 rounded-lg text-sm font-semibold">저장</button>
           </div>
 
@@ -3831,32 +3831,33 @@ function toggleStudentTextSizePanel(){
 }
 
 function downloadStudentSummaryCsv(){
-  if (!requireHealthPassword()) return;
-  const rows = [...studentsCache].sort((a,b)=> (parseInt(a.number)||0)-(parseInt(b.number)||0)).map(s => ({
-    번호: s.number || '',
-    이름: isTeacher ? s.name : maskStudentName(s.name),
-    청소구역: s.cleaningArea || '',
-    동아리: s.club || '',
-    건강: s.health || '',
-    자격증: (s.certificates || []).map(c => c.type).join(', '),
-    수상: (s.awards || []).map(a => a.title).join(', '),
-    상담: (s.consultLogs || []).length,
-  }));
-  if (!rows.length) return alert('다운로드할 학생 데이터가 없습니다.');
+  requireHealthPassword(() => {
+    const rows = [...studentsCache].sort((a,b)=> (parseInt(a.number)||0)-(parseInt(b.number)||0)).map(s => ({
+      번호: s.number || '',
+      이름: isTeacher ? s.name : maskStudentName(s.name),
+      청소구역: s.cleaningArea || '',
+      동아리: s.club || '',
+      건강: s.health || '',
+      자격증: (s.certificates || []).map(c => c.type).join(', '),
+      수상: (s.awards || []).map(a => a.title).join(', '),
+      상담: (s.consultLogs || []).length,
+    }));
+    if (!rows.length) return alert('다운로드할 학생 데이터가 없습니다.');
 
-  const ws = XLSX.utils.json_to_sheet(rows);
-  ws['!cols'] = [{wch:8},{wch:12},{wch:16},{wch:16},{wch:18},{wch:26},{wch:18},{wch:8}];
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, '학생요약');
+    const ws = XLSX.utils.json_to_sheet(rows);
+    ws['!cols'] = [{wch:8},{wch:12},{wch:16},{wch:16},{wch:18},{wch:26},{wch:18},{wch:8}];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, '학생요약');
 
-  const xlsxBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-  const blob = new Blob([xlsxBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = '학생_보고서.xlsx';
-  a.click();
-  URL.revokeObjectURL(url);
+    const xlsxBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    const blob = new Blob([xlsxBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = '학생_보고서.xlsx';
+    a.click();
+    URL.revokeObjectURL(url);
+  });
 }
 
 function renderStudents(){
@@ -4744,20 +4745,37 @@ const MODAL_TABS = [
   { key: 'cleaning', label: '청소 구역' }, { key: 'club', label: '동아리' },
   { key: 'awards', label: '수상 실적' },
 ];
-function getHealthPassword(){
-  return (settingsCache && settingsCache.healthPassword) ? String(settingsCache.healthPassword).trim() : 'health1234';
+// 비밀번호를 평문으로 저장하면 settings 컬렉션은 규칙상 누구나 읽을 수 있어서(공개
+// 데이터가 섞여 있는 문서라 컬렉션 전체를 잠글 수 없음) 개발자 도구로 그대로 들여다볼 수
+// 있다. SHA-256 해시로만 저장·비교해서 최소한 "한 번의 조회로 비밀번호가 그대로 보이는"
+// 상황은 막는다 (완벽한 보안은 아니지만, 평문 저장보다는 훨씬 낫다).
+async function sha256Hex(text){
+  const enc = new TextEncoder().encode(text);
+  const buf = await crypto.subtle.digest('SHA-256', enc);
+  return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+const _defaultPwHashCache = {};
+async function getDefaultPwHash(plain){
+  if (!_defaultPwHashCache[plain]) _defaultPwHashCache[plain] = await sha256Hex(plain);
+  return _defaultPwHashCache[plain];
+}
+async function getHealthPasswordHash(){
+  return (settingsCache && settingsCache.healthPasswordHash) || await getDefaultPwHash('health1234');
 }
 let healthPasswordSessionUnlocked = false;
-function requireHealthPassword(){
-  if (healthPasswordSessionUnlocked) return true;
-  const input = window.prompt('건강 정보 수정 비밀번호를 입력하세요.');
-  if (input === null) return false;
-  if (String(input).trim() !== getHealthPassword()) {
-    alert('건강 비밀번호가 올바르지 않습니다.');
-    return false;
-  }
-  healthPasswordSessionUnlocked = true;
-  return true;
+function requireHealthPassword(onSuccess, onFail){
+  if (healthPasswordSessionUnlocked) { onSuccess(); return; }
+  openPasswordPrompt('건강 정보 수정 비밀번호를 입력하세요.', async (input) => {
+    if (!input) { if (onFail) onFail(); return; }
+    const [expected, actual] = await Promise.all([getHealthPasswordHash(), sha256Hex(input.trim())]);
+    if (actual !== expected) {
+      alert('건강 비밀번호가 올바르지 않습니다.');
+      if (onFail) onFail();
+      return;
+    }
+    healthPasswordSessionUnlocked = true;
+    onSuccess();
+  });
 }
 function clearHealthPasswordSession(){
   healthPasswordSessionUnlocked = false;
@@ -4782,8 +4800,8 @@ function recoverHealthPassword(){
     alert('복구용 이메일이 아직 설정되지 않았습니다. 관리자 설정에서 건강 비밀번호/복구용 이메일을 먼저 등록해주세요.');
     return;
   }
-  const subject = encodeURIComponent('[학급 수첩] 건강 비밀번호 복구 요청');
-  const body = encodeURIComponent(`안녕하세요.\n\n건강 정보 수정 비밀번호를 잊어버렸습니다.\n현재 설정된 비밀번호는 "${getHealthPassword()}" 입니다.\n\n관리자 페이지에서 비밀번호를 새로 변경할 수 있습니다.\n`);
+  const subject = encodeURIComponent('[학급 수첩] 건강 비밀번호 재설정 안내');
+  const body = encodeURIComponent(`안녕하세요.\n\n건강 정보 수정 비밀번호를 잊어버렸습니다.\n비밀번호는 암호화되어 저장돼 있어 그대로 확인할 수 없으니, 관리자 페이지의 "건강 비밀번호 설정"에서 새 비밀번호로 다시 설정해주세요.\n`);
   window.location.href = `mailto:${email}?subject=${subject}&body=${body}`;
 }
 // 별표로 가려서 입력받는 공용 비밀번호 확인 모달 (window.prompt는 입력을 가릴 수 없어서 직접 만든다).
@@ -4806,15 +4824,16 @@ function confirmPasswordPrompt(){
   passwordPromptCallback = null;
   if (cb) cb(value);
 }
-function getConsultPassword(){
-  return (settingsCache && settingsCache.consultPassword) ? String(settingsCache.consultPassword).trim() : 'consult1234';
+async function getConsultPasswordHash(){
+  return (settingsCache && settingsCache.consultPasswordHash) || await getDefaultPwHash('consult1234');
 }
 let consultPasswordSessionUnlocked = false;
 function requireConsultPassword(onSuccess){
   if (consultPasswordSessionUnlocked) { onSuccess(); return; }
-  openPasswordPrompt('상담 일지를 보려면 비밀번호를 입력하세요.', (input) => {
+  openPasswordPrompt('상담 일지를 보려면 비밀번호를 입력하세요.', async (input) => {
     if (!input) return;
-    if (input.trim() !== getConsultPassword()) { alert('상담 비밀번호가 올바르지 않습니다.'); return; }
+    const [expected, actual] = await Promise.all([getConsultPasswordHash(), sha256Hex(input.trim())]);
+    if (actual !== expected) { alert('상담 비밀번호가 올바르지 않습니다.'); return; }
     consultPasswordSessionUnlocked = true;
     onSuccess();
   });
@@ -4822,10 +4841,28 @@ function requireConsultPassword(onSuccess){
 function clearConsultPasswordSession(){
   consultPasswordSessionUnlocked = false;
 }
-function saveConsultPassword(){
+async function saveHealthPassword(){
+  const value = document.getElementById('healthPasswordField').value.trim();
+  if (!value) return alert('새 비밀번호를 입력해주세요. 기존 비밀번호를 그대로 두려면 저장을 누르지 말고 비워두세요.');
+  const hash = await sha256Hex(value);
+  settingsCache.healthPasswordHash = hash;
+  await db.collection('settings').doc('general').set({
+    healthPasswordHash: hash,
+    healthPassword: firebase.firestore.FieldValue.delete(),
+  }, { merge: true });
+  document.getElementById('healthPasswordField').value = '';
+  alert('건강 비밀번호가 저장되었습니다.');
+}
+async function saveConsultPassword(){
   const value = document.getElementById('consultPasswordField').value.trim();
-  settingsCache.consultPassword = value || 'consult1234';
-  db.collection('settings').doc('general').set({ consultPassword: settingsCache.consultPassword }, { merge: true });
+  if (!value) return alert('새 비밀번호를 입력해주세요. 기존 비밀번호를 그대로 두려면 저장을 누르지 말고 비워두세요.');
+  const hash = await sha256Hex(value);
+  settingsCache.consultPasswordHash = hash;
+  await db.collection('settings').doc('general').set({
+    consultPasswordHash: hash,
+    consultPassword: firebase.firestore.FieldValue.delete(),
+  }, { merge: true });
+  document.getElementById('consultPasswordField').value = '';
   alert('상담 비밀번호가 저장되었습니다.');
 }
 function recoverConsultPassword(){
@@ -4834,17 +4871,17 @@ function recoverConsultPassword(){
     alert('복구용 이메일이 아직 설정되지 않았습니다. 관리자 설정에서 복구용 이메일을 먼저 등록해주세요.');
     return;
   }
-  const subject = encodeURIComponent('[학급 수첩] 상담 비밀번호 복구 요청');
-  const body = encodeURIComponent(`안녕하세요.\n\n상담 일지 비밀번호를 잊어버렸습니다.\n현재 설정된 비밀번호는 "${getConsultPassword()}" 입니다.\n\n관리자 페이지에서 비밀번호를 새로 변경할 수 있습니다.\n`);
+  const subject = encodeURIComponent('[학급 수첩] 상담 비밀번호 재설정 안내');
+  const body = encodeURIComponent(`안녕하세요.\n\n상담 일지 비밀번호를 잊어버렸습니다.\n비밀번호는 암호화되어 저장돼 있어 그대로 확인할 수 없으니, 관리자 페이지의 "상담 비밀번호 설정"에서 새 비밀번호로 다시 설정해주세요.\n`);
   window.location.href = `mailto:${email}?subject=${subject}&body=${body}`;
 }
 // 대시보드 학생 명단 불러오기는 별도 비밀번호를 두지 않고 건강 비밀번호를 그대로 재사용한다
 // (요청: "건강상태의 비밀번호와 동일하게 해달라") — 비밀번호가 여러 개로 늘어나 헷갈리지 않게.
-function getRosterImportPassword(){
-  return getHealthPassword();
+function getRosterImportPasswordHash(){
+  return getHealthPasswordHash();
 }
-function getAssignmentPassword(){
-  return (settingsCache && settingsCache.assignmentPassword) ? String(settingsCache.assignmentPassword).trim() : 'class0627';
+async function getAssignmentPasswordHash(){
+  return (settingsCache && settingsCache.assignmentPasswordHash) || await getDefaultPwHash('class0627');
 }
 const ASSIGNMENT_PW_STORAGE_KEY = 'cm_assignmentPwUnlocked';
 function isAssignmentUnlocked(){
@@ -4855,9 +4892,10 @@ function isAssignmentUnlocked(){
 // (localStorage에) 기억해둬서 매번 다시 입력하지 않아도 되게 한다.
 function requireAssignmentPassword(onSuccess){
   if (isTeacher || isAssignmentUnlocked()) { onSuccess(); return; }
-  openPasswordPrompt('비밀번호를 입력하세요.', (input) => {
+  openPasswordPrompt('비밀번호를 입력하세요.', async (input) => {
     if (!input) { switchView('dashboard'); return; }
-    if (input.trim() !== getAssignmentPassword()) {
+    const [expected, actual] = await Promise.all([getAssignmentPasswordHash(), sha256Hex(input.trim())]);
+    if (actual !== expected) {
       alert('비밀번호가 올바르지 않습니다.');
       switchView('dashboard');
       return;
@@ -4866,16 +4904,23 @@ function requireAssignmentPassword(onSuccess){
     onSuccess();
   });
 }
-function saveAssignmentPassword(){
+async function saveAssignmentPassword(){
   const value = document.getElementById('assignmentPasswordField').value.trim();
-  settingsCache.assignmentPassword = value || 'class0627';
-  db.collection('settings').doc('general').set({ assignmentPassword: settingsCache.assignmentPassword }, { merge: true });
+  if (!value) return alert('새 비밀번호를 입력해주세요. 기존 비밀번호를 그대로 두려면 저장을 누르지 말고 비워두세요.');
+  const hash = await sha256Hex(value);
+  settingsCache.assignmentPasswordHash = hash;
+  await db.collection('settings').doc('general').set({
+    assignmentPasswordHash: hash,
+    assignmentPassword: firebase.firestore.FieldValue.delete(),
+  }, { merge: true });
+  document.getElementById('assignmentPasswordField').value = '';
   alert('비밀번호가 저장되었습니다.');
 }
 function requireRosterImportPassword(onSuccess){
-  openPasswordPrompt('학생 명단을 불러오려면 비밀번호를 입력하세요.', (input) => {
+  openPasswordPrompt('학생 명단을 불러오려면 비밀번호를 입력하세요.', async (input) => {
     if (!input) return;
-    if (input.trim() !== getRosterImportPassword()) { alert('비밀번호가 올바르지 않습니다.'); return; }
+    const [expected, actual] = await Promise.all([getRosterImportPasswordHash(), sha256Hex(input.trim())]);
+    if (actual !== expected) { alert('비밀번호가 올바르지 않습니다.'); return; }
     onSuccess();
   });
 }
@@ -4935,13 +4980,13 @@ function renderModal(){
 }
 function switchModalTab(key){
   if (key === 'health') {
-    if (!requireHealthPassword()) {
+    requireHealthPassword(() => {
+      currentModalTab = key;
+      renderModal();
+    }, () => {
       currentModalTab = 'cleaning';
       renderModal();
-      return;
-    }
-    currentModalTab = key;
-    renderModal();
+    });
     return;
   }
   if (key === 'consult') {
@@ -5063,11 +5108,12 @@ function addConsultLog(){
 }
 function deleteConsultLog(i){ const s = getCurrentStudent(); s.consultLogs.splice(i,1); persistStudent(s); renderModalContent(); }
 function saveHealth(){
-  if (!requireHealthPassword()) return;
-  const s = getCurrentStudent();
-  s.health = document.getElementById('healthField').value;
-  persistStudent(s);
-  alert('건강 정보가 저장되었습니다.');
+  requireHealthPassword(() => {
+    const s = getCurrentStudent();
+    s.health = document.getElementById('healthField').value;
+    persistStudent(s);
+    alert('건강 정보가 저장되었습니다.');
+  });
 }
 function addElective(){
   const s = getCurrentStudent(); const val = document.getElementById('electiveInput').value.trim();
@@ -5571,10 +5617,12 @@ function renderAdmin(){
   document.getElementById('checkinQr').src = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(checkinQrLink())}`;
   document.getElementById('checkinAdminDesc').textContent = `이 QR을 교문 등에 붙여두면, 학생이 스캔했을 때 운동장 ${SCHOOL_GEOFENCE.radiusM}m 이내인 경우에만 이름을 골라 등교를 기록할 수 있어요. 로그인은 필요 없어요.`;
   document.getElementById('classNameField').value = settingsCache.className || '';
-  document.getElementById('healthPasswordField').value = settingsCache.healthPassword || 'health1234';
+  // 비밀번호는 해시로만 저장돼 있어 원래 값을 되돌릴 수 없다 — 빈 칸으로 두고,
+  // 새로 입력해서 저장할 때만 바뀌게 한다.
+  document.getElementById('healthPasswordField').value = '';
   document.getElementById('healthRecoveryEmailField').value = settingsCache.healthRecoveryEmail || TEACHER_EMAIL || '';
-  document.getElementById('consultPasswordField').value = settingsCache.consultPassword || 'consult1234';
-  document.getElementById('assignmentPasswordField').value = settingsCache.assignmentPassword || 'class0627';
+  document.getElementById('consultPasswordField').value = '';
+  document.getElementById('assignmentPasswordField').value = '';
   const isAdminView = isTeacher && currentView === 'admin';
   const unlockTrigger = document.getElementById('healthPasswordUnlockTrigger');
   if (unlockTrigger) {
@@ -5694,12 +5742,6 @@ function saveClassName(){
   settingsCache.className = document.getElementById('classNameField').value.trim();
   db.collection('settings').doc('general').set({ className: settingsCache.className }, { merge: true });
   alert('학급명이 저장되었습니다.');
-}
-function saveHealthPassword(){
-  const value = document.getElementById('healthPasswordField').value.trim();
-  settingsCache.healthPassword = value || 'health1234';
-  db.collection('settings').doc('general').set({ healthPassword: settingsCache.healthPassword }, { merge: true });
-  alert('건강 비밀번호가 저장되었습니다.');
 }
 function saveHealthRecoveryEmail(){
   const value = document.getElementById('healthRecoveryEmailField').value.trim();
