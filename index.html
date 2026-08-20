@@ -219,10 +219,10 @@ service cloud.firestore {
       </div>
       <div class="flex items-center justify-between sm:justify-start gap-3">
         <div id="dashCbtQrBox" class="hidden bg-card border border-gray-200 rounded-xl px-3 py-2.5 text-center min-w-[76px] self-stretch flex flex-row items-center justify-center gap-3 shrink-0"></div>
-        <div class="bg-card border border-gray-200 rounded-xl px-3 py-2 text-center min-w-[76px] self-stretch flex flex-col items-center justify-center gap-1 shrink-0">
+        <button onclick="switchView('checkin')" class="bg-card border border-gray-200 rounded-xl px-3 py-2 text-center min-w-[76px] self-stretch flex flex-col items-center justify-center gap-1 shrink-0 hover:bg-gray-50" title="이 화면에서 바로 등교 확인하기">
           <p class="text-[9px] text-forest-dark font-semibold leading-tight">📍 등교 확인</p>
-          <img id="dashCheckinQr" class="w-14 h-14 rounded bg-white border border-gray-200 cursor-zoom-in" onclick="openCheckinQrZoom()" alt="등교 확인 QR">
-        </div>
+          <img id="dashCheckinQr" class="w-14 h-14 rounded bg-white border border-gray-200 pointer-events-none" alt="등교 확인 QR">
+        </button>
         <button onclick="openAnimalLadderGame()" class="bg-card border border-gray-200 rounded-xl px-3 py-2.5 text-center min-w-[52px] self-stretch flex flex-col items-center justify-center hover:bg-gray-50 shrink-0" title="동물 달리기 경주 (랜덤 뽑기)">
           <svg viewBox="0 0 24 20" class="w-6 h-5" aria-hidden="true"><rect width="24" height="20" fill="#fff"/><rect x="0" y="0" width="6" height="5" fill="#1a1a1a"/><rect x="12" y="0" width="6" height="5" fill="#1a1a1a"/><rect x="6" y="5" width="6" height="5" fill="#1a1a1a"/><rect x="18" y="5" width="6" height="5" fill="#1a1a1a"/><rect x="0" y="10" width="6" height="5" fill="#1a1a1a"/><rect x="12" y="10" width="6" height="5" fill="#1a1a1a"/><rect x="6" y="15" width="6" height="5" fill="#1a1a1a"/><rect x="18" y="15" width="6" height="5" fill="#1a1a1a"/></svg>
           <span class="text-[10px] text-gray-400 mt-0.5 leading-none">순서정하기</span>
