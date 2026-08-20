@@ -1006,8 +1006,8 @@ service cloud.firestore {
           <p class="text-[11px] text-gray-400 mb-1">복구용 이메일은 위 건강 비밀번호 설정과 같은 걸 사용해요.</p>
           <button onclick="recoverConsultPassword()" class="mt-1 text-xs text-forest-dark font-semibold hover:underline">비밀번호를 잊었어요 — 복구 메일 보내기</button>
 
-          <label class="text-xs font-semibold text-gray-500 mt-4 block">청소구역·동아리 배정표 비밀번호 설정</label>
-          <p class="text-[11px] text-gray-400 mb-2">실명이 그대로 담긴 배정표라 비밀번호를 아는 사람만 볼 수 있게 했어요. 교사는 로그인만으로 바로 보이고, 기본값은 <b>class1234</b>예요.</p>
+          <label class="text-xs font-semibold text-gray-500 mt-4 block">청소구역·동아리 배정표 · 등교 확인 비밀번호 설정</label>
+          <p class="text-[11px] text-gray-400 mb-2">실명이 그대로 보이는 청소구역·동아리 배정표와 등교 확인 화면이 이 비밀번호를 같이 써요. 교사는 로그인만으로 바로 보이고, 한 번 맞히면 그 기기에서는 다시 안 물어봐요. 기본값은 <b>class0627</b>이에요.</p>
           <div class="flex gap-2 mt-1 mb-2">
             <input id="assignmentPasswordField" type="password" placeholder="배정표 비밀번호" class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm">
             <button onclick="saveAssignmentPassword()" class="bg-forest text-white px-4 rounded-lg text-sm font-semibold">저장</button>
@@ -1493,7 +1493,7 @@ function syncAssignmentPhotoButtons(){
 function renderPhotosView(){
   // Firestore 실시간 리스너가 currentView==='photos'만 보고 이 함수를 다시 부르는 경로가
   // 있어서, 비밀번호를 아직 안 풀었으면 여기서도 한 번 더 막아야 사진이 뒤에서 새지 않는다.
-  if (!isTeacher && !assignmentPasswordSessionUnlocked) return;
+  if (!isTeacher && !isAssignmentUnlocked()) return;
   document.getElementById('cleaningPhotoView').innerHTML = cleaningPhotoCache
     ? `<img src="${cleaningPhotoCache}" class="w-full h-auto cursor-pointer" onclick="openPhotoZoom(this.src)">`
     : `<p class="text-gray-400 text-sm p-8">등록된 사진이 없습니다.</p>`;
@@ -1708,7 +1708,7 @@ function defaultSettings(){
     className: '학급 수첩', certificateTypes: [...DEFAULT_CERT_TYPES], timetable: {}, certGuide: '', certRoadmap: null,
     healthPassword: 'health1234',
     consultPassword: 'consult1234',
-    assignmentPassword: 'class1234',
+    assignmentPassword: 'class0627',
     healthRecoveryEmail: TEACHER_EMAIL || '',
     personalLinks: [],
     weatherLocation: { name: '서울시 구로구', lat: 37.4954, lon: 126.8874 },
@@ -1898,6 +1898,11 @@ let checkinLastDistance = null;
 function renderCheckinView(){
   const statusEl = document.getElementById('checkinStatus');
   document.getElementById('checkinStudentPicker').classList.add('hidden');
+  statusEl.innerHTML = '<p class="text-gray-400">🔒 확인 중...</p>';
+  requireAssignmentPassword(startCheckinGeolocation);
+}
+function startCheckinGeolocation(){
+  const statusEl = document.getElementById('checkinStatus');
   statusEl.innerHTML = '<p class="text-gray-400">📍 위치 확인 중...</p>';
   if (!navigator.geolocation) {
     statusEl.innerHTML = '<p class="text-brick">이 기기·브라우저는 위치 확인 기능을 지원하지 않아요.</p>';
@@ -4465,29 +4470,33 @@ function getRosterImportPassword(){
   return getHealthPassword();
 }
 function getAssignmentPassword(){
-  return (settingsCache && settingsCache.assignmentPassword) ? String(settingsCache.assignmentPassword).trim() : 'class1234';
+  return (settingsCache && settingsCache.assignmentPassword) ? String(settingsCache.assignmentPassword).trim() : 'class0627';
 }
-let assignmentPasswordSessionUnlocked = false;
-// 청소구역·동아리 배정표는 실명이 그대로 담긴 사진/표라 "전체 공개"에서 비밀번호 보호로 바꿨다.
-// 교사는 이미 로그인으로 확인됐으니 비밀번호를 또 묻지 않는다.
+const ASSIGNMENT_PW_STORAGE_KEY = 'cm_assignmentPwUnlocked';
+function isAssignmentUnlocked(){
+  return localStorage.getItem(ASSIGNMENT_PW_STORAGE_KEY) === '1';
+}
+// 청소구역·동아리 배정표와 등교 확인(이름이 그대로 보이는 화면들)은 같은 비밀번호를 쓴다.
+// 교사는 로그인으로 이미 확인됐으니 묻지 않고, 그 외에는 한 번 맞히면 이 기기에
+// (localStorage에) 기억해둬서 매번 다시 입력하지 않아도 되게 한다.
 function requireAssignmentPassword(onSuccess){
-  if (isTeacher || assignmentPasswordSessionUnlocked) { onSuccess(); return; }
-  openPasswordPrompt('청소구역·동아리 배정표를 보려면 비밀번호를 입력하세요.', (input) => {
+  if (isTeacher || isAssignmentUnlocked()) { onSuccess(); return; }
+  openPasswordPrompt('비밀번호를 입력하세요.', (input) => {
     if (!input) { switchView('dashboard'); return; }
     if (input.trim() !== getAssignmentPassword()) {
       alert('비밀번호가 올바르지 않습니다.');
       switchView('dashboard');
       return;
     }
-    assignmentPasswordSessionUnlocked = true;
+    localStorage.setItem(ASSIGNMENT_PW_STORAGE_KEY, '1');
     onSuccess();
   });
 }
 function saveAssignmentPassword(){
   const value = document.getElementById('assignmentPasswordField').value.trim();
-  settingsCache.assignmentPassword = value || 'class1234';
+  settingsCache.assignmentPassword = value || 'class0627';
   db.collection('settings').doc('general').set({ assignmentPassword: settingsCache.assignmentPassword }, { merge: true });
-  alert('청소구역·동아리 배정표 비밀번호가 저장되었습니다.');
+  alert('비밀번호가 저장되었습니다.');
 }
 function requireRosterImportPassword(onSuccess){
   openPasswordPrompt('학생 명단을 불러오려면 비밀번호를 입력하세요.', (input) => {
@@ -5191,7 +5200,7 @@ function renderAdmin(){
   document.getElementById('healthPasswordField').value = settingsCache.healthPassword || 'health1234';
   document.getElementById('healthRecoveryEmailField').value = settingsCache.healthRecoveryEmail || TEACHER_EMAIL || '';
   document.getElementById('consultPasswordField').value = settingsCache.consultPassword || 'consult1234';
-  document.getElementById('assignmentPasswordField').value = settingsCache.assignmentPassword || 'class1234';
+  document.getElementById('assignmentPasswordField').value = settingsCache.assignmentPassword || 'class0627';
   const isAdminView = isTeacher && currentView === 'admin';
   const unlockTrigger = document.getElementById('healthPasswordUnlockTrigger');
   if (unlockTrigger) {
