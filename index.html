@@ -292,7 +292,10 @@ service cloud.firestore {
             <p>점수 <b id="tetrisScore" class="text-forest-dark">0</b></p>
             <p>스테이지 <b id="tetrisStage" class="text-forest-dark">1</b> · 레벨 <b id="tetrisLevel" class="text-forest-dark">1</b> · 줄 <b id="tetrisLines" class="text-forest-dark">0</b></p>
             <p>다음 스테이지까지 <b id="tetrisStageTimer" class="text-forest-dark">60</b>초</p>
-            <button onclick="tetrisTogglePause()" class="border border-gray-300 rounded-full px-2 py-0.5 hover:bg-gray-50 mt-1">⏸ 일시정지</button>
+            <div class="flex gap-1.5 mt-1">
+              <button onclick="tetrisTogglePause()" class="border border-gray-300 rounded-full px-2 py-0.5 hover:bg-gray-50">⏸ 일시정지</button>
+              <button onclick="toggleTetrisLeaderboard()" class="border border-gray-300 rounded-full px-2 py-0.5 hover:bg-gray-50">🏆 기록</button>
+            </div>
           </div>
           <div class="text-center shrink-0">
             <p class="mb-1">다음</p>
@@ -310,10 +313,22 @@ service cloud.firestore {
             </div>
             <p class="font-bold text-lg mt-2">스테이지 <span id="tetrisClearedStage">1</span> 클리어!</p>
           </div>
-          <div id="tetrisGameOverPanel" class="hidden absolute inset-0 bg-black/75 rounded-lg flex flex-col items-center justify-center text-white gap-2">
+          <div id="tetrisGameOverPanel" class="hidden absolute inset-0 bg-black/75 rounded-lg flex flex-col items-center justify-center text-white gap-2 p-4">
             <p class="font-bold text-lg">게임 오버</p>
             <p class="text-sm">점수: <span id="tetrisFinalScore">0</span></p>
-            <button onclick="tetrisInit()" class="bg-forest text-white px-4 py-1.5 rounded-lg text-sm font-semibold">다시 하기</button>
+            <div id="tetrisNameEntry" class="w-full max-w-[190px]">
+              <input id="tetrisNameInput" maxlength="10" placeholder="이름/별명 (최대 10자)" class="w-full text-ink rounded-lg px-2 py-1.5 text-sm mb-2">
+              <button onclick="saveTetrisScore()" class="w-full bg-amber text-white py-1.5 rounded-lg text-sm font-semibold hover:opacity-90">🏆 기록 저장</button>
+            </div>
+            <button onclick="tetrisInit()" class="bg-forest text-white px-4 py-1.5 rounded-lg text-sm font-semibold mt-1">다시 하기</button>
+          </div>
+          <div id="tetrisLeaderboardPanel" class="hidden absolute inset-0 bg-black/90 rounded-lg flex flex-col text-white p-4">
+            <div class="flex items-center justify-between mb-2 shrink-0">
+              <p class="font-bold">🏆 역대 기록</p>
+              <button onclick="toggleTetrisLeaderboard()" class="text-white/70 hover:text-white text-xl leading-none">&times;</button>
+            </div>
+            <div id="tetrisLeaderboardList" class="text-sm space-y-1 flex-1 overflow-y-auto"></div>
+            <button id="tetrisResetScoresBtn" onclick="resetTetrisScores()" class="hidden mt-2 text-xs border border-brick/60 text-brick py-1.5 rounded-lg hover:bg-brick/10 shrink-0">🗑 전체 기록 초기화 (교사 전용)</button>
           </div>
         </div>
         <div class="grid grid-cols-4 gap-2 mt-4 max-w-xs mx-auto">
@@ -4183,6 +4198,7 @@ function tetrisInit(){
   document.getElementById('tetrisGameOverPanel').classList.add('hidden');
   document.getElementById('tetrisPauseOverlay').classList.add('hidden');
   document.getElementById('tetrisStageClearOverlay').classList.add('hidden');
+  document.getElementById('tetrisLeaderboardPanel').classList.add('hidden');
   document.getElementById('tetrisStage').textContent = '1';
   document.getElementById('tetrisStageTimer').textContent = String(TETRIS_STAGE_DURATION_SEC);
   tetrisSpawnPiece();
@@ -4360,8 +4376,55 @@ function tetrisTogglePause(){
 function tetrisGameOver(){
   tetrisState.gameOver = true;
   clearInterval(tetrisTimer);
+  clearInterval(tetrisStageTimerInterval);
   document.getElementById('tetrisGameOverPanel').classList.remove('hidden');
   document.getElementById('tetrisFinalScore').textContent = tetrisState.score;
+  document.getElementById('tetrisNameEntry').innerHTML = `
+    <input id="tetrisNameInput" maxlength="10" placeholder="이름/별명 (최대 10자)" class="w-full text-ink rounded-lg px-2 py-1.5 text-sm mb-2">
+    <button onclick="saveTetrisScore()" class="w-full bg-amber text-white py-1.5 rounded-lg text-sm font-semibold hover:opacity-90">🏆 기록 저장</button>`;
+}
+// 옛날 오락실처럼 게임 오버 후 이름/별명을 남기면 순위표(tetrisScores)에 저장한다.
+// 로그인 없이 아무나 저장할 수 있지만(공개 기록판이라), 전체 초기화는 교사만 할 수 있다.
+function saveTetrisScore(){
+  const input = document.getElementById('tetrisNameInput');
+  const name = input.value.trim().slice(0, 10);
+  if (!name) return alert('이름/별명을 입력해주세요.');
+  db.collection('tetrisScores').add({
+    name, score: tetrisState.score, stage: tetrisState.stage, lines: tetrisState.lines, createdAt: Date.now(),
+  }).then(() => {
+    document.getElementById('tetrisNameEntry').innerHTML = '<p class="text-xs text-amber font-semibold">✅ 기록이 저장됐어요!</p>';
+  }).catch(err => alert('저장에 실패했습니다: ' + err.message));
+}
+function toggleTetrisLeaderboard(){
+  const panel = document.getElementById('tetrisLeaderboardPanel');
+  const willOpen = panel.classList.contains('hidden');
+  panel.classList.toggle('hidden', !willOpen);
+  if (willOpen) loadTetrisLeaderboard();
+}
+function loadTetrisLeaderboard(){
+  const listEl = document.getElementById('tetrisLeaderboardList');
+  listEl.textContent = '불러오는 중...';
+  document.getElementById('tetrisResetScoresBtn').classList.toggle('hidden', !isTeacher);
+  db.collection('tetrisScores').orderBy('score', 'desc').limit(10).get().then(snap => {
+    const list = snap.docs.map(d => d.data());
+    listEl.innerHTML = list.length ? list.map((s, i) => `
+      <div class="flex items-center justify-between border-b border-white/10 pb-1">
+        <span>${i + 1}. ${escapeHtml(s.name || '이름없음')}</span>
+        <span class="font-mono font-semibold">${s.score}점</span>
+      </div>`).join('') : '<p class="text-white/50 text-xs">아직 기록이 없어요.</p>';
+  }).catch(err => { listEl.textContent = '불러오기 실패: ' + err.message; });
+}
+function resetTetrisScores(){
+  if (!isTeacher) return;
+  if (!confirm('테트리스 전체 기록을 정말 초기화할까요? 되돌릴 수 없습니다.')) return;
+  db.collection('tetrisScores').get().then(snap => {
+    const batch = db.batch();
+    snap.docs.forEach(d => batch.delete(d.ref));
+    return batch.commit();
+  }).then(() => {
+    alert('초기화했습니다.');
+    loadTetrisLeaderboard();
+  }).catch(err => alert('초기화에 실패했습니다: ' + err.message));
 }
 function tetrisUpdateScoreUI(){
   document.getElementById('tetrisScore').textContent = tetrisState.score;
