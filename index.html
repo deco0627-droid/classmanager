@@ -540,6 +540,16 @@ service cloud.firestore {
     </div>
   </section>
 
+  <!-- ===================== 위치기반 등교 확인 (QR로 접속, 로그인 불필요) ===================== -->
+  <section id="view-checkin" class="view hidden fade-in">
+    <span class="badge-public">전체 공개</span>
+    <h1 class="font-display text-2xl mt-1 mb-5">📍 등교 확인</h1>
+    <div class="bg-card border border-gray-200 rounded-xl p-5 max-w-md">
+      <div id="checkinStatus" class="text-sm"></div>
+      <div id="checkinStudentPicker" class="hidden"></div>
+    </div>
+  </section>
+
   <!-- ===================== 담벼락 (누구나 작성 가능, 공개) ===================== -->
   <section id="view-wall" class="view hidden fade-in">
     <span class="badge-public">전체 공개 · 누구나 작성 가능</span>
@@ -858,6 +868,21 @@ service cloud.firestore {
           <div id="shareQrZoomModal" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-6" onclick="closeShareQrZoom()">
             <img id="shareQrZoomImg" src="" alt="공유 QR코드 확대" class="w-full max-w-md bg-white rounded-xl p-4">
           </div>
+        </div>
+      </div>
+      <div class="bg-card border border-gray-200 rounded-xl p-5" data-admin-card="attendanceGeo">
+        <button id="adminCollapseBtn_attendanceGeo" onclick="toggleAdminCollapse('attendanceGeo')" aria-expanded="false" class="admin-collapse-btn">
+          <h2 class="font-display text-lg text-forest-dark">📍 등교 확인 QR (위치 기반)</h2>
+          <span class="admin-collapse-chevron">▶</span>
+        </button>
+        <div id="adminCollapseBody_attendanceGeo" class="hidden mt-3">
+          <p class="text-xs text-gray-500 mb-3">이 QR을 교문 등에 붙여두면, 학생이 스캔했을 때 운동장 50m 이내인 경우에만 이름을 골라 등교를 기록할 수 있어요. 로그인은 필요 없어요.</p>
+          <img id="checkinQr" onclick="openCheckinQrZoom()" class="w-40 h-40 border border-gray-200 rounded-lg bg-white cursor-zoom-in" alt="등교 확인 QR코드">
+          <div id="checkinQrZoomModal" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-6" onclick="closeCheckinQrZoom()">
+            <img id="checkinQrZoomImg" src="" alt="등교 확인 QR코드 확대" class="w-full max-w-md bg-white rounded-xl p-4">
+          </div>
+          <button onclick="loadTodayAttendance()" class="mt-3 text-xs border border-gray-300 bg-card px-3 py-1.5 rounded-lg hover:bg-gray-50">오늘 확인 현황 보기</button>
+          <div id="attendanceTodayList" class="mt-2 text-sm"></div>
         </div>
       </div>
       <div class="bg-card border border-gray-200 rounded-xl p-5" data-admin-card="taskChecklist">
@@ -1211,6 +1236,18 @@ const TEACHER_EMAIL = "deco0627@nate.com"; // Firestore 보안 규칙의 이메�
    (open.neis.go.kr 무료 가입 > 인증키 신청)
    비워두면 대시보드에 점심메뉴가 표시되지 않습니다. */
 const NEIS_API_KEY = "d055f7a3a83d4294aeed8f38b5fb1a9e";
+
+/* 위치기반 등교 확인 QR — 유한공고 운동장 중심 반경 50m 안에서만 통과된다.
+   좌표는 사용자가 공유한 구글 지도 핀(Plus Code FRQF+5HP, 서울특별시)을
+   공식 Open Location Code 라이브러리로 디코딩해서 얻었다. */
+const SCHOOL_GEOFENCE = { lat: 37.487963, lng: 126.823953, radiusM: 50 };
+function haversineDistanceM(lat1, lng1, lat2, lng2){
+  const R = 6371000;
+  const toRad = d => d * Math.PI / 180;
+  const dLat = toRad(lat2 - lat1), dLng = toRad(lng2 - lng1);
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
 
 /* ============================================================
    공통 유틸
@@ -1818,7 +1855,9 @@ function bootstrapApp(){
   });
 
   renderNav();
-  switchView('dashboard');
+  // 등교 확인 QR을 스캔하면 로그인 여부와 상관없이 바로 그 화면으로 들어가게 한다.
+  const isCheckinLink = new URLSearchParams(location.search).get('geocheckin');
+  switchView(isCheckinLink ? 'checkin' : 'dashboard');
 }
 
 function startStudentsListener(){
@@ -1827,7 +1866,100 @@ function startStudentsListener(){
     studentsCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     if (currentView === 'students') renderStudents();
     if (currentStudentId) renderModalContent();
+    syncPublicRosterIndex();
   });
+}
+// 위치기반 등교 확인 QR은 로그인 없이 열리므로, 상담·건강·수상 등 민감한 정보가 담긴
+// students 컬렉션을 그대로 공개 읽기로 열 수는 없다. 이름·번호만 담은 가벼운 색인을
+// 따로 만들어서 그 색인만 공개로 읽게 하고, 실제 학생 문서는 계속 교사 전용으로 둔다.
+let publicRosterSyncTimer = null;
+function syncPublicRosterIndex(){
+  clearTimeout(publicRosterSyncTimer);
+  publicRosterSyncTimer = setTimeout(() => {
+    const roster = studentsCache.map(s => ({ id: s.id, name: s.name || '', number: s.number || '' }));
+    db.collection('settings').doc('publicRoster').set({ students: roster })
+      .catch(err => console.error('공개 명단 색인 갱신 실패:', err));
+  }, 800);
+}
+let checkinPublicRoster = [];
+let checkinLastDistance = null;
+function renderCheckinView(){
+  const statusEl = document.getElementById('checkinStatus');
+  document.getElementById('checkinStudentPicker').classList.add('hidden');
+  statusEl.innerHTML = '<p class="text-gray-400">📍 위치 확인 중...</p>';
+  if (!navigator.geolocation) {
+    statusEl.innerHTML = '<p class="text-brick">이 기기·브라우저는 위치 확인 기능을 지원하지 않아요.</p>';
+    return;
+  }
+  navigator.geolocation.getCurrentPosition(pos => {
+    const dist = haversineDistanceM(pos.coords.latitude, pos.coords.longitude, SCHOOL_GEOFENCE.lat, SCHOOL_GEOFENCE.lng);
+    checkinLastDistance = Math.round(dist);
+    if (dist <= SCHOOL_GEOFENCE.radiusM) {
+      statusEl.innerHTML = `<p class="text-forest-dark font-semibold">✅ 학교 반경 안이에요! (거리 약 ${checkinLastDistance}m)</p>`;
+      renderCheckinStudentPicker();
+    } else {
+      statusEl.innerHTML = `
+        <p class="text-brick font-semibold">❌ 학교 반경 밖이에요 (거리 약 ${checkinLastDistance}m)</p>
+        <p class="text-xs text-gray-400 mt-1">운동장 50m 이내에서 다시 시도해주세요.</p>
+        <button onclick="renderCheckinView()" class="mt-3 text-xs border border-gray-300 bg-card px-3 py-1.5 rounded-lg hover:bg-gray-50">다시 확인</button>`;
+    }
+  }, err => {
+    statusEl.innerHTML = `
+      <p class="text-brick font-semibold">위치 정보를 가져오지 못했어요.</p>
+      <p class="text-xs text-gray-400 mt-1">${escapeHtml(err.message)} — 브라우저 위치 권한을 허용했는지 확인해주세요.</p>
+      <button onclick="renderCheckinView()" class="mt-3 text-xs border border-gray-300 bg-card px-3 py-1.5 rounded-lg hover:bg-gray-50">다시 확인</button>`;
+  }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+}
+function renderCheckinStudentPicker(){
+  const picker = document.getElementById('checkinStudentPicker');
+  picker.classList.remove('hidden');
+  picker.innerHTML = `
+    <label class="text-xs font-semibold text-gray-500 block mt-4 mb-1">본인 이름을 찾아 눌러주세요</label>
+    <input id="checkinStudentSearch" oninput="filterCheckinStudentList()" placeholder="이름 검색..." class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mb-2">
+    <div id="checkinStudentList" class="space-y-1 max-h-72 overflow-y-auto"></div>`;
+  db.collection('settings').doc('publicRoster').get().then(doc => {
+    checkinPublicRoster = (doc.exists && doc.data().students) || [];
+    checkinPublicRoster.sort((a, b) => (parseInt(a.number) || 0) - (parseInt(b.number) || 0));
+    filterCheckinStudentList();
+  }).catch(err => {
+    document.getElementById('checkinStudentList').innerHTML = `<p class="text-brick text-xs">명단을 불러오지 못했어요: ${escapeHtml(err.message)}</p>`;
+  });
+}
+function filterCheckinStudentList(){
+  const q = (document.getElementById('checkinStudentSearch').value || '').trim();
+  const list = checkinPublicRoster.filter(s => !q || (s.name || '').includes(q));
+  document.getElementById('checkinStudentList').innerHTML = list.length ? list.map(s => `
+    <button onclick="confirmCheckin('${escapeAttr(s.id)}')" class="w-full text-left bg-card border border-gray-200 rounded-lg px-3 py-2 hover:border-forest text-sm">
+      <span class="font-mono text-gray-400 mr-2">${escapeHtml(s.number || '')}</span>${escapeHtml(s.name || '')}
+    </button>`).join('') : '<p class="text-gray-400 text-xs">검색 결과가 없어요.</p>';
+}
+function confirmCheckin(studentId){
+  const s = checkinPublicRoster.find(x => x.id === studentId);
+  if (!s) return;
+  const date = todayStr();
+  const now = Date.now();
+  const ref = db.collection('attendance').doc(`${date}_${studentId}`);
+  // 보안 규칙상 이 문서는 딱 한 번만 만들 수 있게(create만 허용) 해뒀으니,
+  // 이미 있으면 새로 쓰지 않고 그 기록을 그대로 보여준다.
+  ref.get().then(existing => {
+    if (existing.exists) {
+      const data = existing.data();
+      document.getElementById('checkinStudentPicker').classList.add('hidden');
+      document.getElementById('checkinStatus').innerHTML = `
+        <p class="text-forest-dark font-bold text-lg">✅ ${escapeHtml(s.name)}님, 이미 오늘 등교 확인했어요.</p>
+        <p class="text-xs text-gray-400 mt-1">${new Date(data.checkedInAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}에 확인됨</p>`;
+      return;
+    }
+    return ref.set({
+      studentId, studentName: s.name, studentNumber: s.number,
+      date, checkedInAt: now, distanceM: checkinLastDistance,
+    }).then(() => {
+      document.getElementById('checkinStudentPicker').classList.add('hidden');
+      document.getElementById('checkinStatus').innerHTML = `
+        <p class="text-forest-dark font-bold text-lg">✅ ${escapeHtml(s.name)}님, 등교 확인 완료!</p>
+        <p class="text-xs text-gray-400 mt-1">${new Date(now).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })} · 거리 약 ${checkinLastDistance}m</p>`;
+    });
+  }).catch(err => alert('등교 확인 기록에 실패했습니다: ' + err.message));
 }
 function stopStudentsListener(){
   if (studentsUnsub) { studentsUnsub(); studentsUnsub = null; }
@@ -1959,6 +2091,7 @@ function renderView(key){
     if (key==='certinfo') renderCertInfo();
     if (key==='photos') requireAssignmentPassword(renderPhotosView);
     if (key==='wall') renderWall();
+    if (key==='checkin') renderCheckinView();
     if (key==='students') renderStudents();
     if (key==='notices') renderNotices();
     if (key==='admin') renderAdmin();
@@ -4708,6 +4841,7 @@ function navDrop(e, i){
 ============================================================ */
 const ADMIN_CARD_LABELS = {
   shareLink: '🔗 학생 공유 링크 & QR',
+  attendanceGeo: '📍 등교 확인 QR (위치 기반)',
   taskChecklist: '📋 학급 업무 체크리스트',
   certRoadmap: '🏅 자격증 안내 로드맵 편집',
   noticesManage: '📢 공유 페이지(공지사항) 관리',
@@ -5038,6 +5172,8 @@ function renderAdmin(){
   const link = location.href.split('#')[0];
   document.getElementById('shareLinkField').value = link;
   document.getElementById('shareQr').src = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(link)}`;
+  const checkinLink = `${location.origin}${location.pathname}?geocheckin=1`;
+  document.getElementById('checkinQr').src = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(checkinLink)}`;
   document.getElementById('classNameField').value = settingsCache.className || '';
   document.getElementById('healthPasswordField').value = settingsCache.healthPassword || 'health1234';
   document.getElementById('healthRecoveryEmailField').value = settingsCache.healthRecoveryEmail || TEACHER_EMAIL || '';
@@ -5139,6 +5275,25 @@ function openShareQrZoom(){
 }
 function closeShareQrZoom(){
   document.getElementById('shareQrZoomModal').classList.add('hidden');
+}
+function openCheckinQrZoom(){
+  const link = `${location.origin}${location.pathname}?geocheckin=1`;
+  document.getElementById('checkinQrZoomImg').src = `https://api.qrserver.com/v1/create-qr-code/?size=480x480&data=${encodeURIComponent(link)}`;
+  document.getElementById('checkinQrZoomModal').classList.remove('hidden');
+}
+function closeCheckinQrZoom(){
+  document.getElementById('checkinQrZoomModal').classList.add('hidden');
+}
+function loadTodayAttendance(){
+  const el = document.getElementById('attendanceTodayList');
+  el.textContent = '불러오는 중...';
+  db.collection('attendance').where('date', '==', todayStr()).get().then(snap => {
+    const list = snap.docs.map(d => d.data()).sort((a, b) => (a.checkedInAt || 0) - (b.checkedInAt || 0));
+    el.innerHTML = list.length ? `
+      <p class="text-xs font-semibold text-forest-dark mb-1">오늘 등교 확인 ${list.length}명</p>
+      <div class="flex flex-wrap gap-1.5">${list.map(a => `<span class="text-xs bg-forest-light text-forest-dark px-2 py-1 rounded-full">${escapeHtml(a.studentNumber || '')}${escapeHtml(a.studentName || '')}</span>`).join('')}</div>`
+      : '<p class="text-xs text-gray-400">아직 확인된 학생이 없어요.</p>';
+  }).catch(err => { el.innerHTML = `<p class="text-brick text-xs">불러오기 실패: ${escapeHtml(err.message)}</p>`; });
 }
 function saveClassName(){
   settingsCache.className = document.getElementById('classNameField').value.trim();
