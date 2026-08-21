@@ -3705,6 +3705,21 @@ function getStudentTagList(student){
 }
 
 let studentSummaryFilter = 'all';
+let revealedHealthIds = new Set();
+function toggleHealthReveal(id, ev){
+  if (ev) ev.stopPropagation();
+  revealedHealthIds.has(id) ? revealedHealthIds.delete(id) : revealedHealthIds.add(id);
+  renderStudentSummaryPanel();
+  renderStudents();
+}
+function healthCellHtml(s, emptyLabel){
+  const hasHealth = !!(s.health || '').trim();
+  if (!hasHealth) return `<span>${emptyLabel}</span>`;
+  if (revealedHealthIds.has(s.id)) {
+    return `${escapeHtml(s.health)} <button onclick="toggleHealthReveal('${s.id}', event)" class="text-[10px] text-forest-dark font-semibold hover:underline ml-1">가리기</button>`;
+  }
+  return `<span class="text-gray-400">건강정보 있음</span> <button onclick="toggleHealthReveal('${s.id}', event)" class="text-[10px] text-forest-dark font-semibold hover:underline ml-1">보기</button>`;
+}
 const STUDENT_SUMMARY_TABS = [
   { key: 'all', label: '전체' },
   { key: 'consult', label: '상담' },
@@ -3780,7 +3795,7 @@ function renderStudentSummaryPanel(){
         <div class="text-[11px] text-gray-600 space-y-1">
           <div>🧹 ${escapeHtml(s.cleaningArea || '미지정')}</div>
           <div>🎨 ${escapeHtml(s.club || '미가입')}</div>
-          <div>🏥 ${escapeHtml(s.health || '건강메모 없음')}</div>
+          <div>🏥 ${healthCellHtml(s, '건강메모 없음')}</div>
           <div>📜 ${((s.certificates || []).length)}개 · 🏅 ${((s.awards || []).length)}건 · 🧭 ${((s.consultLogs || []).length)}회</div>
         </div>
       </div>
@@ -3913,7 +3928,7 @@ function renderStudents(){
       <td class="px-4 py-2.5 font-semibold"><span class="inline-flex items-center flex-wrap gap-1">${escapeHtml(displayStudentName(s.name))}${stickerHtml(s)}</span></td>
       <td class="px-4 py-2.5">${escapeHtml(s.cleaningArea)||'-'}</td>
       <td class="px-4 py-2.5">${escapeHtml(s.club)||'-'}</td>
-      <td class="px-4 py-2.5 text-gray-500">${escapeHtml(s.health)||'-'}</td>
+      <td class="px-4 py-2.5 text-gray-500">${healthCellHtml(s, '-')}</td>
       <td class="px-4 py-2.5 text-right text-gray-300">›</td>
     </tr>`).join('') : `<tr><td colspan="6" class="px-4 py-6 text-center text-gray-400">등록된 학생이 없습니다.</td></tr>`;
 
