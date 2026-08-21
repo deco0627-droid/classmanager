@@ -882,7 +882,11 @@ service cloud.firestore {
       <div id="noticeWriteForm" class="hidden bg-card border border-gray-200 rounded-xl p-5 h-fit">
         <h2 class="font-display text-lg mb-3 text-forest-dark" id="noticeFormTitle">새 공지 작성</h2>
         <input id="noticeTitle" placeholder="제목" class="border border-gray-300 rounded-lg px-3 py-2 text-sm w-full mb-2">
-        <textarea id="noticeContent" placeholder="내용을 입력하세요" rows="5" class="border border-gray-300 rounded-lg px-3 py-2 text-sm w-full mb-2"></textarea>
+        <textarea id="noticeContent" placeholder="내용을 입력하세요 (캡처한 화면은 여기에 Ctrl+V로 바로 붙여넣을 수 있어요)" rows="5" class="border border-gray-300 rounded-lg px-3 py-2 text-sm w-full mb-2"></textarea>
+        <div id="noticeImagePreviewWrap" class="hidden relative mb-2">
+          <img id="noticeImagePreview" class="w-full rounded-lg border border-gray-200" alt="첨부 이미지 미리보기">
+          <button onclick="removeNoticeImage()" class="absolute top-1.5 right-1.5 bg-black/60 text-white w-6 h-6 rounded-full text-sm leading-none hover:bg-black/80">&times;</button>
+        </div>
         <input id="noticeTags" placeholder="태그 (예: #시험 #준비물)" class="border border-gray-300 rounded-lg px-3 py-2 text-sm w-full mb-3">
         <div class="flex gap-2">
           <button onclick="saveNotice()" id="noticeSaveBtn" class="flex-1 bg-forest text-white py-2 rounded-lg text-sm font-semibold hover:bg-forest-dark">공지 등록</button>
@@ -1283,7 +1287,8 @@ service cloud.firestore {
     </div>
     <p class="font-display text-xl mb-1" id="noticePopupTitle"></p>
     <p class="font-mono text-xs text-gray-400 mb-3" id="noticePopupDate"></p>
-    <p class="text-base text-gray-700 whitespace-pre-line mb-4" id="noticePopupContent"></p>
+    <p class="text-base text-gray-700 whitespace-pre-line mb-3" id="noticePopupContent"></p>
+    <img id="noticePopupImage" class="hidden w-full rounded-lg border border-gray-200 mb-4" alt="">
     <button onclick="closeNoticePopup()" class="w-full bg-forest text-white py-2.5 rounded-lg text-sm font-semibold hover:bg-forest-dark">확인했어요</button>
   </div>
 </div>
@@ -2691,10 +2696,13 @@ function renderDashboard(){
   const recentNotices = noticesCache.slice(0,3);
   document.getElementById('dashNotices').innerHTML = recentNotices.length
     ? recentNotices.map(n => `
-      <div class="border-l-2 border-amber pl-3">
-        <p class="font-semibold">${escapeHtml(n.title)}</p>
-        <p class="text-gray-500 text-xs mt-0.5 line-clamp-2">${escapeHtml(n.content)}</p>
-        <p class="font-mono text-[11px] text-gray-400 mt-1">${n.date}</p>
+      <div class="border-l-2 border-amber pl-3 flex gap-2">
+        <div class="flex-1 min-w-0">
+          <p class="font-semibold">${escapeHtml(n.title)}</p>
+          <p class="text-gray-500 text-xs mt-0.5 line-clamp-2">${escapeHtml(n.content)}</p>
+          <p class="font-mono text-[11px] text-gray-400 mt-1">${n.date}</p>
+        </div>
+        ${n.imageUrl ? `<img src="${n.imageUrl}" class="w-12 h-12 rounded-lg object-cover border border-gray-200 shrink-0" alt="">` : ''}
       </div>`).join('')
     : `<p class="text-gray-400">등록된 공지사항이 없습니다.</p>`;
 
@@ -3567,6 +3575,9 @@ function maybeShowNoticePopup(){
   document.getElementById('noticePopupTitle').textContent = latest.title || '';
   document.getElementById('noticePopupDate').textContent = latest.date || '';
   document.getElementById('noticePopupContent').textContent = latest.content || '';
+  const popupImg = document.getElementById('noticePopupImage');
+  popupImg.src = latest.imageUrl || '';
+  popupImg.classList.toggle('hidden', !latest.imageUrl);
   document.getElementById('noticePopupModal').classList.remove('hidden');
   localStorage.setItem(NOTICE_POPUP_SEEN_KEY, latest.id);
   db.collection('notices').doc(latest.id).update({ viewCount: firebase.firestore.FieldValue.increment(1) }).catch(() => {});
@@ -3584,6 +3595,7 @@ function openNoticesListModal(){
       </div>
       <p class="font-mono text-xs text-gray-400 mb-2">${n.date}</p>
       <p class="text-base text-gray-700 whitespace-pre-line">${escapeHtml(n.content)}</p>
+      ${n.imageUrl ? `<img src="${n.imageUrl}" class="w-full rounded-lg border border-gray-200 mt-2" alt="">` : ''}
       <div class="flex gap-1.5 mt-3 flex-wrap">
         ${(n.tags||[]).map(t => `<span class="text-xs bg-amber-light text-amber px-2 py-0.5 rounded-full">#${escapeHtml(t)}</span>`).join('')}
       </div>
@@ -5263,16 +5275,42 @@ function deleteAward(i){ const s = getCurrentStudent(); s.awards.splice(i,1); pe
 ============================================================ */
 let activeTagFilter = null;
 let editingNoticeId = null;
+let noticeImageDataUrl = null;
+// 공지 내용칸에 캡처한 화면을 Ctrl+V로 바로 붙여넣을 수 있게 한다.
+document.getElementById('noticeContent').addEventListener('paste', (e) => {
+  const items = e.clipboardData && e.clipboardData.items;
+  if (!items) return;
+  for (const item of items) {
+    if (item.type && item.type.startsWith('image/')) {
+      const file = item.getAsFile();
+      if (!file) continue;
+      compressImageFile(file, 900, 0.7).then(dataUrl => {
+        if (dataUrl.length > 900000) return alert('이미지 용량이 너무 큽니다. 더 작거나 단순한 사진으로 다시 시도해주세요.');
+        noticeImageDataUrl = dataUrl;
+        document.getElementById('noticeImagePreview').src = dataUrl;
+        document.getElementById('noticeImagePreviewWrap').classList.remove('hidden');
+      }).catch(() => alert('이미지를 처리하는 중 문제가 발생했습니다.'));
+      e.preventDefault();
+      break;
+    }
+  }
+});
+function removeNoticeImage(){
+  noticeImageDataUrl = null;
+  document.getElementById('noticeImagePreviewWrap').classList.add('hidden');
+  document.getElementById('noticeImagePreview').src = '';
+}
 function saveNotice(){
   const title = document.getElementById('noticeTitle').value.trim();
   const content = document.getElementById('noticeContent').value.trim();
   const rawTags = document.getElementById('noticeTags').value.trim();
   if (!title || !content) return alert('제목과 내용을 입력해주세요.');
   const tags = rawTags.split(/[\s,]+/).map(t => t.replace(/^#/, '')).filter(Boolean);
+  const imageUrl = noticeImageDataUrl || null;
   if (editingNoticeId) {
-    db.collection('notices').doc(editingNoticeId).update({ title, content, tags });
+    db.collection('notices').doc(editingNoticeId).update({ title, content, tags, imageUrl });
   } else {
-    db.collection('notices').add({ date: todayStr(), title, content, tags });
+    db.collection('notices').add({ date: todayStr(), title, content, tags, imageUrl });
   }
   cancelNoticeEdit();
 }
@@ -5283,6 +5321,9 @@ function editNotice(id){
   document.getElementById('noticeTitle').value = n.title || '';
   document.getElementById('noticeContent').value = n.content || '';
   document.getElementById('noticeTags').value = (n.tags || []).map(t => '#' + t).join(' ');
+  noticeImageDataUrl = n.imageUrl || null;
+  document.getElementById('noticeImagePreviewWrap').classList.toggle('hidden', !noticeImageDataUrl);
+  document.getElementById('noticeImagePreview').src = noticeImageDataUrl || '';
   document.getElementById('noticeFormTitle').textContent = '공지 수정';
   document.getElementById('noticeSaveBtn').textContent = '수정 완료';
   document.getElementById('noticeCancelBtn').classList.remove('hidden');
@@ -5295,6 +5336,7 @@ function cancelNoticeEdit(){
   document.getElementById('noticeTitle').value = '';
   document.getElementById('noticeContent').value = '';
   document.getElementById('noticeTags').value = '';
+  removeNoticeImage();
   document.getElementById('noticeFormTitle').textContent = '새 공지 작성';
   document.getElementById('noticeSaveBtn').textContent = '공지 등록';
   document.getElementById('noticeCancelBtn').classList.add('hidden');
@@ -5323,6 +5365,7 @@ function renderNotices(){
       </div>
       <p class="font-mono text-xs text-gray-400 mb-2">${n.date}</p>
       <p class="text-base text-gray-700 whitespace-pre-line">${escapeHtml(n.content)}</p>
+      ${n.imageUrl ? `<img src="${n.imageUrl}" class="w-full max-w-sm rounded-lg border border-gray-200 mt-2" alt="">` : ''}
       <div class="flex gap-1.5 mt-3 flex-wrap">
         ${(n.tags||[]).map(t => `<span class="text-xs bg-amber-light text-amber px-2 py-0.5 rounded-full">#${escapeHtml(t)}</span>`).join('')}
       </div>
