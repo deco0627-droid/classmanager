@@ -3880,7 +3880,7 @@ function renderStudents(){
   const showStickers = isTeacher && isHealthUnlocked();
   const stickerIcon = t => { const first = String(t).trim().split(/\s+/)[0]; return /\p{Emoji}/u.test(first) ? first : '🏷'; };
   const stickerHtml = s => (showStickers && (s.stickers||[]).length)
-    ? s.stickers.map(t => `<span class="text-sm cursor-help" title="${escapeAttr(t)}">${escapeHtml(stickerIcon(t))}</span>`).join('')
+    ? s.stickers.map(t => `<span class="text-[17px] cursor-help" title="${escapeAttr(t)}">${escapeHtml(stickerIcon(t))}</span>`).join('')
     : '';
   const scale = getStudentCardFontScale();
   document.getElementById('studentCardWrap').innerHTML = list.length ? list.map((s,i) => {
