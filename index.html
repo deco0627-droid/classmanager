@@ -684,6 +684,18 @@ service cloud.firestore {
     </div>
   </div>
 
+  <!-- 공지 크게 보기 (전자칠판용) -->
+  <div id="noticeZoomModal" class="hidden fixed inset-0 bg-black/85 z-[65] flex items-center justify-center p-6" onclick="if(event.target===this) closeNoticeZoom()">
+    <div class="bg-card rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto p-8 relative">
+      <button onclick="closeNoticeZoom()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-3xl leading-none">&times;</button>
+      <p class="font-display text-3xl mb-2" id="noticeZoomTitle"></p>
+      <p class="font-mono text-sm text-gray-400 mb-5" id="noticeZoomDate"></p>
+      <p class="text-2xl leading-relaxed text-gray-700 whitespace-pre-line mb-4" id="noticeZoomContent"></p>
+      <img id="noticeZoomImage" class="hidden w-full rounded-lg border border-gray-200 mb-4" alt="">
+      <div class="flex gap-2 flex-wrap" id="noticeZoomTags"></div>
+    </div>
+  </div>
+
   <!-- ===================== 학생 명단 (비공개, 교사 전용) ===================== -->
   <section id="view-students" class="view hidden fade-in">
     <span class="badge-private">교사만 열람 가능</span>
@@ -3588,7 +3600,7 @@ function closeNoticePopup(){
 function openNoticesListModal(){
   const sorted = [...noticesCache];
   document.getElementById('noticesListModalContent').innerHTML = sorted.length ? sorted.map(n => `
-    <div class="bg-card border border-gray-200 rounded-xl p-4">
+    <div class="bg-card border border-gray-200 rounded-xl p-4 cursor-zoom-in hover:border-forest" onclick="openNoticeZoom('${n.id}')" title="눌러서 크게 보기">
       <div class="flex items-start justify-between gap-2">
         <p class="font-display text-lg">${escapeHtml(n.title)}</p>
         <span class="text-xs text-gray-400 font-mono shrink-0">👁 ${(n.viewCount || 0) + (isTeacher ? 0 : 1)}회 확인</span>
@@ -3611,6 +3623,22 @@ function openNoticesListModal(){
   }
 }
 function closeNoticesListModal(){ document.getElementById('noticesListModal').classList.add('hidden'); }
+// 전자칠판 등 먼 거리에서도 읽을 수 있게, 목록에서 공지를 한 번 더 누르면 글씨를 크게 키워서 보여준다.
+function openNoticeZoom(id){
+  const n = noticesCache.find(x => x.id === id);
+  if (!n) return;
+  document.getElementById('noticeZoomTitle').textContent = n.title || '';
+  document.getElementById('noticeZoomDate').textContent = n.date || '';
+  document.getElementById('noticeZoomContent').textContent = n.content || '';
+  const img = document.getElementById('noticeZoomImage');
+  img.src = n.imageUrl || '';
+  img.classList.toggle('hidden', !n.imageUrl);
+  document.getElementById('noticeZoomTags').innerHTML = (n.tags||[]).map(t => `<span class="text-sm bg-amber-light text-amber px-3 py-1 rounded-full">#${escapeHtml(t)}</span>`).join('');
+  document.getElementById('noticeZoomModal').classList.remove('hidden');
+}
+function closeNoticeZoom(){
+  document.getElementById('noticeZoomModal').classList.add('hidden');
+}
 
 /* ============================================================
    학생 명단 (교사 전용)
