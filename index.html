@@ -3874,6 +3874,11 @@ function renderStudents(){
   const list = studentsCache.filter(s => (s.name || '').includes(query))
     .sort((a,b) => (parseInt(a.number) || 0) - (parseInt(b.number) || 0));
 
+  // 스티커(차상위·건강주의 등)는 건강 비밀번호를 이미 입력해둔 교사에게만 이름 옆에 보인다.
+  const showStickers = isTeacher && isHealthUnlocked();
+  const stickerHtml = s => (showStickers && (s.stickers||[]).length)
+    ? s.stickers.map(t => `<span class="text-[10px] bg-amber-light text-amber px-1.5 py-0.5 rounded-full">${escapeHtml(t)}</span>`).join('')
+    : '';
   const scale = getStudentCardFontScale();
   document.getElementById('studentCardWrap').innerHTML = list.length ? list.map((s,i) => {
     const nameText = displayStudentName(s.name);
@@ -3881,7 +3886,7 @@ function renderStudents(){
     return `
       <div class="student-card p-4 pt-5 cursor-pointer" onclick="openStudentEditor('${s.id}')">
         <div class="corner-tab ${CARD_COLORS[i%3]}"></div>
-        <p class="font-display" style="font-size:${(1.125 * scale.name).toFixed(2)}rem; line-height:1.2;">${escapeHtml(nameText)}</p>
+        <p class="font-display flex items-center flex-wrap gap-1" style="font-size:${(1.125 * scale.name).toFixed(2)}rem; line-height:1.2;">${escapeHtml(nameText)}${stickerHtml(s)}</p>
         <p class="font-mono text-gray-400 mb-2" style="font-size:${(0.68 * scale.number).toFixed(2)}rem;">No. ${escapeHtml(s.number||'-')}</p>
         <div class="flex flex-wrap gap-1 mb-2" style="font-size:${(0.58 * scale.tag).toFixed(2)}rem;">
           ${tagList.length ? tagList.map(tag => `<span class="inline-flex items-center rounded-full bg-forest-light font-semibold px-1.5 py-0.5 text-forest-dark">${tag}</span>`).join('') : '<span class="inline-flex items-center rounded-full bg-gray-100 font-medium px-1.5 py-0.5 text-gray-500">기본</span>'}
@@ -3897,7 +3902,7 @@ function renderStudents(){
   document.getElementById('studentTableBody').innerHTML = list.length ? list.map(s => `
     <tr class="border-t border-gray-100 hover:bg-forest-light/40 cursor-pointer" onclick="openStudentEditor('${s.id}')">
       <td class="px-4 py-2.5 font-mono text-xs text-gray-400">${escapeHtml(s.number||'-')}</td>
-      <td class="px-4 py-2.5 font-semibold">${escapeHtml(displayStudentName(s.name))}</td>
+      <td class="px-4 py-2.5 font-semibold"><span class="inline-flex items-center flex-wrap gap-1">${escapeHtml(displayStudentName(s.name))}${stickerHtml(s)}</span></td>
       <td class="px-4 py-2.5">${escapeHtml(s.cleaningArea)||'-'}</td>
       <td class="px-4 py-2.5">${escapeHtml(s.club)||'-'}</td>
       <td class="px-4 py-2.5 text-gray-500">${escapeHtml(s.health)||'-'}</td>
@@ -4759,7 +4764,7 @@ const MODAL_TABS = [
   { key: 'consult', label: '상담 일지' }, { key: 'health', label: '건강 상태' },
   { key: 'elective', label: '고교학점제' }, { key: 'cert', label: '자격증' },
   { key: 'cleaning', label: '청소 구역' }, { key: 'club', label: '동아리' },
-  { key: 'awards', label: '수상 실적' },
+  { key: 'awards', label: '수상 실적' }, { key: 'sticker', label: '🏷 스티커' },
 ];
 // 비밀번호를 평문으로 저장하면 settings 컬렉션은 규칙상 누구나 읽을 수 있어서(공개
 // 데이터가 섞여 있는 문서라 컬렉션 전체를 잠글 수 없음) 개발자 도구로 그대로 들여다볼 수
@@ -5001,7 +5006,7 @@ function renderModal(){
   renderModalContent();
 }
 function switchModalTab(key){
-  if (key === 'health') {
+  if (key === 'health' || key === 'sticker') {
     requireHealthPassword(() => {
       currentModalTab = key;
       renderModal();
@@ -5119,6 +5124,41 @@ function renderModalContent(){
           </div>`).join('') : `<p class="text-gray-400 text-sm">등록된 수상 실적이 없습니다.</p>`}
       </div>`;
   }
+  else if (currentModalTab === 'sticker') {
+    s.stickers = s.stickers || [];
+    el.innerHTML = `
+      <p class="text-xs text-gray-400 mb-3">교사인 나만 볼 수 있는 표시예요 (차상위, 건강 주의 등). 학생 명단 카드에 이름 옆 작은 태그로 표시돼요.</p>
+      <div class="flex flex-wrap gap-1.5 mb-4">
+        ${['💚 차상위','❤️‍🩹 건강주의','👀 관심필요','💬 상담필요'].map(preset => `
+          <button onclick="addSticker('${escapeAttr(preset)}')" class="text-xs border border-gray-300 bg-card px-2.5 py-1 rounded-full hover:bg-gray-50">${escapeHtml(preset)}</button>`).join('')}
+      </div>
+      <div class="flex gap-2 mb-4">
+        <input id="stickerInput" placeholder="직접 입력 (예: 🏠 특별 지원 대상)" class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm">
+        <button onclick="addSticker(document.getElementById('stickerInput').value)" class="bg-forest text-white px-4 rounded-lg text-sm font-semibold">추가</button>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        ${s.stickers.length ? s.stickers.map((t,i) => `
+          <span class="chip bg-amber-light text-amber px-3 py-1.5 rounded-full text-sm">${escapeHtml(t)}
+            <button onclick="deleteSticker(${i})" class="text-amber/60 hover:text-brick ml-1">&times;</button>
+          </span>`).join('') : `<p class="text-gray-400 text-sm">등록된 스티커가 없습니다.</p>`}
+      </div>`;
+  }
+}
+function addSticker(raw){
+  const text = (raw || '').trim().slice(0, 20);
+  if (!text) return;
+  const s = getCurrentStudent();
+  s.stickers = s.stickers || [];
+  if (s.stickers.includes(text)) return;
+  s.stickers.push(text);
+  persistStudent(s);
+  renderModalContent();
+}
+function deleteSticker(i){
+  const s = getCurrentStudent();
+  s.stickers.splice(i, 1);
+  persistStudent(s);
+  renderModalContent();
 }
 
 function addConsultLog(){
