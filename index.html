@@ -1264,7 +1264,7 @@ service cloud.firestore {
 </div>
 
 <!-- ===================== 비밀번호 확인 모달 (별표 마스킹) ===================== -->
-<div id="passwordPromptModal" class="hidden fixed inset-0 bg-ink/60 z-50 flex items-center justify-center p-4" onclick="if(event.target===this) cancelPasswordPrompt()">
+<div id="passwordPromptModal" class="hidden fixed inset-0 bg-ink/60 z-[70] flex items-center justify-center p-4" onclick="if(event.target===this) cancelPasswordPrompt()">
   <div class="bg-card rounded-2xl shadow-xl w-full max-w-sm p-6">
     <p id="passwordPromptMessage" class="text-sm mb-3">비밀번호를 입력하세요.</p>
     <input id="passwordPromptInput" type="password" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mb-4" placeholder="비밀번호">
@@ -4778,9 +4778,14 @@ async function getDefaultPwHash(plain){
 async function getHealthPasswordHash(){
   return (settingsCache && settingsCache.healthPasswordHash) || await getDefaultPwHash('health1234');
 }
-let healthPasswordSessionUnlocked = false;
+// 학생 카드를 열고 닫을 때마다 다시 물어보면 번거로우니, 한 번 맞히면 이 기기에
+// (localStorage에) 기억해둬서 다음부터는 다시 안 물어본다 (배정표 비밀번호와 동일한 방식).
+const HEALTH_PW_STORAGE_KEY = 'cm_healthPwUnlocked';
+function isHealthUnlocked(){
+  return localStorage.getItem(HEALTH_PW_STORAGE_KEY) === '1';
+}
 function requireHealthPassword(onSuccess, onFail){
-  if (healthPasswordSessionUnlocked) { onSuccess(); return; }
+  if (isHealthUnlocked()) { onSuccess(); return; }
   openPasswordPrompt('건강 정보 수정 비밀번호를 입력하세요.', async (input) => {
     if (!input) { if (onFail) onFail(); return; }
     const [expected, actual] = await Promise.all([getHealthPasswordHash(), sha256Hex(input.trim())]);
@@ -4789,12 +4794,12 @@ function requireHealthPassword(onSuccess, onFail){
       if (onFail) onFail();
       return;
     }
-    healthPasswordSessionUnlocked = true;
+    localStorage.setItem(HEALTH_PW_STORAGE_KEY, '1');
     onSuccess();
   });
 }
 function clearHealthPasswordSession(){
-  healthPasswordSessionUnlocked = false;
+  localStorage.removeItem(HEALTH_PW_STORAGE_KEY);
 }
 let healthPasswordUnlockCount = 0;
 function unlockHealthPasswordPanel(){
@@ -4843,19 +4848,22 @@ function confirmPasswordPrompt(){
 async function getConsultPasswordHash(){
   return (settingsCache && settingsCache.consultPasswordHash) || await getDefaultPwHash('consult1234');
 }
-let consultPasswordSessionUnlocked = false;
+const CONSULT_PW_STORAGE_KEY = 'cm_consultPwUnlocked';
+function isConsultUnlocked(){
+  return localStorage.getItem(CONSULT_PW_STORAGE_KEY) === '1';
+}
 function requireConsultPassword(onSuccess){
-  if (consultPasswordSessionUnlocked) { onSuccess(); return; }
+  if (isConsultUnlocked()) { onSuccess(); return; }
   openPasswordPrompt('상담 일지를 보려면 비밀번호를 입력하세요.', async (input) => {
     if (!input) return;
     const [expected, actual] = await Promise.all([getConsultPasswordHash(), sha256Hex(input.trim())]);
     if (actual !== expected) { alert('상담 비밀번호가 올바르지 않습니다.'); return; }
-    consultPasswordSessionUnlocked = true;
+    localStorage.setItem(CONSULT_PW_STORAGE_KEY, '1');
     onSuccess();
   });
 }
 function clearConsultPasswordSession(){
-  consultPasswordSessionUnlocked = false;
+  localStorage.removeItem(CONSULT_PW_STORAGE_KEY);
 }
 async function saveHealthPassword(){
   const value = document.getElementById('healthPasswordField').value.trim();
@@ -4970,8 +4978,6 @@ document.getElementById('passwordPromptInput').addEventListener('keydown', (e) =
 function closeStudentModal(){
   document.getElementById('studentModal').classList.add('hidden');
   currentStudentId = null;
-  clearHealthPasswordSession();
-  clearConsultPasswordSession();
   renderStudents();
 }
 function deleteCurrentStudent(){
