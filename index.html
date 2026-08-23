@@ -898,6 +898,7 @@ service cloud.firestore {
           <button type="button" id="noticeCategoryBtn_daily" onclick="setNoticeCategory(false)" class="flex-1 text-xs font-semibold py-2 rounded-lg border">📅 단기 공지 (매일)</button>
           <button type="button" id="noticeCategoryBtn_pinned" onclick="setNoticeCategory(true)" class="flex-1 text-xs font-semibold py-2 rounded-lg border">📌 고정 공지 (장기)</button>
         </div>
+        <div class="flex items-center gap-2 mb-3" id="noticeColorPicker"></div>
         <input id="noticeTitle" placeholder="제목" class="border border-gray-300 rounded-lg px-3 py-2 text-sm w-full mb-2">
         <textarea id="noticeContent" placeholder="내용을 입력하세요 (캡처한 화면은 여기에 Ctrl+V로 바로 붙여넣을 수 있어요)" rows="5" class="border border-gray-300 rounded-lg px-3 py-2 text-sm w-full mb-2"></textarea>
         <div id="noticeImagePreviewWrap" class="hidden relative mb-2">
@@ -2689,10 +2690,14 @@ function renderCbtQrWidget(){
    대시보드 (공개 데이터만 사용)
 ============================================================ */
 function noticeCardHtml(n, borderColorClass){
+  // 공지마다 고른 강조색(n.color)이 있으면 그걸 우선 쓰고, 없으면(기본) 단기/고정 기본색을 쓴다.
+  const custom = n.color && n.color !== 'default' ? NOTICE_COLORS[n.color] : null;
+  const border = custom ? custom.border : (borderColorClass || 'border-amber');
+  const titleColorClass = custom ? custom.text : '';
   return `
-    <div class="border-l-2 ${borderColorClass || 'border-amber'} pl-3 flex gap-2">
+    <div class="border-l-2 ${border} pl-3 flex gap-2">
       <div class="flex-1 min-w-0">
-        <p class="font-semibold">${escapeHtml(n.title)}</p>
+        <p class="font-semibold ${titleColorClass}">${escapeHtml(n.title)}</p>
         <p class="text-gray-500 text-sm mt-0.5 line-clamp-2">${escapeHtml(n.content)}</p>
         <p class="font-mono text-[13px] text-gray-400 mt-1">${n.date}</p>
       </div>
@@ -3599,7 +3604,9 @@ function maybeShowNoticePopup(){
   if (isTeacher || !noticesCache.length) return;
   const latest = noticesCache[0];
   if (localStorage.getItem(NOTICE_POPUP_SEEN_KEY) === latest.id) return;
-  document.getElementById('noticePopupTitle').textContent = latest.title || '';
+  const popupTitle = document.getElementById('noticePopupTitle');
+  popupTitle.textContent = latest.title || '';
+  popupTitle.className = 'font-display text-xl mb-1 ' + noticeColorClasses(latest).text;
   document.getElementById('noticePopupDate').textContent = latest.date || '';
   document.getElementById('noticePopupContent').textContent = latest.content || '';
   const popupImg = document.getElementById('noticePopupImage');
@@ -3615,9 +3622,9 @@ function closeNoticePopup(){
 function openNoticesListModal(){
   const sorted = [...noticesCache];
   document.getElementById('noticesListModalContent').innerHTML = sorted.length ? sorted.map(n => `
-    <div class="bg-card border border-gray-200 rounded-xl p-4 cursor-zoom-in hover:border-forest" onclick="openNoticeZoom('${n.id}')" title="눌러서 크게 보기">
+    <div class="bg-card border-l-4 ${noticeColorClasses(n).border} border-t border-r border-b border-gray-200 rounded-xl p-4 cursor-zoom-in hover:brightness-110" onclick="openNoticeZoom('${n.id}')" title="눌러서 크게 보기">
       <div class="flex items-start justify-between gap-2">
-        <p class="font-display text-lg">${escapeHtml(n.title)}</p>
+        <p class="font-display text-lg ${noticeColorClasses(n).text}">${escapeHtml(n.title)}</p>
         <span class="text-xs text-gray-400 font-mono shrink-0">👁 ${(n.viewCount || 0) + (isTeacher ? 0 : 1)}회 확인</span>
       </div>
       <p class="font-mono text-xs text-gray-400 mb-2">${n.date}</p>
@@ -3642,7 +3649,9 @@ function closeNoticesListModal(){ document.getElementById('noticesListModal').cl
 function openNoticeZoom(id){
   const n = noticesCache.find(x => x.id === id);
   if (!n) return;
-  document.getElementById('noticeZoomTitle').textContent = n.title || '';
+  const zoomTitle = document.getElementById('noticeZoomTitle');
+  zoomTitle.textContent = n.title || '';
+  zoomTitle.className = 'font-display text-3xl mb-2 ' + noticeColorClasses(n).text;
   document.getElementById('noticeZoomDate').textContent = n.date || '';
   document.getElementById('noticeZoomContent').textContent = n.content || '';
   const img = document.getElementById('noticeZoomImage');
@@ -5356,6 +5365,32 @@ function updateNoticeCategoryButtons(){
   dailyBtn.className = 'flex-1 text-xs font-semibold py-2 rounded-lg border ' + (!noticeFormPinned ? 'bg-forest text-white border-forest' : 'bg-card text-gray-500 border-gray-300');
   pinnedBtn.className = 'flex-1 text-xs font-semibold py-2 rounded-lg border ' + (noticeFormPinned ? 'bg-amber text-white border-amber' : 'bg-card text-gray-500 border-gray-300');
 }
+// 공지마다 강조색을 고를 수 있게 한다. 'default'면 기존처럼 단기(초록)/고정(노랑) 색을 그대로 쓰고,
+// 그 외에는 지정한 색이 우선한다(왼쪽 선·제목 색 모두).
+const NOTICE_COLORS = {
+  default: { label: '기본', swatch: '#3B8B63', border: 'border-forest', text: '' },
+  red:     { label: '빨강', swatch: '#f87171', border: 'border-red-400', text: 'text-red-400' },
+  amber:   { label: '노랑', swatch: '#D99C4A', border: 'border-amber', text: 'text-amber' },
+  blue:    { label: '파랑', swatch: '#60a5fa', border: 'border-blue-400', text: 'text-blue-400' },
+  purple:  { label: '보라', swatch: '#c084fc', border: 'border-purple-400', text: 'text-purple-400' },
+};
+let noticeFormColor = 'default';
+function setNoticeFormColor(key){
+  noticeFormColor = key;
+  renderNoticeColorPicker();
+}
+function renderNoticeColorPicker(){
+  const el = document.getElementById('noticeColorPicker');
+  if (!el) return;
+  el.innerHTML = `<span class="text-xs text-gray-400 mr-1">강조색</span>` + Object.keys(NOTICE_COLORS).map(key => {
+    const c = NOTICE_COLORS[key];
+    const active = noticeFormColor === key;
+    return `<button type="button" onclick="setNoticeFormColor('${key}')" title="${c.label}" class="w-6 h-6 rounded-full border-2 ${active ? 'border-white' : 'border-transparent'}" style="background:${c.swatch};"></button>`;
+  }).join('');
+}
+function noticeColorClasses(n){
+  return NOTICE_COLORS[n && n.color] || NOTICE_COLORS.default;
+}
 function saveNotice(){
   const title = document.getElementById('noticeTitle').value.trim();
   const content = document.getElementById('noticeContent').value.trim();
@@ -5364,10 +5399,11 @@ function saveNotice(){
   const tags = rawTags.split(/[\s,]+/).map(t => t.replace(/^#/, '')).filter(Boolean);
   const imageUrl = noticeImageDataUrl || null;
   const pinned = noticeFormPinned;
+  const color = noticeFormColor;
   if (editingNoticeId) {
-    db.collection('notices').doc(editingNoticeId).update({ title, content, tags, imageUrl, pinned });
+    db.collection('notices').doc(editingNoticeId).update({ title, content, tags, imageUrl, pinned, color });
   } else {
-    db.collection('notices').add({ date: todayStr(), title, content, tags, imageUrl, pinned });
+    db.collection('notices').add({ date: todayStr(), title, content, tags, imageUrl, pinned, color });
   }
   cancelNoticeEdit();
 }
@@ -5383,6 +5419,8 @@ function editNotice(id){
   document.getElementById('noticeImagePreview').src = noticeImageDataUrl || '';
   noticeFormPinned = !!n.pinned;
   updateNoticeCategoryButtons();
+  noticeFormColor = n.color || 'default';
+  renderNoticeColorPicker();
   document.getElementById('noticeFormTitle').textContent = '공지 수정';
   document.getElementById('noticeSaveBtn').textContent = '수정 완료';
   document.getElementById('noticeCancelBtn').classList.remove('hidden');
@@ -5398,6 +5436,8 @@ function cancelNoticeEdit(){
   removeNoticeImage();
   noticeFormPinned = false;
   updateNoticeCategoryButtons();
+  noticeFormColor = 'default';
+  renderNoticeColorPicker();
   document.getElementById('noticeFormTitle').textContent = '새 공지 작성';
   document.getElementById('noticeSaveBtn').textContent = '공지 등록';
   document.getElementById('noticeCancelBtn').classList.add('hidden');
@@ -5411,6 +5451,7 @@ let noticeListFilter = 'all';
 function setNoticeListFilter(key){ noticeListFilter = key; renderNotices(); }
 function renderNotices(){
   updateNoticeCategoryButtons();
+  renderNoticeColorPicker();
   const NOTICE_LIST_TABS = [
     { key: 'all', label: '전체' },
     { key: 'daily', label: '📅 단기 공지' },
@@ -5430,9 +5471,9 @@ function renderNotices(){
   else if (noticeListFilter === 'pinned') list = list.filter(n => n.pinned);
   if (activeTagFilter) list = list.filter(n => (n.tags||[]).includes(activeTagFilter));
   document.getElementById('noticeList').innerHTML = list.length ? list.map(n => `
-    <div class="bg-card border border-gray-200 rounded-xl p-4">
+    <div class="bg-card border-l-4 ${noticeColorClasses(n).border} border-t border-r border-b border-gray-200 rounded-xl p-4">
       <div class="flex justify-between items-start gap-2">
-        <p class="font-display text-lg">${n.pinned ? '<span class="text-xs bg-amber-light text-amber px-2 py-0.5 rounded-full mr-1.5 align-middle">📌 고정</span>' : ''}${escapeHtml(n.title)}</p>
+        <p class="font-display text-lg ${noticeColorClasses(n).text}">${n.pinned ? '<span class="text-xs bg-amber-light text-amber px-2 py-0.5 rounded-full mr-1.5 align-middle">📌 고정</span>' : ''}${escapeHtml(n.title)}</p>
         <div class="flex items-center gap-2 shrink-0">
           <span class="text-xs text-gray-400 font-mono">👁 ${n.viewCount || 0}회 확인</span>
           ${isTeacher ? `<button onclick="editNotice('${n.id}')" class="text-gray-300 hover:text-forest-dark text-sm leading-none" title="수정">✏️</button>
