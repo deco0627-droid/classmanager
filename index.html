@@ -423,8 +423,8 @@ service cloud.firestore {
             <h2 class="font-display text-lg text-forest-dark">📢 최근 공지사항</h2>
             <button onclick="openNoticesListModal()" class="text-xs text-forest-dark font-semibold hover:underline shrink-0">자세히 보기 →</button>
           </div>
-          <div id="dashPinnedNotices" class="space-y-3 text-sm"></div>
-          <div id="dashNotices" class="space-y-3 text-sm"></div>
+          <div id="dashNotices" class="space-y-3 text-base"></div>
+          <div id="dashPinnedNotices" class="space-y-3 text-base"></div>
         </div>
         <div class="bg-card border border-gray-200 rounded-xl p-5">
           <h2 class="font-display text-lg mb-3 text-forest-dark">📌 오늘의 학사일정</h2>
@@ -2693,8 +2693,8 @@ function noticeCardHtml(n, borderColorClass){
     <div class="border-l-2 ${borderColorClass || 'border-amber'} pl-3 flex gap-2">
       <div class="flex-1 min-w-0">
         <p class="font-semibold">${escapeHtml(n.title)}</p>
-        <p class="text-gray-500 text-xs mt-0.5 line-clamp-2">${escapeHtml(n.content)}</p>
-        <p class="font-mono text-[11px] text-gray-400 mt-1">${n.date}</p>
+        <p class="text-gray-500 text-sm mt-0.5 line-clamp-2">${escapeHtml(n.content)}</p>
+        <p class="font-mono text-[13px] text-gray-400 mt-1">${n.date}</p>
       </div>
       ${n.imageUrl ? `<img src="${n.imageUrl}" class="w-12 h-12 rounded-lg object-cover border border-gray-200 shrink-0" alt="">` : ''}
     </div>`;
@@ -2726,12 +2726,12 @@ function renderDashboard(){
   // "고정 공지"(pinned)로 나눠서 대시보드에 따로 보여준다.
   const pinnedNotices = noticesCache.filter(n => n.pinned);
   const dailyNotices = noticesCache.filter(n => !n.pinned).slice(0,3);
-  document.getElementById('dashPinnedNotices').innerHTML = pinnedNotices.length
-    ? `<p class="text-xs font-bold text-amber mb-1.5">📌 고정 공지</p>${pinnedNotices.map(n => noticeCardHtml(n, 'border-amber')).join('')}<div class="border-t border-gray-100 my-3"></div>`
-    : '';
   document.getElementById('dashNotices').innerHTML = dailyNotices.length
     ? `${pinnedNotices.length ? '<p class="text-xs font-bold text-gray-400 mb-1.5">📅 최근 공지</p>' : ''}${dailyNotices.map(n => noticeCardHtml(n, 'border-forest')).join('')}`
     : (pinnedNotices.length ? '' : `<p class="text-gray-400">등록된 공지사항이 없습니다.</p>`);
+  document.getElementById('dashPinnedNotices').innerHTML = pinnedNotices.length
+    ? `${dailyNotices.length ? '<div class="border-t border-gray-100 my-3"></div>' : ''}<p class="text-xs font-bold text-amber mb-1.5">📌 고정 공지</p>${pinnedNotices.map(n => noticeCardHtml(n, 'border-amber')).join('')}`
+    : '';
 
   const dowKr = ['일','월','화','수','목','금','토'][now.getDay()];
   const todayCols = PERIODS.map(p => settingsCache.timetable[dowKr+'-'+p]).filter(Boolean);
