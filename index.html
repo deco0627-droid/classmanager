@@ -1978,6 +1978,17 @@ function bootstrapApp(){
   switchView(isCheckinLink ? 'checkin' : 'dashboard');
 }
 
+// 전자칠판처럼 하루 종일 켜두는 화면은 새로고침을 안 하면 새로 배포한 코드도, 점심메뉴처럼
+// 시간에 따라 바뀌는 내용도 반영이 안 된다. 대시보드를 보고 있고 뭔가 입력 중이 아닐 때만
+// (글쓰기 중이던 내용이 날아가지 않게) 주기적으로 자동 새로고침한다.
+setInterval(() => {
+  const activeTag = document.activeElement && document.activeElement.tagName;
+  const isTyping = activeTag === 'INPUT' || activeTag === 'TEXTAREA';
+  if (!isTeacher && currentView === 'dashboard' && !isTyping) {
+    location.reload();
+  }
+}, 60 * 60 * 1000); // 1시간마다 확인
+
 function startStudentsListener(){
   if (studentsUnsub) return;
   studentsUnsub = db.collection('students').onSnapshot(snap => {
@@ -6010,7 +6021,13 @@ function loadTodayAttendance(){
     const list = snap.docs.map(d => d.data()).sort((a, b) => (a.checkedInAt || 0) - (b.checkedInAt || 0));
     el.innerHTML = list.length ? `
       <p class="text-xs font-semibold text-forest-dark mb-1">오늘 등교 확인 ${list.length}명</p>
-      <div class="flex flex-wrap gap-1.5">${list.map(a => `<span class="text-xs bg-forest-light text-forest-dark px-2 py-1 rounded-full">${escapeHtml(a.studentNumber || '')}${escapeHtml(a.studentName || '')}</span>`).join('')}</div>`
+      <div class="space-y-1 max-h-72 overflow-y-auto">
+        ${list.map(a => `
+          <div class="flex items-center justify-between text-xs bg-forest-light text-forest-dark px-2.5 py-1.5 rounded-lg">
+            <span>${escapeHtml(a.studentNumber || '')}${escapeHtml(a.studentName || '')}</span>
+            <span class="font-mono">${a.checkedInAt ? new Date(a.checkedInAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) : '-'}</span>
+          </div>`).join('')}
+      </div>`
       : '<p class="text-xs text-gray-400">아직 확인된 학생이 없어요.</p>';
   }).catch(err => { el.innerHTML = `<p class="text-brick text-xs">불러오기 실패: ${escapeHtml(err.message)}</p>`; });
 }
