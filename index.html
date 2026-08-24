@@ -2639,9 +2639,12 @@ function renderDailyLearning(){
 ============================================================ */
 const CBT_PROGRAM_ORIGIN = 'https://cbt-program.pages.dev';
 const CBT_QR_SLOTS = ['A', 'B']; // CBT-Program 쪽도 하루 최대 2개(QR1/QR2)까지 운영할 수 있다.
-function cbtQrCutoffExpired(generatedAt){
+// CBT-Program 쪽 관리자가 설정한 "QR 자동 종료 시각"(cbtSettings/qrCutoff)을 그대로 읽어와서
+// 쓴다. 예전엔 여기서 14시로 따로 하드코딩돼 있어서, CBT-Program 쪽 설정을 5시로 바꿔도
+// 이 위젯은 계속 2시에 마감으로 보이는 문제가 있었다.
+function cbtQrCutoffExpired(generatedAt, cutoffHour){
   const cutoff = new Date();
-  cutoff.setHours(14, 0, 0, 0);
+  cutoff.setHours(cutoffHour != null ? cutoffHour : 17, 0, 0, 0);
   return Date.now() >= cutoff.getTime() && (generatedAt || 0) < cutoff.getTime();
 }
 function cbtQrExamLabel(c){
@@ -2652,17 +2655,22 @@ function cbtQrExamLabel(c){
 function renderCbtQrWidget(){
   const el = document.getElementById('dashCbtQrBox');
   if (!el) return;
-  Promise.all(CBT_QR_SLOTS.map(slot =>
-    db.collection('cbtSettings').doc('checkin_' + todayStr() + '_' + slot).get()
-      .then(doc => (doc.exists && doc.data().token) ? doc.data() : null)
-  )).then(results => {
+  Promise.all([
+    ...CBT_QR_SLOTS.map(slot =>
+      db.collection('cbtSettings').doc('checkin_' + todayStr() + '_' + slot).get()
+        .then(doc => (doc.exists && doc.data().token) ? doc.data() : null)
+    ),
+    db.collection('cbtSettings').doc('qrCutoff').get()
+      .then(doc => (doc.exists && Number.isInteger(doc.data().hour)) ? doc.data().hour : 17),
+  ]).then(results => {
+    const cutoffHour = results.pop();
     const active = results.filter(Boolean);
     if (!active.length) { el.classList.add('hidden'); el.innerHTML = ''; return; }
     el.classList.remove('hidden');
     el.innerHTML = active.map(data => {
       const label = cbtQrExamLabel(data.examConfig);
       const labelHtml = label ? `<p class="text-[9px] text-forest-dark font-semibold leading-tight mb-0.5 w-max max-w-[120px] mx-auto whitespace-normal break-keep">${escapeHtml(label)}</p>` : '';
-      if (!data.disabled && !cbtQrCutoffExpired(data.generatedAt)) {
+      if (!data.disabled && !cbtQrCutoffExpired(data.generatedAt, cutoffHour)) {
         const url = `${CBT_PROGRAM_ORIGIN}/?checkin=${data.token}`;
         const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(url)}`;
         return `
