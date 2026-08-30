@@ -1958,12 +1958,25 @@ function showInAppPushToast(title, body){
   setTimeout(() => el.remove(), 5000);
 }
 // 공지 등록/수정 시 팝업 알림이 켜져 있으면 실제 휴대폰 푸시도 같이 보낸다.
+// 결과(성공/실패 이유)를 화면에 토스트로 바로 보여줘서, 조용히 실패하는 일이 없게 한다.
 function sendPushForNotice(title, content){
   fetch('/api/send-notification', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ title, body: content }),
-  }).catch(err => console.error('푸시 알림 발송 요청 실패:', err));
+  })
+    .then(res => res.json().catch(() => ({})).then(data => ({ ok: res.ok, data })))
+    .then(({ ok, data }) => {
+      if (!ok || data.error) {
+        showInAppPushToast('푸시 발송 실패', data.error || `서버 오류 (${data.status || ''})`);
+      } else {
+        showInAppPushToast('푸시 발송 결과', `${data.sent || 0}명에게 전송됨 (등록 기기 ${data.total || 0}개)`);
+      }
+    })
+    .catch(err => {
+      console.error('푸시 알림 발송 요청 실패:', err);
+      showInAppPushToast('푸시 발송 실패', String(err.message || err));
+    });
 }
 
 function bootstrapApp(){
