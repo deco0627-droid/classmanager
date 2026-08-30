@@ -3659,7 +3659,9 @@ function noticeRecentBadgeHtml(n){
     : `<span class="text-[10px] bg-brick text-white px-1.5 py-0.5 rounded-full ml-1 align-middle">NEW</span>`;
 }
 function maybeShowNoticePopup(){
-  if (isTeacher || !noticesCache.length) return;
+  // 원래는 학생용으로만 띄웠는데, 교사도 본인이 올린 공지가 실제로 어떻게 뜨는지 확인하고
+  // 싶어해서 교사 계정에도 똑같이 띄운다. 다만 조회수는 여전히 학생 조회만 센다.
+  if (!noticesCache.length) return;
   const latest = noticesCache[0];
   // id만 기억하면 "같은 공지를 수정"한 경우 다시 안 뜬다 — 수정 시각까지 같이 넣어서
   // 새로 작성이든 수정이든 학생이 못 본 변경이면 다시 뜨게 한다.
@@ -3676,7 +3678,9 @@ function maybeShowNoticePopup(){
   document.getElementById('noticePopupBadge').innerHTML = latest.updatedAt ? '📝 공지가 수정됐어요' : '📢 새 공지';
   document.getElementById('noticePopupModal').classList.remove('hidden');
   localStorage.setItem(NOTICE_POPUP_SEEN_KEY, seenKey);
-  db.collection('notices').doc(latest.id).update({ viewCount: firebase.firestore.FieldValue.increment(1) }).catch(() => {});
+  if (!isTeacher) {
+    db.collection('notices').doc(latest.id).update({ viewCount: firebase.firestore.FieldValue.increment(1) }).catch(() => {});
+  }
 }
 function closeNoticePopup(){
   document.getElementById('noticePopupModal').classList.add('hidden');
