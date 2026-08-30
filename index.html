@@ -899,6 +899,17 @@ service cloud.firestore {
           <button type="button" id="noticeCategoryBtn_pinned" onclick="setNoticeCategory(true)" class="flex-1 text-xs font-semibold py-2 rounded-lg border">📌 고정 공지 (장기)</button>
         </div>
         <div class="flex items-center gap-2 mb-3" id="noticeColorPicker"></div>
+        <div class="mb-3 border border-gray-200 rounded-lg p-2.5">
+          <label class="flex items-center gap-2 text-xs font-semibold text-gray-500">
+            <input type="checkbox" id="noticePopupEnable" onchange="toggleNoticePopupDates()"> 📢 접속할 때 팝업으로 띄우기
+          </label>
+          <div id="noticePopupDatesWrap" class="hidden flex items-center gap-2 mt-2">
+            <input type="date" id="noticePopupFrom" class="border border-gray-300 rounded-lg px-2 py-1.5 text-xs flex-1">
+            <span class="text-xs text-gray-400">~</span>
+            <input type="date" id="noticePopupUntil" class="border border-gray-300 rounded-lg px-2 py-1.5 text-xs flex-1">
+          </div>
+          <p class="text-[11px] text-gray-400 mt-1.5">체크하면 이 기간 동안 접속할 때마다(하루 한 번) 팝업으로 떠요. 한 번만 뜨고 마는 게 아니라 기간 내내 계속 알려줘요.</p>
+        </div>
         <input id="noticeTitle" placeholder="제목" class="border border-gray-300 rounded-lg px-3 py-2 text-sm w-full mb-2">
         <textarea id="noticeContent" placeholder="내용을 입력하세요 (캡처한 화면은 여기에 Ctrl+V로 바로 붙여넣을 수 있어요)" rows="5" class="border border-gray-300 rounded-lg px-3 py-2 text-sm w-full mb-2"></textarea>
         <div id="noticeImagePreviewWrap" class="hidden relative mb-2">
@@ -3658,28 +3669,31 @@ function noticeRecentBadgeHtml(n){
     ? `<span class="text-[10px] bg-blue-500 text-white px-1.5 py-0.5 rounded-full ml-1 align-middle">수정됨</span>`
     : `<span class="text-[10px] bg-brick text-white px-1.5 py-0.5 rounded-full ml-1 align-middle">NEW</span>`;
 }
+// 예전에는 "한 번 보면 그걸로 끝"이었는데, 그것보다 관리자가 직접 기간(popupFrom~popupUntil)을
+// 정해서 그 기간 내내(하루 한 번씩) 계속 떠서 알려주는 게 낫다는 요청으로 바꿨다. 팝업 대상으로
+// 켜둔 공지가 여러 개면 그중 가장 최근 것 하나만 보여준다. 교사도 본인이 올린 공지가 실제로
+// 어떻게 뜨는지 확인하고 싶어해서 교사 계정에도 똑같이 띄우되, 조회수는 학생 조회만 센다.
 function maybeShowNoticePopup(){
-  // 원래는 학생용으로만 띄웠는데, 교사도 본인이 올린 공지가 실제로 어떻게 뜨는지 확인하고
-  // 싶어해서 교사 계정에도 똑같이 띄운다. 다만 조회수는 여전히 학생 조회만 센다.
   if (!noticesCache.length) return;
-  const latest = noticesCache[0];
-  // id만 기억하면 "같은 공지를 수정"한 경우 다시 안 뜬다 — 수정 시각까지 같이 넣어서
-  // 새로 작성이든 수정이든 학생이 못 본 변경이면 다시 뜨게 한다.
-  const seenKey = `${latest.id}:${noticeSortKey(latest)}`;
+  const today = todayStr();
+  const target = noticesCache.find(n => n.popupFrom && n.popupUntil && n.popupFrom <= today && today <= n.popupUntil);
+  if (!target) return;
+  // 같은 공지, 같은 날엔 한 번만 — 다음날이 되거나 다른 공지가 대상이 되면 다시 뜬다.
+  const seenKey = `${target.id}:${today}`;
   if (localStorage.getItem(NOTICE_POPUP_SEEN_KEY) === seenKey) return;
   const popupTitle = document.getElementById('noticePopupTitle');
-  popupTitle.textContent = latest.title || '';
-  popupTitle.className = 'font-display text-xl mb-1 ' + noticeColorClasses(latest).text;
-  document.getElementById('noticePopupDate').textContent = noticeDateTimeLabel(latest);
-  document.getElementById('noticePopupContent').textContent = latest.content || '';
+  popupTitle.textContent = target.title || '';
+  popupTitle.className = 'font-display text-xl mb-1 ' + noticeColorClasses(target).text;
+  document.getElementById('noticePopupDate').textContent = noticeDateTimeLabel(target);
+  document.getElementById('noticePopupContent').textContent = target.content || '';
   const popupImg = document.getElementById('noticePopupImage');
-  popupImg.src = latest.imageUrl || '';
-  popupImg.classList.toggle('hidden', !latest.imageUrl);
-  document.getElementById('noticePopupBadge').innerHTML = latest.updatedAt ? '📝 공지가 수정됐어요' : '📢 새 공지';
+  popupImg.src = target.imageUrl || '';
+  popupImg.classList.toggle('hidden', !target.imageUrl);
+  document.getElementById('noticePopupBadge').innerHTML = '📢 공지 안내';
   document.getElementById('noticePopupModal').classList.remove('hidden');
   localStorage.setItem(NOTICE_POPUP_SEEN_KEY, seenKey);
   if (!isTeacher) {
-    db.collection('notices').doc(latest.id).update({ viewCount: firebase.firestore.FieldValue.increment(1) }).catch(() => {});
+    db.collection('notices').doc(target.id).update({ viewCount: firebase.firestore.FieldValue.increment(1) }).catch(() => {});
   }
 }
 function closeNoticePopup(){
@@ -5457,6 +5471,16 @@ function renderNoticeColorPicker(){
 function noticeColorClasses(n){
   return NOTICE_COLORS[n && n.color] || NOTICE_COLORS.default;
 }
+function toggleNoticePopupDates(){
+  const on = document.getElementById('noticePopupEnable').checked;
+  document.getElementById('noticePopupDatesWrap').classList.toggle('hidden', !on);
+  if (on) {
+    const fromEl = document.getElementById('noticePopupFrom');
+    const untilEl = document.getElementById('noticePopupUntil');
+    if (!fromEl.value) fromEl.value = todayStr();
+    if (!untilEl.value) untilEl.value = todayStr();
+  }
+}
 function saveNotice(){
   const title = document.getElementById('noticeTitle').value.trim();
   const content = document.getElementById('noticeContent').value.trim();
@@ -5466,11 +5490,16 @@ function saveNotice(){
   const imageUrl = noticeImageDataUrl || null;
   const pinned = noticeFormPinned;
   const color = noticeFormColor;
+  const popupOn = document.getElementById('noticePopupEnable').checked;
+  const popupFrom = popupOn ? (document.getElementById('noticePopupFrom').value || todayStr()) : null;
+  const popupUntilRaw = popupOn ? (document.getElementById('noticePopupUntil').value || popupFrom) : null;
+  // 종료일을 시작일보다 이전으로 잘못 넣는 실수를 막는다.
+  const popupUntil = popupOn && popupUntilRaw < popupFrom ? popupFrom : popupUntilRaw;
   if (editingNoticeId) {
     // 요청대로, 수정하면 날짜도 오늘로 새로 갱신하고 "수정됨" 표시를 위해 수정 시각을 남긴다.
-    db.collection('notices').doc(editingNoticeId).update({ title, content, tags, imageUrl, pinned, color, date: todayStr(), updatedAt: Date.now() });
+    db.collection('notices').doc(editingNoticeId).update({ title, content, tags, imageUrl, pinned, color, popupFrom, popupUntil, date: todayStr(), updatedAt: Date.now() });
   } else {
-    db.collection('notices').add({ date: todayStr(), title, content, tags, imageUrl, pinned, color, createdAt: Date.now() });
+    db.collection('notices').add({ date: todayStr(), title, content, tags, imageUrl, pinned, color, popupFrom, popupUntil, createdAt: Date.now() });
   }
   cancelNoticeEdit();
 }
@@ -5488,6 +5517,10 @@ function editNotice(id){
   updateNoticeCategoryButtons();
   noticeFormColor = n.color || 'default';
   renderNoticeColorPicker();
+  document.getElementById('noticePopupEnable').checked = !!(n.popupFrom && n.popupUntil);
+  document.getElementById('noticePopupFrom').value = n.popupFrom || '';
+  document.getElementById('noticePopupUntil').value = n.popupUntil || '';
+  toggleNoticePopupDates();
   document.getElementById('noticeFormTitle').textContent = '공지 수정';
   document.getElementById('noticeSaveBtn').textContent = '수정 완료';
   document.getElementById('noticeCancelBtn').classList.remove('hidden');
@@ -5505,6 +5538,10 @@ function cancelNoticeEdit(){
   updateNoticeCategoryButtons();
   noticeFormColor = 'default';
   renderNoticeColorPicker();
+  document.getElementById('noticePopupEnable').checked = false;
+  document.getElementById('noticePopupFrom').value = '';
+  document.getElementById('noticePopupUntil').value = '';
+  toggleNoticePopupDates();
   document.getElementById('noticeFormTitle').textContent = '새 공지 작성';
   document.getElementById('noticeSaveBtn').textContent = '공지 등록';
   document.getElementById('noticeCancelBtn').classList.add('hidden');
@@ -5548,6 +5585,7 @@ function renderNotices(){
         </div>
       </div>
       <p class="font-mono text-xs text-gray-400 mb-2">${noticeDateTimeLabel(n)}</p>
+      ${n.popupFrom && n.popupUntil ? `<p class="text-[11px] text-blue-500 font-semibold mb-1">📢 팝업 노출 기간: ${n.popupFrom} ~ ${n.popupUntil}</p>` : ''}
       <p class="text-base text-gray-700 whitespace-pre-line">${escapeHtml(n.content)}</p>
       ${n.imageUrl ? `<img src="${n.imageUrl}" class="w-full max-w-sm rounded-lg border border-gray-200 mt-2" alt="">` : ''}
       <div class="flex gap-1.5 mt-3 flex-wrap">
