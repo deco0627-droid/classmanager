@@ -26,6 +26,11 @@ messaging.onBackgroundMessage((payload) => {
   });
 });
 
+// Chrome이 "설치 가능한 앱"으로 인식하려면 서비스워커에 fetch 핸들러가 등록되어
+// 있어야 한다(안드로이드에서 "앱 설치" 메뉴가 아예 안 뜨는 원인이었음). 동작은 그대로
+// 두고(무조건 네트워크로 통과) 설치 조건만 충족시킨다.
+self.addEventListener('fetch', () => {});
+
 // 알림을 눌렀을 때 이미 열려있는 탭이 있으면 그걸 포커스하고, 없으면 새로 연다.
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
