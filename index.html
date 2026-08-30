@@ -1886,6 +1886,7 @@ function bootstrapApp(){
     if (currentView === 'dashboard') renderDashboard();
     if (currentView === 'notices') renderNotices();
     maybeShowNoticePopup();
+    backfillTodayNoticeTimestamps();
   });
   db.collection('settings').doc('general').get().then(doc => {
     if (!doc.exists) db.collection('settings').doc('general').set(defaultSettings());
@@ -2721,6 +2722,19 @@ function noticeDateTimeLabel(n){
   const timeStr = ts ? new Date(ts).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) : '';
   const base = timeStr ? `${n.date} ${timeStr}` : n.date;
   return n.updatedAt ? `${base} (수정됨)` : base;
+}
+// 시간/배지 기능을 넣기 전에 이미 올라온 오늘자 공지는 createdAt이 없어서 시간이 안 보이고
+// NEW 배지도 안 붙는다. 교사가 접속하면 오늘 날짜인데 시간 정보가 없는 공지를 한 번만
+// 채워준다(예전 날짜 공지는 그대로 둔다 — 어차피 NEW 배지가 필요 없으니).
+let noticeTimestampBackfillDone = false;
+function backfillTodayNoticeTimestamps(){
+  if (!isTeacher || noticeTimestampBackfillDone) return;
+  const missing = noticesCache.filter(n => n.date === todayStr() && !n.createdAt && !n.updatedAt);
+  if (!missing.length) { noticeTimestampBackfillDone = true; return; }
+  noticeTimestampBackfillDone = true;
+  const batch = db.batch();
+  missing.forEach(n => batch.update(db.collection('notices').doc(n.id), { createdAt: Date.now() }));
+  batch.commit().catch(err => console.error('공지 시간 정보 채우기 실패:', err));
 }
 function noticeCardHtml(n, borderColorClass){
   // 공지마다 고른 강조색(n.color)이 있으면 그걸 우선 쓰고, 없으면(기본) 단기/고정 기본색을 쓴다.
