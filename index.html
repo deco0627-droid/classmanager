@@ -4,13 +4,22 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>학급 수첩 · 스마트 학급 경영 대시보드</title>
+<!-- PWA: 홈 화면에 앱처럼 설치하고 푸시 알림을 받기 위한 매니페스트/아이콘 설정 -->
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#3B8B63">
+<link rel="icon" href="/icons/icon-192.png">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="학급 수첩">
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<!-- Firebase (Firestore + Auth) -->
+<!-- Firebase (Firestore + Auth + Messaging) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script>
   tailwind.config = {
@@ -1323,6 +1332,16 @@ service cloud.firestore {
   </div>
 </div>
 
+<div id="pushPermissionBanner" class="hidden fixed bottom-4 left-1/2 -translate-x-1/2 bg-card border border-gray-200 shadow-xl rounded-xl px-4 py-3 z-[75] flex items-center gap-3 max-w-sm w-[calc(100%-2rem)]">
+  <span class="text-2xl shrink-0">🔔</span>
+  <div class="flex-1 text-sm min-w-0">
+    <p class="font-semibold">새 공지 알림을 받아보세요</p>
+    <p class="text-xs text-gray-400">공지가 올라오면 휴대폰으로 알려드려요</p>
+  </div>
+  <button onclick="requestPushPermission()" class="bg-forest text-white text-xs font-semibold px-3 py-1.5 rounded-lg shrink-0">허용</button>
+  <button onclick="dismissPushBanner()" class="text-gray-400 text-lg leading-none shrink-0">&times;</button>
+</div>
+
 <!-- ===================== 학생 상세 모달 ===================== -->
 <div id="studentModal" class="hidden fixed inset-0 bg-ink/60 z-50 flex items-center justify-center p-4" onclick="if(event.target===this) closeStudentModal()">
   <div class="bg-paper rounded-2xl w-full max-w-3xl max-h-[92vh] overflow-hidden flex flex-col shadow-2xl">
@@ -1358,6 +1377,11 @@ const firebaseConfig = {
   appId: "1:882052020372:web:69694b36fb296960f65c81"
 };
 const TEACHER_EMAIL = "deco0627@nate.com"; // Firestore 보안 규칙의 이메일과 반드시 동일해야 합니다
+
+/* 푸시 알림(공지 올리면 휴대폰 알림)을 쓰려면 Firebase 콘솔 > 프로젝트 설정 > Cloud Messaging
+   탭에서 "웹 푸시 인증서"를 만들고, 거기 나오는 키 문자열을 아래에 붙여넣으세요.
+   비워두면 알림 기능이 조용히 꺼진 채로 나머지 기능은 그대로 동작합니다. */
+const FCM_VAPID_KEY = "";
 
 /* 점심메뉴(급식) 연동을 쓰려면 아래에 나이스(NEIS) 오픈API 인증키를 채워주세요.
    (open.neis.go.kr 무료 가입 > 인증키 신청)
@@ -1881,9 +1905,71 @@ let weeklyWeatherCache = [];
 let statsCache = { total: 0, dailyDate: '', dailyCount: 0 };
 let anonymousVisitCountedThisSession = false;
 
+/* ============================================================
+   푸시 알림 (Firebase Cloud Messaging) — 공지를 올리면 학생 휴대폰으로
+   알림을 보낼 수 있게 한다. FCM_VAPID_KEY가 비어있으면 조용히 아무 것도
+   안 하고 나머지 기능은 그대로 동작한다.
+============================================================ */
+const PUSH_DISMISSED_KEY = 'cm_pushBannerDismissed';
+let fcmMessaging = null;
+function isPushSupported(){
+  return 'serviceWorker' in navigator && 'Notification' in window && window.isSecureContext;
+}
+function initPushNotifications(){
+  if (!isPushSupported() || !FCM_VAPID_KEY) return;
+  navigator.serviceWorker.register('/firebase-messaging-sw.js').then(registration => {
+    fcmMessaging = firebase.messaging();
+    // 앱을 이미 보고 있는 중에 알림이 오면 브라우저 알림 대신 화면 안에 살짝 띄워준다.
+    fcmMessaging.onMessage(payload => {
+      const title = (payload.notification && payload.notification.title) || '학급 수첩';
+      const body = (payload.notification && payload.notification.body) || '';
+      showInAppPushToast(title, body);
+    });
+    if (Notification.permission === 'granted') {
+      registerFcmToken(registration);
+    } else if (Notification.permission === 'default' && !localStorage.getItem(PUSH_DISMISSED_KEY)) {
+      document.getElementById('pushPermissionBanner').classList.remove('hidden');
+    }
+  }).catch(err => console.error('알림 서비스워커 등록 실패:', err));
+}
+function requestPushPermission(){
+  Notification.requestPermission().then(permission => {
+    document.getElementById('pushPermissionBanner').classList.add('hidden');
+    if (permission === 'granted') {
+      navigator.serviceWorker.ready.then(registerFcmToken);
+    }
+  });
+}
+function dismissPushBanner(){
+  localStorage.setItem(PUSH_DISMISSED_KEY, '1');
+  document.getElementById('pushPermissionBanner').classList.add('hidden');
+}
+function registerFcmToken(registration){
+  fcmMessaging.getToken({ vapidKey: FCM_VAPID_KEY, serviceWorkerRegistration: registration }).then(token => {
+    if (!token) return;
+    db.collection('fcmTokens').doc(token).set({ token, updatedAt: Date.now() }, { merge: true });
+  }).catch(err => console.error('FCM 토큰 발급 실패:', err));
+}
+function showInAppPushToast(title, body){
+  const el = document.createElement('div');
+  el.className = 'fixed top-4 left-1/2 -translate-x-1/2 bg-ink text-white px-4 py-3 rounded-xl shadow-lg z-[80] max-w-sm text-sm';
+  el.innerHTML = `<p class="font-semibold mb-0.5">${escapeHtml(title)}</p><p class="text-xs text-white/80">${escapeHtml(body)}</p>`;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 5000);
+}
+// 공지 등록/수정 시 팝업 알림이 켜져 있으면 실제 휴대폰 푸시도 같이 보낸다.
+function sendPushForNotice(title, content){
+  fetch('/api/send-notification', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title, body: content }),
+  }).catch(err => console.error('푸시 알림 발송 요청 실패:', err));
+}
+
 function bootstrapApp(){
   db = firebase.firestore();
   auth = firebase.auth();
+  initPushNotifications();
 
   // 공개 데이터 실시간 구독
   db.collection('schedules').onSnapshot(snap => {
@@ -5501,6 +5587,8 @@ function saveNotice(){
   } else {
     db.collection('notices').add({ date: todayStr(), title, content, tags, imageUrl, pinned, color, popupFrom, popupUntil, createdAt: Date.now() });
   }
+  // 팝업으로 강조하기로 한 공지는 휴대폰 푸시 알림도 같이 보낸다.
+  if (popupOn) sendPushForNotice(title, content);
   cancelNoticeEdit();
 }
 function editNotice(id){
