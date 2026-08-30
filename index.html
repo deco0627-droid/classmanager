@@ -1342,6 +1342,18 @@ service cloud.firestore {
   <button onclick="dismissPushBanner()" class="text-gray-400 text-lg leading-none shrink-0">&times;</button>
 </div>
 
+<!-- 로고를 3초 이상 길게 누르면 뜨는 숨은 알림 설정 창 -->
+<div id="pushSettingsModal" class="hidden fixed inset-0 bg-ink/70 z-[75] flex items-center justify-center p-4" onclick="if(event.target===this) closePushSettingsModal()">
+  <div class="bg-paper rounded-2xl w-full max-w-xs p-6 shadow-2xl relative text-center">
+    <button onclick="closePushSettingsModal()" class="absolute top-3 right-3 text-gray-300 hover:text-gray-500 text-2xl leading-none">&times;</button>
+    <p class="text-3xl mb-2">🔔</p>
+    <p class="font-display text-lg mb-1">알림 설정</p>
+    <p id="pushSettingsStatus" class="text-sm text-gray-500 mb-4">-</p>
+    <button id="pushSettingsToggleBtn" class="w-full py-2.5 rounded-lg text-sm font-semibold"></button>
+    <p class="text-[0.7rem] text-gray-400 mt-4 leading-relaxed">이 버튼은 로고를 3초 이상 눌러야 나오는 숨은 메뉴예요. 여기서 끄고 켜는 건 지금 이 기기(브라우저)에만 적용됩니다.</p>
+  </div>
+</div>
+
 <!-- ===================== 학생 상세 모달 ===================== -->
 <div id="studentModal" class="hidden fixed inset-0 bg-ink/60 z-50 flex items-center justify-center p-4" onclick="if(event.target===this) closeStudentModal()">
   <div class="bg-paper rounded-2xl w-full max-w-3xl max-h-[92vh] overflow-hidden flex flex-col shadow-2xl">
@@ -1911,7 +1923,9 @@ let anonymousVisitCountedThisSession = false;
    안 하고 나머지 기능은 그대로 동작한다.
 ============================================================ */
 const PUSH_DISMISSED_KEY = 'cm_pushBannerDismissed';
+const PUSH_USER_DISABLED_KEY = 'cm_pushUserDisabled';
 let fcmMessaging = null;
+let currentFcmToken = null;
 function isPushSupported(){
   return 'serviceWorker' in navigator && 'Notification' in window && window.isSecureContext;
 }
@@ -1925,7 +1939,7 @@ function initPushNotifications(){
       const body = (payload.notification && payload.notification.body) || '';
       showInAppPushToast(title, body);
     });
-    if (Notification.permission === 'granted') {
+    if (Notification.permission === 'granted' && !localStorage.getItem(PUSH_USER_DISABLED_KEY)) {
       registerFcmToken(registration);
     } else if (Notification.permission === 'default' && !localStorage.getItem(PUSH_DISMISSED_KEY)) {
       document.getElementById('pushPermissionBanner').classList.remove('hidden');
@@ -1936,6 +1950,7 @@ function requestPushPermission(){
   Notification.requestPermission().then(permission => {
     document.getElementById('pushPermissionBanner').classList.add('hidden');
     if (permission === 'granted') {
+      localStorage.removeItem(PUSH_USER_DISABLED_KEY);
       navigator.serviceWorker.ready.then(registerFcmToken);
     }
   });
@@ -1947,8 +1962,75 @@ function dismissPushBanner(){
 function registerFcmToken(registration){
   fcmMessaging.getToken({ vapidKey: FCM_VAPID_KEY, serviceWorkerRegistration: registration }).then(token => {
     if (!token) return;
+    currentFcmToken = token;
     db.collection('fcmTokens').doc(token).set({ token, updatedAt: Date.now() }, { merge: true });
   }).catch(err => console.error('FCM 토큰 발급 실패:', err));
+}
+
+// 로고를 3초 이상 길게 누르면 알림 켜기/끄기 숨은 메뉴가 뜬다(중복 알림, 잘못 허용 등 정리용).
+let brandLongPressTriggered = false;
+function setupBrandLongPress(){
+  const el = document.getElementById('brandWrap');
+  if (!el || el.dataset.longPressBound) return;
+  el.dataset.longPressBound = '1';
+  let timer = null;
+  const start = () => { brandLongPressTriggered = false; timer = setTimeout(() => { brandLongPressTriggered = true; openPushSettingsModal(); }, 3000); };
+  const cancel = () => clearTimeout(timer);
+  el.addEventListener('pointerdown', start);
+  el.addEventListener('pointerup', cancel);
+  el.addEventListener('pointerleave', cancel);
+  el.addEventListener('pointercancel', cancel);
+  el.addEventListener('contextmenu', e => e.preventDefault());
+}
+function openPushSettingsModal(){
+  renderPushSettingsModal();
+  document.getElementById('pushSettingsModal').classList.remove('hidden');
+}
+function closePushSettingsModal(){
+  document.getElementById('pushSettingsModal').classList.add('hidden');
+}
+function renderPushSettingsModal(){
+  const statusEl = document.getElementById('pushSettingsStatus');
+  const btn = document.getElementById('pushSettingsToggleBtn');
+  if (!isPushSupported()) {
+    statusEl.textContent = '이 브라우저에서는 알림 기능을 지원하지 않습니다.';
+    btn.classList.add('hidden');
+    return;
+  }
+  btn.classList.remove('hidden');
+  if (Notification.permission === 'denied') {
+    statusEl.textContent = '브라우저 자체에서 알림이 차단되어 있습니다. 브라우저 설정(사이트 정보 > 알림)에서 직접 허용해주세요.';
+    btn.classList.add('hidden');
+  } else if (Notification.permission === 'granted' && !localStorage.getItem(PUSH_USER_DISABLED_KEY)) {
+    statusEl.textContent = '이 기기에서 알림이 켜져 있습니다.';
+    btn.textContent = '알림 끄기';
+    btn.className = 'w-full py-2.5 rounded-lg text-sm font-semibold bg-brick text-white hover:bg-brick/90';
+    btn.onclick = disablePushNotifications;
+  } else {
+    statusEl.textContent = '이 기기에서 알림이 꺼져 있습니다.';
+    btn.textContent = '알림 켜기';
+    btn.className = 'w-full py-2.5 rounded-lg text-sm font-semibold bg-forest text-white hover:bg-forest-dark';
+    btn.onclick = enablePushNotifications;
+  }
+}
+function disablePushNotifications(){
+  localStorage.setItem(PUSH_USER_DISABLED_KEY, '1');
+  const token = currentFcmToken;
+  currentFcmToken = null;
+  if (fcmMessaging && fcmMessaging.deleteToken) fcmMessaging.deleteToken().catch(() => {});
+  if (token) db.collection('fcmTokens').doc(token).delete().catch(() => {});
+  renderPushSettingsModal();
+}
+function enablePushNotifications(){
+  localStorage.removeItem(PUSH_USER_DISABLED_KEY);
+  if (Notification.permission === 'granted') {
+    navigator.serviceWorker.ready.then(registerFcmToken).then(renderPushSettingsModal);
+  } else {
+    Notification.requestPermission().then(permission => {
+      if (permission === 'granted') navigator.serviceWorker.ready.then(registerFcmToken);
+      renderPushSettingsModal();
+    });
+  }
 }
 function showInAppPushToast(title, body){
   const el = document.createElement('div');
@@ -1983,6 +2065,7 @@ function bootstrapApp(){
   db = firebase.firestore();
   auth = firebase.auth();
   initPushNotifications();
+  setupBrandLongPress();
 
   // 공개 데이터 실시간 구독
   db.collection('schedules').onSnapshot(snap => {
@@ -2454,7 +2537,7 @@ document.getElementById('userBtn').addEventListener('click', () => {
     openLoginModal();
   }
 });
-document.getElementById('brandWrap').addEventListener('click', () => switchView('dashboard'));
+document.getElementById('brandWrap').addEventListener('click', () => { if (!brandLongPressTriggered) switchView('dashboard'); });
 document.getElementById('pageFontBtn').addEventListener('click', togglePageFontPanel);
 document.addEventListener('click', (e) => {
   if (!e.target.closest('#userBtn') && !e.target.closest('#userPanel')) {
