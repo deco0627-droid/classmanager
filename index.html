@@ -1063,6 +1063,21 @@ service cloud.firestore {
         <p class="text-xs text-gray-500 mb-3">상단 메뉴에서는 빠졌고, 여기서만 들어갈 수 있는 교사 전용 공지사항 게시판이에요. 학생들은 대시보드의 "자세히 보기"로 공지 내용을 볼 수 있어요.</p>
         <button onclick="switchView('notices')" class="bg-forest text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-forest-dark">공유 페이지 열기 →</button>
       </div>
+      <div class="bg-card border border-gray-200 rounded-xl p-5" data-admin-card="liveNote">
+        <button id="adminCollapseBtn_liveNote" onclick="toggleAdminCollapse('liveNote')" aria-expanded="false" class="admin-collapse-btn">
+          <h2 class="font-display text-lg text-forest-dark">📌 실시간 포스트잇 메시지</h2>
+          <span class="admin-collapse-chevron">▶</span>
+        </button>
+        <div id="adminCollapseBody_liveNote" class="hidden mt-3">
+          <p class="text-xs text-gray-500 mb-2">지금 화면을 보고 있는 학생들에게만 잠깐 팝업으로 띄우고 저절로 사라지는 메시지예요. 공지사항과 달리 나중에 따로 지울 필요 없이, 보내는 순간 끝입니다.</p>
+          <textarea id="liveNoteInput" placeholder="예: 우산 놓고 가지 마세요! (캡처한 화면은 여기에 Ctrl+V로 바로 붙여넣을 수 있어요)" rows="3" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mb-2"></textarea>
+          <div id="liveNoteImagePreviewWrap" class="hidden relative mb-2">
+            <img id="liveNoteImagePreview" class="w-full rounded-lg border border-gray-200" alt="첨부 이미지 미리보기">
+            <button onclick="removeLiveNoteImage()" class="absolute top-1.5 right-1.5 bg-black/60 text-white w-6 h-6 rounded-full text-sm leading-none hover:bg-black/80">&times;</button>
+          </div>
+          <button onclick="sendLiveNote()" class="bg-amber text-white px-4 py-2 rounded-lg text-sm font-semibold hover:opacity-90">📌 지금 보내기</button>
+        </div>
+      </div>
       <div class="bg-card border border-gray-200 rounded-xl p-5" data-admin-card="navOrder">
         <button id="adminCollapseBtn_navOrder" onclick="toggleAdminCollapse('navOrder')" aria-expanded="false" class="admin-collapse-btn">
           <h2 class="font-display text-lg text-forest-dark">🧭 메뉴 순서 편집</h2>
@@ -1357,6 +1372,18 @@ service cloud.firestore {
     <p id="pushSettingsStatus" class="text-sm text-gray-500 mb-4">-</p>
     <button id="pushSettingsToggleBtn" class="w-full py-2.5 rounded-lg text-sm font-semibold"></button>
     <p class="text-[0.7rem] text-gray-400 mt-4 leading-relaxed">이 버튼은 로고를 3초 이상 눌러야 나오는 숨은 메뉴예요. 여기서 끄고 켜는 건 지금 이 기기(브라우저)에만 적용됩니다.</p>
+  </div>
+</div>
+
+<!-- 교사가 보내는 실시간 포스트잇 메시지 — 잠깐 떴다가 저절로 사라진다 -->
+<div id="liveNotePopup" class="hidden fixed inset-0 z-[90] flex items-center justify-center p-6 pointer-events-none">
+  <div class="bg-amber text-ink rounded-lg shadow-2xl p-5 max-w-sm w-full pointer-events-auto" style="transform: rotate(-1.5deg);">
+    <div class="flex justify-between items-start mb-1">
+      <span class="text-2xl">📌</span>
+      <button onclick="closeLiveNotePopup()" class="text-ink/50 hover:text-ink text-2xl leading-none">&times;</button>
+    </div>
+    <img id="liveNotePopupImage" class="hidden w-full rounded-lg mb-2" alt="">
+    <p id="liveNotePopupText" class="text-lg font-bold leading-snug whitespace-pre-line"></p>
   </div>
 </div>
 
@@ -2101,6 +2128,7 @@ function bootstrapApp(){
     }
     document.getElementById('classTitleHeader').textContent = settingsCache.className || '학급 수첩';
     renderNav();
+    maybeShowLiveNote();
     const locKey = `${settingsCache.weatherLocation.lat},${settingsCache.weatherLocation.lon}`;
     if (locKey !== lastWeatherLocKey) { lastWeatherLocKey = locKey; fetchWeather(); }
     const mealKey = settingsCache.mealSchool ? `${settingsCache.mealSchool.officeCode},${settingsCache.mealSchool.schoolCode}` : null;
@@ -5619,6 +5647,68 @@ function removeNoticeImage(){
   noticeImageDataUrl = null;
   document.getElementById('noticeImagePreviewWrap').classList.add('hidden');
   document.getElementById('noticeImagePreview').src = '';
+}
+
+/* ============================================================
+   실시간 포스트잇 메시지 — 공지사항처럼 남지 않고, 지금 화면을 보고 있는
+   사람에게만 잠깐 떴다가 저절로 사라진다. settings/general 문서 하나에
+   { text, imageUrl, sentAt }만 덮어써서 보내고, 각 클라이언트는 자기가
+   이미 본 sentAt보다 새것이면서 최근(1분 이내)에 온 것만 띄운다.
+============================================================ */
+let liveNoteImageDataUrl = null;
+document.getElementById('liveNoteInput').addEventListener('paste', (e) => {
+  const items = e.clipboardData && e.clipboardData.items;
+  if (!items) return;
+  for (const item of items) {
+    if (item.type && item.type.startsWith('image/')) {
+      const file = item.getAsFile();
+      if (!file) continue;
+      compressImageFile(file, 900, 0.7).then(dataUrl => {
+        if (dataUrl.length > 900000) return alert('이미지 용량이 너무 큽니다. 더 작거나 단순한 사진으로 다시 시도해주세요.');
+        liveNoteImageDataUrl = dataUrl;
+        document.getElementById('liveNoteImagePreview').src = dataUrl;
+        document.getElementById('liveNoteImagePreviewWrap').classList.remove('hidden');
+      }).catch(() => alert('이미지를 처리하는 중 문제가 발생했습니다.'));
+      e.preventDefault();
+      break;
+    }
+  }
+});
+function removeLiveNoteImage(){
+  liveNoteImageDataUrl = null;
+  document.getElementById('liveNoteImagePreviewWrap').classList.add('hidden');
+  document.getElementById('liveNoteImagePreview').src = '';
+}
+function sendLiveNote(){
+  const text = document.getElementById('liveNoteInput').value.trim();
+  if (!text && !liveNoteImageDataUrl) return alert('메시지나 이미지를 입력해주세요.');
+  db.collection('settings').doc('general').set({
+    liveNote: { text, imageUrl: liveNoteImageDataUrl || null, sentAt: Date.now() },
+  }, { merge: true });
+  document.getElementById('liveNoteInput').value = '';
+  removeLiveNoteImage();
+}
+let lastShownLiveNoteAt = 0;
+let liveNotePopupTimer = null;
+function maybeShowLiveNote(){
+  const note = settingsCache.liveNote;
+  if (!note || (!note.text && !note.imageUrl) || !note.sentAt) return;
+  if (note.sentAt <= lastShownLiveNoteAt) return;
+  lastShownLiveNoteAt = note.sentAt;
+  // 한참 전에 보낸 메시지가 settings 문서에 그대로 남아있다가, 나중에 접속한 사람 화면에
+  // 뒤늦게 뜨는 걸 막는다 — "지금 보고 있는 사람에게만" 보내는 기능이라 신선도가 중요하다.
+  if (Date.now() - note.sentAt > 60000) return;
+  document.getElementById('liveNotePopupText').textContent = note.text || '';
+  const imgEl = document.getElementById('liveNotePopupImage');
+  imgEl.classList.toggle('hidden', !note.imageUrl);
+  imgEl.src = note.imageUrl || '';
+  document.getElementById('liveNotePopup').classList.remove('hidden');
+  clearTimeout(liveNotePopupTimer);
+  liveNotePopupTimer = setTimeout(closeLiveNotePopup, 12000);
+}
+function closeLiveNotePopup(){
+  document.getElementById('liveNotePopup').classList.add('hidden');
+  clearTimeout(liveNotePopupTimer);
 }
 // 매일 올리는 "단기 공지"와, 대회·시험접수처럼 한동안 계속 보여야 하는 "고정 공지"를
 // 구분해서 작성할 수 있게 한다.
