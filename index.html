@@ -182,9 +182,12 @@ service cloud.firestore {
     match /stats/{doc} { allow read: if true; allow write: if true; }
     match /visitLog/{doc} { allow read, write: if true; }
     match /wallPosts/{doc} { allow read: if resource.data.isPrivate == false || isTeacher(); allow create: if request.auth != null; allow update, delete: if isTeacher() || (request.auth != null && request.auth.token.email == resource.data.authorEmail); }
+    match /attendance/{doc} { allow read, create: if true; allow update, delete: if isTeacher(); }
+    match /fcmTokens/{doc} { allow read: if isTeacher(); allow write: if true; }
+    match /tetrisScores/{doc} { allow read, create: if true; allow update, delete: if isTeacher(); }
   }
 }</pre>
-    <p class="text-gray-400 text-xs mt-6">설정을 마친 뒤 파일을 저장하고, GitHub Pages / Netlify / Firebase Hosting 등 아무 정적 호스팅에 올리면 공개 링크와 QR코드가 생깁니다. (관리자 탭에서 링크·QR 확인 가능)</p>
+    <p class="text-gray-400 text-xs mt-6">설정을 마친 뒤 파일을 저장하고, 정적 호스팅에 올리면 공개 링크와 QR코드가 생깁니다. (관리자 탭에서 링크·QR 확인 가능) 가장 간단한 방법: <a href="https://pages.cloudflare.com" target="_blank" class="underline">Cloudflare Pages</a>에 무료 가입 → Workers & Pages → "Upload assets"(직접 업로드) → 이 폴더(index.html, manifest.json, firebase-messaging-sw.js, icons 폴더)를 통째로 끌어다 놓으면 GitHub 계정 없이 바로 배포됩니다. (GitHub Pages / Netlify / Firebase Hosting 등 다른 정적 호스팅도 물론 가능합니다)</p>
   </div>
 </div>
 
