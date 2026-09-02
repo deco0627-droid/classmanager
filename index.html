@@ -165,6 +165,7 @@
       <li><b class="text-amber">3.</b> 왼쪽 메뉴 <b>Authentication</b> → "시작하기" → 로그인 방법에서 <b>이메일/비밀번호</b>를 사용 설정합니다. 이후 "Users" 탭에서 선생님 본인 이메일/비밀번호로 계정을 1개 만드세요. (회원가입 화면은 따로 없습니다 — 보안을 위해 콘솔에서 직접 만듭니다)</li>
       <li><b class="text-amber">4.</b> 프로젝트 설정(⚙️) → "내 앱" → 웹 앱 추가 후 나오는 <code class="font-mono text-amber">firebaseConfig</code> 값을 이 파일 하단 스크립트의 <code class="font-mono text-amber">firebaseConfig</code>와 <code class="font-mono text-amber">TEACHER_EMAIL</code>에 붙여넣습니다.</li>
       <li><b class="text-amber">5.</b> Firestore → "규칙" 탭에서 아래 규칙을 붙여넣고 게시합니다. (아래 <code class="font-mono text-amber">TEACHER_EMAIL</code> 부분을 3번에서 만든 이메일로 바꿔주세요)</li>
+      <li><b class="text-amber">6.</b> <span class="text-gray-400">(선택) 공지 올리면 학생 휴대폰에 실제 알림이 가게 하려면</span> 프로젝트 설정 → "일반" → "내 앱" 안의 "웹 푸시 인증서"에서 키를 만들어 <code class="font-mono text-amber">FCM_VAPID_KEY</code>에 붙여넣고, "서비스 계정" 탭에서 비공개 키를 발급받아 배포할 호스팅의 환경변수 <code class="font-mono text-amber">FIREBASE_SERVICE_ACCOUNT_KEY</code>로 등록하세요. 자세한 단계별 설명은 같이 들어있는 SETUP_GUIDE 문서를 참고하세요.</li>
     </ol>
     <pre class="bg-black/40 rounded-xl p-4 text-xs font-mono mt-4 overflow-x-auto leading-relaxed">rules_version = '2';
 service cloud.firestore {
@@ -187,7 +188,7 @@ service cloud.firestore {
     match /tetrisScores/{doc} { allow read, create: if true; allow update, delete: if isTeacher(); }
   }
 }</pre>
-    <p class="text-gray-400 text-xs mt-6">설정을 마친 뒤 파일을 저장하고, 정적 호스팅에 올리면 공개 링크와 QR코드가 생깁니다. (관리자 탭에서 링크·QR 확인 가능) 가장 간단한 방법: <a href="https://pages.cloudflare.com" target="_blank" class="underline">Cloudflare Pages</a>에 무료 가입 → Workers & Pages → "Upload assets"(직접 업로드) → 이 폴더(index.html, manifest.json, firebase-messaging-sw.js, icons 폴더)를 통째로 끌어다 놓으면 GitHub 계정 없이 바로 배포됩니다. (GitHub Pages / Netlify / Firebase Hosting 등 다른 정적 호스팅도 물론 가능합니다)</p>
+    <p class="text-gray-400 text-xs mt-6">설정을 마친 뒤 파일을 저장하고, 정적 호스팅에 올리면 공개 링크와 QR코드가 생깁니다. (관리자 탭에서 링크·QR 확인 가능) 가장 간단한 방법: <a href="https://pages.cloudflare.com" target="_blank" class="underline">Cloudflare Pages</a>에 무료 가입 → Workers & Pages → "Upload assets"(직접 업로드) → 이 폴더(index.html, manifest.json, firebase-messaging-sw.js, icons 폴더, functions 폴더)를 통째로 끌어다 놓으면 GitHub 계정 없이 바로 배포됩니다. (GitHub Pages / Netlify / Firebase Hosting 등 다른 정적 호스팅도 물론 가능하지만, 휴대폰 알림 기능은 functions 폴더가 실제로 실행되는 Cloudflare Pages류의 호스팅에서만 동작합니다)</p>
   </div>
 </div>
 
