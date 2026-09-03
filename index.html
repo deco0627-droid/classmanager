@@ -2889,16 +2889,31 @@ function cbtQrExamLabel(c){
 function renderCbtQrWidget(){
   const el = document.getElementById('dashCbtQrBox');
   if (!el) return;
+  // CBT-Program 쪽이 여러 학교가 같이 쓰도록 바뀌면서, QR 문서 이름이 "checkin_날짜_슬롯"
+  // 고정이 아니라 "checkin_날짜_슬롯[_학교][_반]"로 늘어났다(학교를 지정해서 만든 QR은 뒤에
+  // 학교 이름이 붙음). 그래서 옛날처럼 딱 고정된 문서 이름만 찾으면 유한공고로 지정해서 만든
+  // QR은 못 찾고 "학교 지정 안 함"으로 만든 것만 찾아진다 — 그날 만들어진 문서를 전부 가져와서
+  // 이 반(유한공고, 또는 학교 미지정) 것만 슬롯별로 골라 쓴다.
+  const prefix = 'checkin_' + todayStr();
   Promise.all([
-    ...CBT_QR_SLOTS.map(slot =>
-      db.collection('cbtSettings').doc('checkin_' + todayStr() + '_' + slot).get()
-        .then(doc => (doc.exists && doc.data().token) ? doc.data() : null)
-    ),
+    db.collection('cbtSettings')
+      .where(firebase.firestore.FieldPath.documentId(), '>=', prefix)
+      .where(firebase.firestore.FieldPath.documentId(), '<', prefix + '')
+      .get(),
     db.collection('cbtSettings').doc('qrCutoff').get()
       .then(doc => (doc.exists && Number.isInteger(doc.data().hour)) ? doc.data().hour : 17),
-  ]).then(results => {
-    const cutoffHour = results.pop();
-    const active = results.filter(Boolean);
+  ]).then(([snap, cutoffHour]) => {
+    const bySlot = {};
+    snap.docs.forEach(d => {
+      const parts = d.id.split('_'); // ['checkin', 날짜, 슬롯, 학교?, 반?]
+      const slot = parts[2];
+      const school = parts[3] || '';
+      if (school && school !== '유한공고') return; // 다른 학교가 만든 QR은 이 위젯에 안 보여준다
+      const data = d.data();
+      if (!data.token) return;
+      if (!bySlot[slot] || (data.generatedAt || 0) > (bySlot[slot].generatedAt || 0)) bySlot[slot] = data;
+    });
+    const active = CBT_QR_SLOTS.map(s => bySlot[s]).filter(Boolean);
     if (!active.length) { el.classList.add('hidden'); el.innerHTML = ''; return; }
     el.classList.remove('hidden');
     el.innerHTML = active.map(data => {
