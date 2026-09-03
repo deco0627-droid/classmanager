@@ -2106,7 +2106,9 @@ function bootstrapApp(){
     if (currentView === 'dashboard') renderDashboard();
     if (currentView === 'schedule') { renderScheduleList(); renderScheduleCalendar(); }
   });
-  db.collection('notices').onSnapshot(snap => {
+  // date는 공지 만들 때 항상 채워지는 필드라(createdAt은 옛날 글 중 일부 빠진 경우가 있어서
+  // orderBy에 쓰면 그 글들이 통째로 안 읽힐 수 있음), 최근 것 위주로 안전하게 자르는 기준으로 쓴다.
+  db.collection('notices').orderBy('date', 'desc').limit(300).onSnapshot(snap => {
     noticesCache = snap.docs.map(d => ({ id: d.id, ...d.data() }))
       .sort((a,b) => noticeSortKey(b) - noticeSortKey(a));
     if (currentView === 'dashboard') renderDashboard();
