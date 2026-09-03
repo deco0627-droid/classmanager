@@ -1340,7 +1340,7 @@ service cloud.firestore {
 </div>
 
 <div id="noticePopupModal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onclick="if(event.target===this) closeNoticePopup()">
-  <div class="bg-card rounded-2xl shadow-xl w-full max-w-md p-6">
+  <div class="bg-card rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto p-6">
     <div class="flex items-center justify-between mb-2">
       <span id="noticePopupBadge" class="text-xs font-bold text-amber bg-amber-light px-2 py-1 rounded-full">📢 새 공지</span>
       <button onclick="closeNoticePopup()" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
