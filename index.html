@@ -1076,6 +1076,10 @@ service cloud.firestore {
             <button onclick="removeLiveNoteImage()" class="absolute top-1.5 right-1.5 bg-black/60 text-white w-6 h-6 rounded-full text-sm leading-none hover:bg-black/80">&times;</button>
           </div>
           <button onclick="sendLiveNote()" class="bg-amber text-white px-4 py-2 rounded-lg text-sm font-semibold hover:opacity-90">📌 지금 보내기</button>
+          <div class="mt-4 pt-3 border-t border-gray-100">
+            <p class="text-xs font-semibold text-gray-500 mb-2">최근 보낸 포스트잇 (다시 보내기 가능)</p>
+            <div id="liveNoteHistoryList" class="space-y-1.5 text-sm text-gray-400">불러오는 중...</div>
+          </div>
         </div>
       </div>
       <div class="bg-card border border-gray-200 rounded-xl p-5" data-admin-card="navOrder">
@@ -2096,6 +2100,12 @@ function sendPushForNotice(title, content){
 
 function bootstrapApp(){
   db = firebase.firestore();
+  // 오프라인 캐시 — 안 바뀐 데이터는 서버에 다시 안 읽고 브라우저에 저장해둔 걸 그대로 쓴다.
+  // 여러 탭(예: 담벼락 하나, 학생 명단 하나)을 동시에 열어도 같이 쓰도록 synchronizeTabs를
+  // 켜고, 지원 안 하는 브라우저에서는 조용히 실패하고 평소처럼 매번 서버에서 읽는다.
+  db.enablePersistence({ synchronizeTabs: true }).catch(err => {
+    console.warn('오프라인 캐시를 켜지 못했습니다(그냥 매번 서버에서 읽어옵니다):', err.code);
+  });
   auth = firebase.auth();
   initPushNotifications();
   setupBrandLongPress();
@@ -5704,11 +5714,35 @@ function removeLiveNoteImage(){
 function sendLiveNote(){
   const text = document.getElementById('liveNoteInput').value.trim();
   if (!text && !liveNoteImageDataUrl) return alert('메시지나 이미지를 입력해주세요.');
-  db.collection('settings').doc('general').set({
-    liveNote: { text, imageUrl: liveNoteImageDataUrl || null, sentAt: Date.now() },
-  }, { merge: true });
+  broadcastLiveNote(text, liveNoteImageDataUrl || null);
   document.getElementById('liveNoteInput').value = '';
   removeLiveNoteImage();
+}
+// 실제 전송(신규 작성·다시 보내기 공통) — 지금 보고 있는 사람에게 띄우는 settings/general
+// 문서는 그대로 두고, liveNotes에도 같은 내용을 남겨서 관리자가 나중에 목록에서 다시 보낼 수
+// 있게 한다(이 로그는 학생 화면에는 안 쓰이고 관리자 "다시 보내기" 목록에만 쓰인다).
+function broadcastLiveNote(text, imageUrl){
+  const sentAt = Date.now();
+  db.collection('settings').doc('general').set({ liveNote: { text, imageUrl, sentAt } }, { merge: true });
+  db.collection('liveNotes').add({ text, imageUrl, sentAt });
+}
+function resendLiveNote(text, imageUrl){
+  broadcastLiveNote(text || '', imageUrl || null);
+  alert('다시 보냈습니다.');
+}
+let liveNoteHistoryLoaded = false;
+function loadLiveNoteHistory(){
+  if (liveNoteHistoryLoaded) return;
+  liveNoteHistoryLoaded = true;
+  const listEl = document.getElementById('liveNoteHistoryList');
+  db.collection('liveNotes').orderBy('sentAt', 'desc').limit(20).get().then(snap => {
+    const items = snap.docs.map(d => d.data());
+    listEl.innerHTML = items.length ? items.map(n => `
+      <div class="flex items-center justify-between gap-2 border-b border-gray-100 pb-1.5">
+        <span class="truncate flex-1 text-gray-600">${n.imageUrl ? '🖼 ' : ''}${escapeHtml(n.text || '(이미지만)')}</span>
+        <button onclick="resendLiveNote(${JSON.stringify(n.text || '')}, ${JSON.stringify(n.imageUrl || null)})" class="shrink-0 text-xs border border-gray-300 px-2 py-1 rounded-full hover:bg-gray-50">🔁 다시 보내기</button>
+      </div>`).join('') : '<p class="text-gray-400">보낸 기록이 없습니다.</p>';
+  }).catch(err => { listEl.textContent = '불러오기 실패: ' + err.message; });
 }
 let lastShownLiveNoteAt = 0;
 let liveNotePopupTimer = null;
@@ -5726,11 +5760,15 @@ function maybeShowLiveNote(){
   imgEl.src = note.imageUrl || '';
   document.getElementById('liveNotePopup').classList.remove('hidden');
   clearTimeout(liveNotePopupTimer);
-  liveNotePopupTimer = setTimeout(closeLiveNotePopup, 12000);
+  liveNotePopupTimer = setTimeout(closeLiveNotePopup, 60000);
+  // 포스트잇을 눌러서 확인하거나(내부 클릭) 다른 곳을 눌러도(바깥은 pointer-events-none이라
+  // 클릭이 그대로 페이지로 통과함) 바로 닫히게 — 다음 클릭 한 번을 캡처 단계에서 잡는다.
+  document.addEventListener('click', closeLiveNotePopup, { once: true, capture: true });
 }
 function closeLiveNotePopup(){
   document.getElementById('liveNotePopup').classList.add('hidden');
   clearTimeout(liveNotePopupTimer);
+  document.removeEventListener('click', closeLiveNotePopup, { capture: true });
 }
 // 매일 올리는 "단기 공지"와, 대회·시험접수처럼 한동안 계속 보여야 하는 "고정 공지"를
 // 구분해서 작성할 수 있게 한다.
