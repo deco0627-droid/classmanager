@@ -1075,7 +1075,11 @@ service cloud.firestore {
             <img id="liveNoteImagePreview" class="w-full rounded-lg border border-gray-200" alt="첨부 이미지 미리보기">
             <button onclick="removeLiveNoteImage()" class="absolute top-1.5 right-1.5 bg-black/60 text-white w-6 h-6 rounded-full text-sm leading-none hover:bg-black/80">&times;</button>
           </div>
-          <button onclick="sendLiveNote()" class="bg-amber text-white px-4 py-2 rounded-lg text-sm font-semibold hover:opacity-90">📌 지금 보내기</button>
+          <div class="flex flex-wrap gap-2">
+            <button onclick="sendLiveNote()" class="bg-amber text-white px-4 py-2 rounded-lg text-sm font-semibold hover:opacity-90">📌 지금 보내기</button>
+            <button onclick="sendAbsentPush()" class="border border-gray-300 text-gray-600 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-gray-50">🚫 CBT 미응시자에게만 푸시로 보내기</button>
+          </div>
+          <p class="text-[11px] text-gray-400 mt-1">미응시자 전송은 화면 팝업 없이 휴대폰 푸시만 가고, 학생이 알림 켤 때 등록한 이름을 오늘 CBT 미응시 명단과 대조해서 보내요(이름 등록을 안 했거나 CBT 계정 이름과 다르면 못 받을 수 있어요).</p>
           <div class="mt-4 pt-3 border-t border-gray-100">
             <p class="text-xs font-semibold text-gray-500 mb-2">최근 보낸 포스트잇 (다시 보내기 가능)</p>
             <div id="liveNoteHistoryList" class="space-y-1.5 text-sm text-gray-400">불러오는 중...</div>
@@ -1375,6 +1379,7 @@ service cloud.firestore {
     <p class="font-display text-lg mb-1">알림 설정</p>
     <p id="pushSettingsStatus" class="text-sm text-gray-500 mb-4">-</p>
     <button id="pushSettingsToggleBtn" class="w-full py-2.5 rounded-lg text-sm font-semibold"></button>
+    <p id="pushSettingsNameRow" class="hidden text-xs text-gray-400 mt-3">등록된 이름: <span id="pushSettingsNameVal" class="font-semibold text-gray-600"></span> <button onclick="editPushStudentName()" class="text-forest-dark hover:underline">수정</button></p>
     <p class="text-[0.7rem] text-gray-400 mt-4 leading-relaxed">이 버튼은 로고를 3초 이상 눌러야 나오는 숨은 메뉴예요. 여기서 끄고 켜는 건 지금 이 기기(브라우저)에만 적용됩니다.</p>
   </div>
 </div>
@@ -1961,8 +1966,21 @@ let anonymousVisitCountedThisSession = false;
 ============================================================ */
 const PUSH_DISMISSED_KEY = 'cm_pushBannerDismissed';
 const PUSH_USER_DISABLED_KEY = 'cm_pushUserDisabled';
+const PUSH_STUDENT_NAME_KEY = 'cm_studentName';
 let fcmMessaging = null;
 let currentFcmToken = null;
+// CBT 미응시 학생에게만 푸시를 보내려면 "이 기기가 누구 것인지" 알아야 하는데, 지금까지 알림은
+// 완전히 익명이었다(토큰만 저장). 학생이 알림을 켤 때 실명을 한 번 받아서 같이 저장해두고,
+// CBT 쪽 미응시 명단과 이름을 정확히 대조해서 보낸다 — 교사 본인 기기는 물어보지 않는다.
+function ensureStudentNameForPush(){
+  if (isTeacher) return localStorage.getItem(PUSH_STUDENT_NAME_KEY) || '';
+  let name = localStorage.getItem(PUSH_STUDENT_NAME_KEY);
+  if (name) return name;
+  const input = (prompt('출석 알림 등에 쓰이니 실명을 띄어쓰기 없이 입력해주세요 (예: 홍길동)') || '').replace(/\s+/g, '');
+  if (!input) return '';
+  localStorage.setItem(PUSH_STUDENT_NAME_KEY, input);
+  return input;
+}
 function isPushSupported(){
   return 'serviceWorker' in navigator && 'Notification' in window && window.isSecureContext;
 }
@@ -2000,7 +2018,8 @@ function registerFcmToken(registration){
   fcmMessaging.getToken({ vapidKey: FCM_VAPID_KEY, serviceWorkerRegistration: registration }).then(token => {
     if (!token) return;
     currentFcmToken = token;
-    db.collection('fcmTokens').doc(token).set({ token, updatedAt: Date.now() }, { merge: true });
+    const name = ensureStudentNameForPush();
+    db.collection('fcmTokens').doc(token).set({ token, name, updatedAt: Date.now() }, { merge: true });
   }).catch(err => console.error('FCM 토큰 발급 실패:', err));
 }
 
@@ -2029,6 +2048,10 @@ function closePushSettingsModal(){
 function renderPushSettingsModal(){
   const statusEl = document.getElementById('pushSettingsStatus');
   const btn = document.getElementById('pushSettingsToggleBtn');
+  const nameRow = document.getElementById('pushSettingsNameRow');
+  const storedName = localStorage.getItem(PUSH_STUDENT_NAME_KEY);
+  nameRow.classList.toggle('hidden', isTeacher || !storedName);
+  if (storedName) document.getElementById('pushSettingsNameVal').textContent = storedName;
   if (!isPushSupported()) {
     statusEl.textContent = '이 브라우저에서는 알림 기능을 지원하지 않습니다.';
     btn.classList.add('hidden');
@@ -2049,6 +2072,14 @@ function renderPushSettingsModal(){
     btn.className = 'w-full py-2.5 rounded-lg text-sm font-semibold bg-forest text-white hover:bg-forest-dark';
     btn.onclick = enablePushNotifications;
   }
+}
+function editPushStudentName(){
+  const current = localStorage.getItem(PUSH_STUDENT_NAME_KEY) || '';
+  const input = (prompt('실명을 띄어쓰기 없이 입력해주세요 (예: 홍길동)', current) || '').replace(/\s+/g, '');
+  if (!input) return;
+  localStorage.setItem(PUSH_STUDENT_NAME_KEY, input);
+  if (currentFcmToken) db.collection('fcmTokens').doc(currentFcmToken).set({ name: input }, { merge: true }).catch(() => {});
+  renderPushSettingsModal();
 }
 function disablePushNotifications(){
   localStorage.setItem(PUSH_USER_DISABLED_KEY, '1');
@@ -5717,6 +5748,31 @@ function sendLiveNote(){
   broadcastLiveNote(text, liveNoteImageDataUrl || null);
   document.getElementById('liveNoteInput').value = '';
   removeLiveNoteImage();
+}
+// 오늘 CBT를 아직 안 본 학생에게만 휴대폰 푸시를 보낸다(화면 팝업은 안 뜸) — 이름 대조 방식이라
+// 100% 정확하진 않다(등록 안 함/동명이인/오타 시 빗나갈 수 있음, /api/send-notification-absent 참고).
+function sendAbsentPush(){
+  const text = document.getElementById('liveNoteInput').value.trim();
+  if (!text) return alert('보낼 메시지를 입력해주세요.');
+  if (!auth.currentUser) return alert('로그인이 필요합니다.');
+  auth.currentUser.getIdToken().then(idToken =>
+    fetch('/api/send-notification-absent', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + idToken },
+      body: JSON.stringify({ title: '📌 ' + text, body: '아직 CBT를 안 본 것 같아요. 얼른 확인해주세요!' }),
+    })
+  )
+    .then(res => res.json().catch(() => ({})).then(data => ({ ok: res.ok, data })))
+    .then(({ ok, data }) => {
+      if (!ok || data.error) {
+        showInAppPushToast('발송 실패', data.error || '서버 오류');
+      } else if (!data.totalAbsent) {
+        showInAppPushToast('발송 결과', data.message || '오늘 미응시 학생이 없습니다.');
+      } else {
+        showInAppPushToast('발송 결과', `미응시 ${data.totalAbsent}명 중 ${data.sent}명에게 전송됨 (이름 일치 ${data.matchedNames}명)`);
+      }
+    })
+    .catch(err => showInAppPushToast('발송 실패', String(err.message || err)));
 }
 // 실제 전송(신규 작성·다시 보내기 공통) — 지금 보고 있는 사람에게 띄우는 settings/general
 // 문서는 그대로 두고, liveNotes에도 같은 내용을 남겨서 관리자가 나중에 목록에서 다시 보낼 수
