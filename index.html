@@ -2076,9 +2076,9 @@ function showInAppPushToast(title, body){
   document.body.appendChild(el);
   setTimeout(() => el.remove(), 5000);
 }
-// 공지 등록/수정 시 팝업 알림이 켜져 있으면 실제 휴대폰 푸시도 같이 보낸다.
+// 공지 등록/수정 시 팝업 알림이 켜져 있거나, 포스트잇을 보낼 때 실제 휴대폰 푸시를 보낸다.
 // 결과(성공/실패 이유)를 화면에 토스트로 바로 보여줘서, 조용히 실패하는 일이 없게 한다.
-function sendPushForNotice(title, content){
+function sendPushNotification(title, content){
   fetch('/api/send-notification', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -5725,6 +5725,9 @@ function broadcastLiveNote(text, imageUrl){
   const sentAt = Date.now();
   db.collection('settings').doc('general').set({ liveNote: { text, imageUrl, sentAt } }, { merge: true });
   db.collection('liveNotes').add({ text, imageUrl, sentAt });
+  // 포스트잇은 원래 "지금 보고 있는 사람에게만" 뜨는 기능이었는데, 앱을 안 켜놓은 학생한테도
+  // 닿게 해달라는 요청으로 휴대폰 푸시도 같이 보낸다(공지 팝업과 같은 방식 재사용).
+  sendPushNotification('📌 선생님 메시지', text || '사진을 보내셨어요. 앱을 열어서 확인해보세요.');
 }
 function resendLiveNote(text, imageUrl){
   broadcastLiveNote(text || '', imageUrl || null);
@@ -5840,7 +5843,7 @@ function saveNotice(){
     db.collection('notices').add({ date: todayStr(), title, content, tags, imageUrl, pinned, color, popupFrom, popupUntil, createdAt: Date.now() });
   }
   // 팝업으로 강조하기로 한 공지는 휴대폰 푸시 알림도 같이 보낸다.
-  if (popupOn) sendPushForNotice(title, content);
+  if (popupOn) sendPushNotification(title, content);
   cancelNoticeEdit();
 }
 function editNotice(id){
