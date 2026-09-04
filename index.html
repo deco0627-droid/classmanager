@@ -1079,7 +1079,7 @@ service cloud.firestore {
             <button onclick="sendLiveNote()" class="bg-amber text-white px-4 py-2 rounded-lg text-sm font-semibold hover:opacity-90">📌 지금 보내기</button>
             <button onclick="sendAbsentPush()" class="border border-gray-300 text-gray-600 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-gray-50">🚫 CBT 미응시자에게만 푸시로 보내기</button>
           </div>
-          <p class="text-[11px] text-gray-400 mt-1">미응시자 전송은 화면 팝업 없이 휴대폰 푸시만 가고, 학생이 알림 켤 때 등록한 이름을 오늘 CBT 미응시 명단과 대조해서 보내요(이름 등록을 안 했거나 CBT 계정 이름과 다르면 못 받을 수 있어요).</p>
+          <p class="text-[11px] text-gray-400 mt-1">미응시자 전송은 화면 팝업 없이 휴대폰 푸시만 가고, 학생이 알림 켤 때 등록한 이름을 오늘 CBT 미응시 명단과 대조해서 보내요(이름 등록을 안 했거나 CBT 계정 이름과 다르면 못 받을 수 있어요). 누르면 바로 안 보내고, 명단을 먼저 보여드려서 뺄 학생을 체크 해제할 수 있어요.</p>
           <div class="mt-4 pt-3 border-t border-gray-100">
             <p class="text-xs font-semibold text-gray-500 mb-2">최근 보낸 포스트잇 (다시 보내기 가능)</p>
             <div id="liveNoteHistoryList" class="space-y-1.5 text-sm text-gray-400">불러오는 중...</div>
@@ -1369,6 +1369,19 @@ service cloud.firestore {
   </div>
   <button onclick="requestPushPermission()" class="bg-forest text-white text-xs font-semibold px-3 py-1.5 rounded-lg shrink-0">허용</button>
   <button onclick="dismissPushBanner()" class="text-gray-400 text-lg leading-none shrink-0">&times;</button>
+</div>
+
+<!-- CBT 미응시자에게만 푸시 보내기 전, 대상 학생을 빼고 보낼 수 있는 확인창 -->
+<div id="absentPushModal" class="hidden fixed inset-0 bg-ink/70 z-[75] flex items-center justify-center p-4" onclick="if(event.target===this) closeAbsentPushModal()">
+  <div class="bg-paper rounded-2xl w-full max-w-sm p-6 shadow-2xl max-h-[85vh] overflow-y-auto">
+    <p class="font-display text-lg mb-1">🚫 CBT 미응시자에게 보내기</p>
+    <p class="text-xs text-gray-500 mb-3">체크된 학생에게만 푸시가 가요. 안 보낼 학생은 체크를 풀어주세요.</p>
+    <div id="absentPushList" class="space-y-1.5 mb-4 text-sm">불러오는 중...</div>
+    <div class="flex gap-2">
+      <button onclick="confirmSendAbsentPush()" class="flex-1 bg-forest text-white py-2 rounded-lg text-sm font-semibold hover:bg-forest-dark">보내기</button>
+      <button onclick="closeAbsentPushModal()" class="px-4 py-2 rounded-lg text-sm font-semibold border border-gray-300 hover:bg-gray-50">취소</button>
+    </div>
+  </div>
 </div>
 
 <!-- 로고를 3초 이상 길게 누르면 뜨는 숨은 알림 설정 창 -->
@@ -5751,25 +5764,59 @@ function sendLiveNote(){
 }
 // 오늘 CBT를 아직 안 본 학생에게만 휴대폰 푸시를 보낸다(화면 팝업은 안 뜸) — 이름 대조 방식이라
 // 100% 정확하진 않다(등록 안 함/동명이인/오타 시 빗나갈 수 있음, /api/send-notification-absent 참고).
+// 자동으로 바로 보내지 않고, 오늘 미응시 명단을 먼저 보여줘서 "이 학생은 빼야 하는데" 싶은
+// 사람을 체크 해제하고 보낼 수 있게 한다(요청대로 — 자동 계산은 편하지만 예외인 학생이 있을
+// 수 있어서 최종 확인 단계를 하나 둠).
+let absentPushTitle = '';
 function sendAbsentPush(){
   const text = document.getElementById('liveNoteInput').value.trim();
   if (!text) return alert('보낼 메시지를 입력해주세요.');
   if (!auth.currentUser) return alert('로그인이 필요합니다.');
+  absentPushTitle = text;
+  document.getElementById('absentPushList').textContent = '불러오는 중...';
+  document.getElementById('absentPushModal').classList.remove('hidden');
   auth.currentUser.getIdToken().then(idToken =>
     fetch('/api/send-notification-absent', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + idToken },
-      body: JSON.stringify({ title: '📌 ' + text, body: '아직 CBT를 안 본 것 같아요. 얼른 확인해주세요!' }),
+      body: JSON.stringify({ dryRun: true }),
+    })
+  )
+    .then(res => res.json().catch(() => ({})).then(data => ({ ok: res.ok, data })))
+    .then(({ ok, data }) => {
+      const listEl = document.getElementById('absentPushList');
+      if (!ok || data.error) { listEl.textContent = data.error || '명단을 불러오지 못했습니다.'; return; }
+      if (!data.students || !data.students.length) { listEl.textContent = data.message || '오늘 미응시 학생이 없습니다.'; return; }
+      listEl.innerHTML = data.students.map(s => `
+        <label class="flex items-center gap-2">
+          <input type="checkbox" class="absentPushCheck" value="${escapeAttr(s.name)}" checked>
+          <span>${escapeHtml(s.label)}</span>
+        </label>`).join('');
+    })
+    .catch(err => { document.getElementById('absentPushList').textContent = '명단을 불러오지 못했습니다: ' + (err.message || err); });
+}
+function closeAbsentPushModal(){
+  document.getElementById('absentPushModal').classList.add('hidden');
+}
+function confirmSendAbsentPush(){
+  const checked = [...document.querySelectorAll('#absentPushList .absentPushCheck:checked')].map(el => el.value);
+  if (!checked.length) return alert('보낼 학생을 한 명 이상 선택해주세요.');
+  closeAbsentPushModal();
+  auth.currentUser.getIdToken().then(idToken =>
+    fetch('/api/send-notification-absent', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + idToken },
+      body: JSON.stringify({ title: '📌 ' + absentPushTitle, body: '아직 CBT를 안 본 것 같아요. 얼른 확인해주세요!', names: checked }),
     })
   )
     .then(res => res.json().catch(() => ({})).then(data => ({ ok: res.ok, data })))
     .then(({ ok, data }) => {
       if (!ok || data.error) {
         showInAppPushToast('발송 실패', data.error || '서버 오류');
-      } else if (!data.totalAbsent) {
-        showInAppPushToast('발송 결과', data.message || '오늘 미응시 학생이 없습니다.');
+      } else if (!data.sent) {
+        showInAppPushToast('발송 결과', data.message || '전송된 알림이 없습니다.');
       } else {
-        showInAppPushToast('발송 결과', `미응시 ${data.totalAbsent}명 중 ${data.sent}명에게 전송됨 (이름 일치 ${data.matchedNames}명)`);
+        showInAppPushToast('발송 결과', `선택 ${checked.length}명 중 ${data.sent}명에게 전송됨`);
       }
     })
     .catch(err => showInAppPushToast('발송 실패', String(err.message || err)));

@@ -118,7 +118,7 @@ function kstDayRangeMs(dateStr) {
   return { startUtcMs, endUtcMs: startUtcMs + 24 * 60 * 60 * 1000 };
 }
 
-async function computeAbsentNames(accessToken, dateStr) {
+async function computeAbsentStudents(accessToken, dateStr) {
   const prefix = 'checkin_' + dateStr;
   const configDocs = await firestoreRunQuery(accessToken, {
     from: [{ collectionId: 'cbtSettings' }],
@@ -149,12 +149,12 @@ async function computeAbsentNames(accessToken, dateStr) {
     },
   });
 
-  const targetMap = new Map(); // uid -> displayName
+  const targetMap = new Map(); // uid -> student
   activeConfigs.forEach(c => {
     let matched = allStudents;
     if (c.targetDept) matched = matched.filter(u => (u.department || '') === c.targetDept);
     if (c.targetTrack) matched = matched.filter(u => (u.track || '') === c.targetTrack);
-    matched.forEach(u => targetMap.set(u.id, u.displayName || ''));
+    matched.forEach(u => targetMap.set(u.id, u));
   });
   if (!targetMap.size) return [];
 
@@ -173,11 +173,18 @@ async function computeAbsentNames(accessToken, dateStr) {
   });
   const takenUids = new Set(attempts.map(a => a.ownerId));
 
-  const absentNames = [];
-  targetMap.forEach((name, uid) => {
-    if (!takenUids.has(uid) && name) absentNames.push(name.replace(/\s+/g, ''));
+  // 관리자가 미리보기에서 특정 학생을 빼고 보낼 수 있도록, 이름뿐 아니라 학년·반·번호가 붙은
+  // 표시용 라벨(CBT의 studentRosterLabel과 같은 방식)도 같이 돌려준다.
+  const absentStudents = [];
+  targetMap.forEach((u, uid) => {
+    if (takenUids.has(uid) || !u.displayName) return;
+    const name = u.displayName.replace(/\s+/g, '');
+    const label = (u.grade && u.classNum && u.studentNum)
+      ? `${u.grade}${u.classNum}${String(u.studentNum).padStart(2, '0')}${u.displayName}`
+      : u.displayName;
+    absentStudents.push({ uid, name, label });
   });
-  return absentNames;
+  return absentStudents;
 }
 
 async function getFcmTokensWithNames(accessToken) {
@@ -199,22 +206,40 @@ export async function onRequestPost(context) {
     if (!isTeacherReq) return jsonResponse({ error: '권한이 없습니다.' }, 401);
 
     const body = await request.json().catch(() => ({}));
+    const dryRun = !!body.dryRun;
     const title = (body.title || '').toString().slice(0, 200);
     const message = (body.body || '').toString().slice(0, 500);
-    if (!title) return jsonResponse({ error: '제목이 없습니다.' }, 400);
+    if (!dryRun && !title) return jsonResponse({ error: '제목이 없습니다.' }, 400);
 
     const saJson = env.FIREBASE_SERVICE_ACCOUNT_KEY;
     if (!saJson) return jsonResponse({ error: 'FIREBASE_SERVICE_ACCOUNT_KEY 환경변수가 설정되지 않았습니다.' }, 500);
     const serviceAccount = JSON.parse(saJson);
     const accessToken = await getAccessToken(serviceAccount);
 
-    const absentNames = new Set(await computeAbsentNames(accessToken, todayKstStr()));
-    if (!absentNames.size) {
-      return jsonResponse({ sent: 0, totalAbsent: 0, message: '오늘 미응시 대상 학생이 없습니다 (QR 미발급 또는 전원 응시 완료).' });
+    const absentStudents = await computeAbsentStudents(accessToken, todayKstStr());
+    if (!absentStudents.length) {
+      return jsonResponse({ sent: 0, totalAbsent: 0, students: [], message: '오늘 미응시 대상 학생이 없습니다 (QR 미발급 또는 전원 응시 완료).' });
     }
 
+    // 미리보기 요청이면 보내지 않고 명단만 돌려준다 — 관리자가 화면에서 특정 학생을 빼고
+    // 다시 요청할 수 있게 한다.
+    if (dryRun) {
+      return jsonResponse({ students: absentStudents.map(s => ({ name: s.name, label: s.label })) });
+    }
+
+    // names가 오면(미리보기에서 일부 제외 가능) 그 이름들로만 좁히고, 없으면(과거 호출 호환) 전원 대상.
+    // 서버가 직접 계산한 오늘의 미응시 명단과 교집합만 취해서, 클라이언트가 엉뚱한 이름을 끼워 넣어도
+    // 실제 미응시자가 아니면 걸러지게 한다.
+    const requestedNames = Array.isArray(body.names) ? new Set(body.names.map(n => String(n).replace(/\s+/g, ''))) : null;
+    const targetNames = new Set(
+      absentStudents
+        .filter(s => !requestedNames || requestedNames.has(s.name))
+        .map(s => s.name)
+    );
+    if (!targetNames.size) return jsonResponse({ sent: 0, totalAbsent: absentStudents.length, matchedNames: 0, message: '선택된 학생이 없습니다.' });
+
     const tokensWithNames = await getFcmTokensWithNames(accessToken);
-    const matched = tokensWithNames.filter(t => t.name && absentNames.has(String(t.name).replace(/\s+/g, '')));
+    const matched = tokensWithNames.filter(t => t.name && targetNames.has(String(t.name).replace(/\s+/g, '')));
 
     let sent = 0;
     const invalidTokens = [];
@@ -241,7 +266,7 @@ export async function onRequestPost(context) {
 
     return jsonResponse({
       sent,
-      totalAbsent: absentNames.size,
+      totalAbsent: absentStudents.length,
       matchedNames: matched.length,
       removedInvalid: invalidTokens.length,
     });
