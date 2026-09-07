@@ -2203,10 +2203,10 @@ function bootstrapApp(){
     if (currentView === 'photos') renderPhotosView();
   });
   // 담벼락(공개 글)은 스마트클래스룸처럼 로그인 없이 켜두는 화면에서도 앱을 여는 순간부터
-  // 구독되고 있었는데, 정작 담벼락 탭을 보지도 않는 방문자한테까지 계속 읽기가 발생하고 있었다
-  // (CBT 쪽에서 겪은 것과 같은 문제). 이제 담벼락 탭을 처음 열 때만 구독을 시작한다
-  // (startWallPublicListener, switchView 참고) — 한 번 시작하면 다른 탭에 갔다가 돌아와도
-  // 다시 구독하지 않고 이미 받아둔 내용을 그대로 보여준다.
+  // 실시간 구독되고 있었는데, 담벼락 탭을 보지도 않는 방문자한테까지 계속 읽기가 발생했고
+  // (CBT 쪽에서 겪은 것과 같은 문제), 그 위에 여러 명이 동시에 보면서 글이 활발히 올라오면
+  // 보는 인원수만큼 읽기가 곱해져 급증하는 문제도 있었다. 이제 담벼락 탭을 열 때만, 그것도
+  // 실시간 구독이 아니라 일정 주기로만 다시 읽는다(startWallPublicPolling, switchView 참고).
   db.collection('stats').doc('visits').onSnapshot(doc => {
     statsCache = doc.exists ? doc.data() : { total: 0, dailyDate: '', dailyCount: 0 };
     if (currentView === 'dashboard') renderDashboard();
@@ -2249,9 +2249,7 @@ function bootstrapApp(){
     document.getElementById('clubPhotoUploadLabel').classList.toggle('hidden', !isTeacher);
     syncAssignmentPhotoButtons();
     document.getElementById('dashBlogEditBtn').classList.toggle('hidden', !isTeacher);
-    // 담벼락 게시판 이름 바꾸기(관리자 탭)가 기존 글의 column 필드를 같이 바꾸려면 전체 목록이
-    // 있어야 하므로, 교사 계정은 담벼락 탭을 열어본 적 없어도 로그인 시점에 미리 구독해둔다.
-    if (isTeacher) { startStudentsListener(); startWallPrivateListener(); startWallPublicListener(); } else { stopStudentsListener(); stopWallPrivateListener(); }
+    if (isTeacher) { startStudentsListener(); startWallPrivateListener(); } else { stopStudentsListener(); stopWallPrivateListener(); }
     const onPrivateCustom = currentView.startsWith('custom_') && (() => {
       const p = customPagesCache.find(x => 'custom_'+x.id === currentView);
       return p && !p.isPublic;
@@ -2395,15 +2393,30 @@ function stopStudentsListener(){
   if (studentsUnsub) { studentsUnsub(); studentsUnsub = null; }
   studentsCache = [];
 }
-// 담벼락 공개 글은(비공개 글과 달리) 로그인 여부와 무관하게 누구나 보므로 로그아웃 시에도
-// 끊지 않는다 — 한 번 열어본 뒤로는 세션 내내 그대로 캐시를 재사용한다(아래 switchView 참고).
-let wallPostsPublicUnsub = null;
-function startWallPublicListener(){
-  if (wallPostsPublicUnsub) return;
-  wallPostsPublicUnsub = db.collection('wallPosts').where('isPrivate', '==', false).limit(300).onSnapshot(snap => {
+// 담벼락 공개 글은 실시간 구독(onSnapshot) 대신 일정 주기로만 다시 읽는다(폴링) — 실시간
+// 구독은 그 순간 담벼락을 보고 있는 인원수 × 새 글 수만큼 읽기가 곱해져서, 여러 명이 동시에
+// 보면서 글이 활발히 올라올 때 읽기가 급격히 튈 수 있었다. 폴링으로 바꾸면 보는 인원·글 빈도와
+// 무관하게 "몇 초에 한 번"이라는 정해진 속도로 읽기가 고정된다 — 대신 새 글이 최대 폴링 주기
+// (아래 WALL_PUBLIC_POLL_INTERVAL_MS)만큼 늦게 보일 수 있다. 담벼락 탭을 보고 있는 동안만
+// 폴링하고(startWallPublicPolling/stopWallPublicPolling, switchView 참고), 브라우저 탭이
+// 백그라운드에 있는 동안은(예: 스마트클래스룸이 다른 창에 가려짐) 건너뛴다.
+const WALL_PUBLIC_POLL_INTERVAL_MS = 60 * 1000;
+let wallPostsPublicPollTimer = null;
+function fetchWallPublicOnce(){
+  return db.collection('wallPosts').where('isPrivate', '==', false).limit(300).get().then(snap => {
     wallPostsPublicCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     if (currentView === 'wall') renderWall();
-  });
+  }).catch(err => console.error('담벼락 공개 글 조회 실패:', err));
+}
+function startWallPublicPolling(){
+  if (wallPostsPublicPollTimer) return;
+  fetchWallPublicOnce();
+  wallPostsPublicPollTimer = setInterval(() => {
+    if (document.visibilityState === 'visible') fetchWallPublicOnce();
+  }, WALL_PUBLIC_POLL_INTERVAL_MS);
+}
+function stopWallPublicPolling(){
+  if (wallPostsPublicPollTimer) { clearInterval(wallPostsPublicPollTimer); wallPostsPublicPollTimer = null; }
 }
 let wallPostsPrivateUnsub = null;
 function startWallPrivateListener(){
@@ -2518,6 +2531,7 @@ function switchView(key){
 }
 function renderView(key){
   currentView = key;
+  if (key !== 'wall') stopWallPublicPolling(); // 담벼락 탭을 보고 있을 때만 폴링한다
   document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
   if (key.startsWith('custom_')) {
     document.getElementById('view-custom').classList.remove('hidden');
@@ -2530,7 +2544,7 @@ function renderView(key){
     if (key==='schedule') { renderTimetable(); renderScheduleList(); renderScheduleCalendar(); }
     if (key==='certinfo') renderCertInfo();
     if (key==='photos') requireAssignmentPassword(renderPhotosView);
-    if (key==='wall') { startWallPublicListener(); renderWall(); }
+    if (key==='wall') { startWallPublicPolling(); renderWall(); }
     if (key==='checkin') renderCheckinView();
     if (key==='students') renderStudents();
     if (key==='notices') renderNotices();
@@ -6276,10 +6290,17 @@ function saveWallColumnRename(i){
   settingsCache.wallColumns[i] = newName;
   const batch = db.batch();
   batch.set(db.collection('settings').doc('general'), { wallColumns: settingsCache.wallColumns }, { merge: true });
-  [...wallPostsPublicCache, ...wallPostsPrivateCache].filter(p => p.column === oldName).forEach(p => {
-    batch.set(db.collection('wallPosts').doc(p.id), { column: newName }, { merge: true });
-  });
-  batch.commit().then(() => {
+  // 이름을 바꿀 게시판(oldName)에 속한 글만 딱 찾아서 바꾼다 — 담벼락 전체를 캐시에 들고
+  // 있지 않아도(공개 글은 이제 담벼락 탭을 볼 때만 폴링) 필요한 시점에 필요한 만큼만 읽는다.
+  Promise.all([
+    db.collection('wallPosts').where('isPrivate', '==', false).where('column', '==', oldName).get(),
+    db.collection('wallPosts').where('isPrivate', '==', true).where('column', '==', oldName).get(),
+  ]).then(([pubSnap, privSnap]) => {
+    [...pubSnap.docs, ...privSnap.docs].forEach(d => {
+      batch.set(db.collection('wallPosts').doc(d.id), { column: newName }, { merge: true });
+    });
+    return batch.commit();
+  }).then(() => {
     editingWallColumnIndex = null;
     renderAdmin();
   }).catch(() => alert('이름 변경 중 문제가 발생했습니다.'));
