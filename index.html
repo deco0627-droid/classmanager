@@ -2538,14 +2538,14 @@ function renderCounselingSlots(){
                   <span class="truncate">${escapeHtml(s.studentName)} 학생 · 학부모 ${escapeHtml(s.parentName)}${s.notes ? ` · ${escapeHtml(s.notes)}` : ''}</span>
                 </div>
                 <div class="flex items-center gap-2 shrink-0 ml-2">
-                  <button onclick="toggleCounselingLog('${s.id}')" class="text-xs ${s.resultNote ? 'text-forest-dark font-semibold' : 'text-gray-300 hover:text-forest-dark'}">${s.resultNote ? '📝 상담 기록 완료' : '📝 상담 기록'}</button>
+                  <button onclick="toggleCounselingLog('${s.id}')" class="flex items-center gap-1 text-xs ${s.resultNote ? 'text-forest-dark font-semibold' : 'text-gray-300 hover:text-forest-dark'}"><span class="text-xl leading-none">📝</span>${s.resultNote ? '상담 기록 완료' : '상담 기록'}</button>
                   <button onclick="editCounselingSlot('${s.id}')" class="text-gray-300 hover:text-forest-dark text-xs">수정</button>
                   <button onclick="deleteCounselingSlot('${s.id}')" class="text-gray-300 hover:text-brick text-xs">삭제</button>
                 </div>
               </div>
               ${openCounselLogId === s.id ? `
                 <div class="mt-2 pt-2 border-t border-gray-100">
-                  <textarea id="counselLogInput_${s.id}" rows="3" placeholder="상담하면서 나눈 내용, 결정된 사항 등을 적어두세요." class="w-full border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm">${escapeHtml(s.resultNote || '')}</textarea>
+                  <textarea id="counselLogInput_${s.id}" rows="6" placeholder="상담하면서 나눈 내용, 결정된 사항 등을 적어두세요." class="w-full border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm">${escapeHtml(s.resultNote || '')}</textarea>
                   <div class="flex gap-2 mt-1.5">
                     <button onclick="saveCounselingLog('${s.id}')" class="text-xs bg-forest text-white px-3 py-1 rounded-full hover:bg-forest-dark">저장</button>
                     <button onclick="toggleCounselingLog('${s.id}')" class="text-xs border border-gray-300 px-3 py-1 rounded-full hover:bg-gray-50">닫기</button>
