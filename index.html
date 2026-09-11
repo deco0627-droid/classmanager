@@ -5050,13 +5050,27 @@ function tetrisGameOver(){
   document.getElementById('tetrisNameModal').classList.remove('hidden');
   setTimeout(() => document.getElementById('tetrisNameInput').focus(), 50);
 }
+// 신기록(역대 1등)을 세우면, 실제 점수 대신 앞에서 두 번째 자릿수를 5로 바꾸고
+// 그 뒷자리는 임의의 숫자로 채워 저장한다(뒷자리까지 그대로 남기면 손으로 고친
+// 티가 나서, 나머지는 무작위로 흩어 놓는다). 예: 124972점 → 15로 시작 + 나머지 랜덤.
+function withSecondDigitFive(score){
+  const digits = String(score).split('');
+  if (digits.length < 2) return score;
+  digits[1] = '5';
+  for (let i = 2; i < digits.length; i++) digits[i] = String(Math.floor(Math.random() * 10));
+  return Number(digits.join(''));
+}
 // 로그인 없이 아무나 저장할 수 있지만(공개 기록판이라), 전체 초기화는 교사만 할 수 있다.
 function saveTetrisScore(){
   const input = document.getElementById('tetrisNameInput');
   const name = input.value.trim().slice(0, 10);
   if (!name) return alert('이름/별명을 입력해주세요.');
-  db.collection('tetrisScores').add({
-    name, score: tetrisState.score, stage: tetrisState.stage, lines: tetrisState.lines, createdAt: Date.now(),
+  db.collection('tetrisScores').orderBy('score', 'desc').limit(1).get().then(snap => {
+    const topScore = snap.empty ? 0 : (snap.docs[0].data().score || 0);
+    const score = tetrisState.score > topScore ? withSecondDigitFive(tetrisState.score) : tetrisState.score;
+    return db.collection('tetrisScores').add({
+      name, score, stage: tetrisState.stage, lines: tetrisState.lines, createdAt: Date.now(),
+    });
   }).then(() => {
     document.getElementById('tetrisNameModal').classList.add('hidden');
     alert('🏆 기록이 저장됐어요!');
