@@ -1086,6 +1086,30 @@ service cloud.firestore {
           </div>
         </div>
       </div>
+      <div class="bg-card border border-gray-200 rounded-xl p-5 lg:col-span-2" data-admin-card="counseling">
+        <button id="adminCollapseBtn_counseling" onclick="toggleAdminCollapse('counseling')" aria-expanded="false" class="admin-collapse-btn">
+          <h2 class="font-display text-lg text-forest-dark">🗣️ 상담주간 일정</h2>
+          <span class="admin-collapse-chevron">▶</span>
+        </button>
+        <div id="adminCollapseBody_counseling" class="hidden mt-3">
+          <p class="text-xs text-gray-500 mb-3">학부모 상담 신청을 정리해두고 날짜별로 한눈에 확인할 수 있어요. 학생명단과 같이 교사만 볼 수 있습니다.</p>
+          <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-2">
+            <input id="counselStudentName" placeholder="학생 이름" class="border border-gray-300 rounded-lg px-3 py-2 text-sm">
+            <input id="counselParentName" placeholder="학부모 성명" class="border border-gray-300 rounded-lg px-3 py-2 text-sm">
+            <input id="counselDate" type="date" class="border border-gray-300 rounded-lg px-3 py-2 text-sm">
+            <input id="counselTime" type="time" class="border border-gray-300 rounded-lg px-3 py-2 text-sm">
+            <select id="counselMethod" class="border border-gray-300 rounded-lg px-3 py-2 text-sm">
+              <option value="전화">📞 전화상담</option>
+              <option value="대면">🤝 대면상담</option>
+            </select>
+          </div>
+          <div class="flex gap-2 mb-3">
+            <input id="counselNotes" placeholder="메모 (선택)" class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm">
+            <button onclick="addCounselingSlot()" class="bg-forest text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-forest-dark shrink-0">추가</button>
+          </div>
+          <div id="counselingSlotList" class="space-y-3"></div>
+        </div>
+      </div>
       <div class="bg-card border border-gray-200 rounded-xl p-5" data-admin-card="navOrder">
         <button id="adminCollapseBtn_navOrder" onclick="toggleAdminCollapse('navOrder')" aria-expanded="false" class="admin-collapse-btn">
           <h2 class="font-display text-lg text-forest-dark">🧭 메뉴 순서 편집</h2>
@@ -1443,7 +1467,16 @@ const firebaseConfig = {
   messagingSenderId: "882052020372",
   appId: "1:882052020372:web:69694b36fb296960f65c81"
 };
-const TEACHER_EMAIL = "deco0627@nate.com"; // Firestore 보안 규칙의 이메일과 반드시 동일해야 합니다
+
+/* 여러 반이 이 앱 하나를 함께 쓴다 — URL의 ?class=반ID 로 어느 반인지 정하고,
+   생략하면 원래 있던 반(DEFAULT_CLASS_ID)을 보여준다. 로그인 후에도 이 값은
+   바꾸지 않는다(다른 반 데이터가 잠깐 섞여 보이는 걸 막기 위해) — 대신
+   로그인한 선생님이 이 반 담당이 아니면 본인 반 주소로 안내한다. */
+const DEFAULT_CLASS_ID = "yuhan-1";
+const currentClassId = new URLSearchParams(location.search).get('class') || DEFAULT_CLASS_ID;
+let currentClassDoc = {};
+function classCol(name){ return db.collection('classes').doc(currentClassId).collection(name); }
+function currentGeofence(){ return currentClassDoc.geofence || SCHOOL_GEOFENCE; }
 
 /* 푸시 알림(공지 올리면 휴대폰 알림)을 쓰려면 Firebase 콘솔 > 프로젝트 설정 > Cloud Messaging
    탭에서 "웹 푸시 인증서"를 만들고, 거기 나오는 키 문자열을 아래에 붙여넣으세요.
@@ -1455,9 +1488,11 @@ const FCM_VAPID_KEY = "BGGlmBvdYsYfwjSn0d9pniz64MLk1l3h2NGAp7D4E-3C7TBDH3NSMrEhW
    비워두면 대시보드에 점심메뉴가 표시되지 않습니다. */
 const NEIS_API_KEY = "d055f7a3a83d4294aeed8f38b5fb1a9e";
 
-/* 위치기반 등교 확인 QR — 유한공고 운동장 중심 반경(radiusM) 안에서만 통과된다.
-   좌표는 사용자가 공유한 구글 지도 핀(Plus Code FRQF+5HP, 서울특별시)을
-   공식 Open Location Code 라이브러리로 디코딩해서 얻었다. */
+/* 위치기반 등교 확인 QR — 학교 운동장 중심 반경(radiusM) 안에서만 통과된다.
+   반마다 학교가 다를 수 있어서 실제로는 classes/{classId}.geofence를 쓰고
+   (currentGeofence() 참고), 이 값은 DEFAULT_CLASS_ID(유한공고, 좌표는 사용자가
+   공유한 구글 지도 핀 Plus Code FRQF+5HP를 디코딩해서 얻음)의 값이자
+   geofence 필드가 없는 반의 최후 폴백이다. */
 const SCHOOL_GEOFENCE = { lat: 37.487963, lng: 126.823953, radiusM: 200 };
 function haversineDistanceM(lat1, lng1, lat2, lng2){
   const R = 6371000;
@@ -1924,7 +1959,7 @@ function defaultSettings(){
     healthPassword: 'health1234',
     consultPassword: 'consult1234',
     assignmentPassword: 'class0627',
-    healthRecoveryEmail: TEACHER_EMAIL || '',
+    healthRecoveryEmail: '',
     personalLinks: [],
     weatherLocation: { name: '서울시 구로구', lat: 37.4954, lon: 126.8874 },
     certLinks: { '한국사능력검정시험': 'https://www.historyexam.go.kr/?link=examSchedule' },
@@ -1963,6 +1998,8 @@ let noticesCache = [];
 let studentsCache = [];
 let settingsCache = defaultSettings();
 let studentsUnsub = null;
+let counselingSlotsCache = [];
+let counselingSlotsUnsub = null;
 let customPagesCache = [];
 let certExamsCache = [];
 let tasksCache = [];
@@ -2249,7 +2286,7 @@ function bootstrapApp(){
     document.getElementById('clubPhotoUploadLabel').classList.toggle('hidden', !isTeacher);
     syncAssignmentPhotoButtons();
     document.getElementById('dashBlogEditBtn').classList.toggle('hidden', !isTeacher);
-    if (isTeacher) { startStudentsListener(); startWallPrivateListener(); } else { stopStudentsListener(); stopWallPrivateListener(); }
+    if (isTeacher) { startStudentsListener(); startWallPrivateListener(); startCounselingSlotsListener(); } else { stopStudentsListener(); stopWallPrivateListener(); stopCounselingSlotsListener(); }
     const onPrivateCustom = currentView.startsWith('custom_') && (() => {
       const p = customPagesCache.find(x => 'custom_'+x.id === currentView);
       return p && !p.isPublic;
@@ -2297,7 +2334,8 @@ function syncPublicRosterIndex(){
   }, 800);
 }
 function checkinQrLink(){
-  return `${location.origin}${location.pathname}?geocheckin=1`;
+  const classParam = currentClassId !== DEFAULT_CLASS_ID ? `&class=${encodeURIComponent(currentClassId)}` : '';
+  return `${location.origin}${location.pathname}?geocheckin=1${classParam}`;
 }
 function renderCheckinQrBox(){
   const img = document.getElementById('dashCheckinQr');
@@ -2320,15 +2358,16 @@ function startCheckinGeolocation(){
     return;
   }
   navigator.geolocation.getCurrentPosition(pos => {
-    const dist = haversineDistanceM(pos.coords.latitude, pos.coords.longitude, SCHOOL_GEOFENCE.lat, SCHOOL_GEOFENCE.lng);
+    const geofence = currentGeofence();
+    const dist = haversineDistanceM(pos.coords.latitude, pos.coords.longitude, geofence.lat, geofence.lng);
     checkinLastDistance = Math.round(dist);
-    if (dist <= SCHOOL_GEOFENCE.radiusM) {
+    if (dist <= geofence.radiusM) {
       statusEl.innerHTML = `<p class="text-forest-dark font-semibold">✅ 학교 반경 안이에요! (거리 약 ${checkinLastDistance}m)</p>`;
       renderCheckinStudentPicker();
     } else {
       statusEl.innerHTML = `
         <p class="text-brick font-semibold">❌ 학교 반경 밖이에요 (거리 약 ${checkinLastDistance}m)</p>
-        <p class="text-xs text-gray-400 mt-1">운동장 ${SCHOOL_GEOFENCE.radiusM}m 이내에서 다시 시도해주세요.</p>
+        <p class="text-xs text-gray-400 mt-1">운동장 ${geofence.radiusM}m 이내에서 다시 시도해주세요.</p>
         <button onclick="renderCheckinView()" class="mt-3 text-xs border border-gray-300 bg-card px-3 py-1.5 rounded-lg hover:bg-gray-50">다시 확인</button>`;
     }
   }, err => {
@@ -2392,6 +2431,65 @@ function confirmCheckin(studentId){
 function stopStudentsListener(){
   if (studentsUnsub) { studentsUnsub(); studentsUnsub = null; }
   studentsCache = [];
+}
+// 상담주간 일정 — 학부모 성명·희망 시간·전화/대면 여부를 교사가 정리해두고 한눈에 보는 용도라,
+// 학생명단과 같은 수준(교사 전용)으로 보호한다.
+function startCounselingSlotsListener(){
+  if (counselingSlotsUnsub) return;
+  counselingSlotsUnsub = db.collection('counselingSlots').onSnapshot(snap => {
+    counselingSlotsCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    renderCounselingSlots();
+  });
+}
+function stopCounselingSlotsListener(){
+  if (counselingSlotsUnsub) { counselingSlotsUnsub(); counselingSlotsUnsub = null; }
+  counselingSlotsCache = [];
+}
+function addCounselingSlot(){
+  const studentName = document.getElementById('counselStudentName').value.trim();
+  const parentName = document.getElementById('counselParentName').value.trim();
+  const date = document.getElementById('counselDate').value;
+  const time = document.getElementById('counselTime').value;
+  const method = document.getElementById('counselMethod').value;
+  const notes = document.getElementById('counselNotes').value.trim();
+  if (!studentName || !parentName || !date || !time) return alert('학생 이름·학부모 성명·날짜·시간을 모두 입력해주세요.');
+  db.collection('counselingSlots').add({ studentName, parentName, date, time, method, notes, createdAt: Date.now() })
+    .then(() => {
+      ['counselStudentName', 'counselParentName', 'counselTime', 'counselNotes'].forEach(id => { document.getElementById(id).value = ''; });
+    })
+    .catch(err => alert('저장에 실패했습니다: ' + err.message));
+}
+function deleteCounselingSlot(id){
+  if (!confirm('이 상담 일정을 삭제할까요?')) return;
+  db.collection('counselingSlots').doc(id).delete().catch(err => alert('삭제에 실패했습니다: ' + err.message));
+}
+// 날짜별로 묶어서 그날 상담이 몇 건인지, 시간 순서대로 한눈에 보이게 한다.
+function renderCounselingSlots(){
+  const listEl = document.getElementById('counselingSlotList');
+  if (!listEl) return;
+  if (!counselingSlotsCache.length) { listEl.innerHTML = '<p class="text-gray-400 text-sm">등록된 상담 일정이 없습니다.</p>'; return; }
+  const byDate = {};
+  counselingSlotsCache.forEach(s => { (byDate[s.date] = byDate[s.date] || []).push(s); });
+  const dates = Object.keys(byDate).sort();
+  listEl.innerHTML = dates.map(date => {
+    const slots = byDate[date].slice().sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+    const dow = ['일','월','화','수','목','금','토'][new Date(date + 'T00:00:00').getDay()];
+    return `
+      <div>
+        <p class="text-xs font-bold text-gray-500 mb-1.5">${escapeHtml(date)}(${dow}) · ${slots.length}건</p>
+        <div class="space-y-1.5">
+          ${slots.map(s => `
+            <div class="flex items-center justify-between border border-gray-200 rounded-lg px-3 py-2 text-sm">
+              <div class="flex items-center gap-2 min-w-0">
+                <span class="font-mono font-bold text-forest-dark shrink-0">${escapeHtml(s.time || '')}</span>
+                <span class="shrink-0 text-xs font-semibold px-1.5 py-0.5 rounded-full ${s.method === '대면' ? 'bg-amber-light text-amber' : 'bg-forest-light text-forest-dark'}">${s.method === '대면' ? '🤝 대면' : '📞 전화'}</span>
+                <span class="truncate">${escapeHtml(s.studentName)} 학생 · 학부모 ${escapeHtml(s.parentName)}${s.notes ? ` · ${escapeHtml(s.notes)}` : ''}</span>
+              </div>
+              <button onclick="deleteCounselingSlot('${s.id}')" class="text-gray-300 hover:text-brick text-xs shrink-0 ml-2">삭제</button>
+            </div>`).join('')}
+        </div>
+      </div>`;
+  }).join('');
 }
 // 담벼락 공개 글은 실시간 구독(onSnapshot) 대신 일정 주기로만 다시 읽는다(폴링) — 실시간
 // 구독은 그 순간 담벼락을 보고 있는 인원수 × 새 글 수만큼 읽기가 곱해져서, 여러 명이 동시에
@@ -6136,6 +6234,8 @@ const ADMIN_CARD_LABELS = {
   taskChecklist: '📋 학급 업무 체크리스트',
   certRoadmap: '🏅 자격증 안내 로드맵 편집',
   noticesManage: '📢 공유 페이지(공지사항) 관리',
+  liveNote: '📌 실시간 포스트잇 메시지',
+  counseling: '🗣️ 상담주간 일정',
   navOrder: '🧭 메뉴 순서 편집',
   wallColumns: '🧱 담벼락 게시판 관리',
   classInfo: '🏷 학급 기본 정보',
@@ -6471,7 +6571,7 @@ function renderAdmin(){
   document.getElementById('shareLinkField').value = link;
   document.getElementById('shareQr').src = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(link)}`;
   document.getElementById('checkinQr').src = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(checkinQrLink())}`;
-  document.getElementById('checkinAdminDesc').textContent = `이 QR을 교문 등에 붙여두면, 학생이 스캔했을 때 운동장 ${SCHOOL_GEOFENCE.radiusM}m 이내인 경우에만 이름을 골라 등교를 기록할 수 있어요. 로그인은 필요 없어요.`;
+  document.getElementById('checkinAdminDesc').textContent = `이 QR을 교문 등에 붙여두면, 학생이 스캔했을 때 운동장 ${currentGeofence().radiusM}m 이내인 경우에만 이름을 골라 등교를 기록할 수 있어요. 로그인은 필요 없어요.`;
   document.getElementById('classNameField').value = settingsCache.className || '';
   // 비밀번호는 해시로만 저장돼 있어 원래 값을 되돌릴 수 없다 — 빈 칸으로 두고,
   // 새로 입력해서 저장할 때만 바뀌게 한다.
