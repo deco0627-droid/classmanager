@@ -182,7 +182,7 @@ service cloud.firestore {
     match /tasks/{doc} { allow read, write: if true; }
     match /stats/{doc} { allow read: if true; allow write: if true; }
     match /visitLog/{doc} { allow read, write: if true; }
-    match /wallPosts/{doc} { allow read: if resource.data.isPrivate == false || isTeacher(); allow create: if request.auth != null; allow update, delete: if isTeacher() || (request.auth != null && request.auth.token.email == resource.data.authorEmail); }
+    match /wallPosts/{doc} { allow read: if resource.data.isPrivate == false || isTeacher(); allow create: if request.auth != null && request.resource.data.authorEmail == request.auth.token.email; allow update, delete: if isTeacher() || (request.auth != null && request.auth.token.email == resource.data.authorEmail); }
     match /attendance/{doc} { allow read, create: if true; allow update, delete: if isTeacher(); }
     match /fcmTokens/{doc} { allow read: if isTeacher(); allow write: if true; }
     match /tetrisScores/{doc} { allow read, create: if true; allow update, delete: if isTeacher(); }
@@ -1736,10 +1736,10 @@ function renderPhotosView(){
   // 있어서, 비밀번호를 아직 안 풀었으면 여기서도 한 번 더 막아야 사진이 뒤에서 새지 않는다.
   if (!isTeacher && !isAssignmentUnlocked()) return;
   document.getElementById('cleaningPhotoView').innerHTML = cleaningPhotoCache
-    ? `<img src="${cleaningPhotoCache}" class="w-full h-auto cursor-pointer" onclick="openPhotoZoom(this.src)">`
+    ? `<img src="${escapeAttr(cleaningPhotoCache)}" class="w-full h-auto cursor-pointer" onclick="openPhotoZoom(this.src)">`
     : `<p class="text-gray-400 text-sm p-8">등록된 사진이 없습니다.</p>`;
   document.getElementById('clubPhotoView').innerHTML = clubPhotoCache
-    ? `<img src="${clubPhotoCache}" class="w-full h-auto cursor-pointer" onclick="openPhotoZoom(this.src)">`
+    ? `<img src="${escapeAttr(clubPhotoCache)}" class="w-full h-auto cursor-pointer" onclick="openPhotoZoom(this.src)">`
     : `<p class="text-gray-400 text-sm p-8">등록된 사진이 없습니다.</p>`;
   syncAssignmentPhotoButtons();
   renderAssignmentTable('cleaning');
@@ -1798,7 +1798,7 @@ function renderWall(){
               ${p.pinned ? `<span class="text-[9px] font-bold text-amber">📌 공지</span>` : ''}
               ${p.isPrivate ? `<span class="text-[9px] font-semibold text-brick">🔒 비밀글 (교사만 볼 수 있음)</span>` : ''}
             </div>
-            ${p.image ? `<img src="${p.image}" class="w-full rounded mb-2 cursor-pointer" onclick="openPhotoZoom(this.src)">` : ''}
+            ${p.image ? `<img src="${escapeAttr(p.image)}" class="w-full rounded mb-2 cursor-pointer" onclick="openPhotoZoom(this.src)">` : ''}
             <p class="text-xs whitespace-pre-line text-ink">${linkifyText(escapeHtml(p.content))}</p>
             <div class="flex items-center justify-between mt-1.5">
               <p class="text-[10px] text-ink/50">${escapeHtml(p.author || '익명')} · ${timeAgo(p.createdAt || 0)}</p>
@@ -3240,7 +3240,7 @@ function noticeCardHtml(n, borderColorClass){
         <p class="text-gray-500 text-sm mt-0.5 line-clamp-2">${escapeHtml(n.content)}</p>
         <p class="font-mono text-[13px] text-gray-400 mt-1">${noticeDateTimeLabel(n)}</p>
       </div>
-      ${n.imageUrl ? `<img src="${n.imageUrl}" class="w-12 h-12 rounded-lg object-cover border border-gray-200 shrink-0" alt="">` : ''}
+      ${n.imageUrl ? `<img src="${escapeAttr(n.imageUrl)}" class="w-12 h-12 rounded-lg object-cover border border-gray-200 shrink-0" alt="">` : ''}
     </div>`;
 }
 function renderDashboard(){
@@ -4190,7 +4190,7 @@ function openNoticesListModal(){
       </div>
       <p class="font-mono text-xs text-gray-400 mb-2">${noticeDateTimeLabel(n)}</p>
       <p class="text-base text-gray-700 whitespace-pre-line">${escapeHtml(n.content)}</p>
-      ${n.imageUrl ? `<img src="${n.imageUrl}" class="w-full rounded-lg border border-gray-200 mt-2" alt="">` : ''}
+      ${n.imageUrl ? `<img src="${escapeAttr(n.imageUrl)}" class="w-full rounded-lg border border-gray-200 mt-2" alt="">` : ''}
       <div class="flex gap-1.5 mt-3 flex-wrap">
         ${(n.tags||[]).map(t => `<span class="text-xs bg-amber-light text-amber px-2 py-0.5 rounded-full">#${escapeHtml(t)}</span>`).join('')}
       </div>
@@ -6236,7 +6236,7 @@ function renderNotices(){
       <p class="font-mono text-xs text-gray-400 mb-2">${noticeDateTimeLabel(n)}</p>
       ${n.popupFrom && n.popupUntil ? `<p class="text-[11px] text-blue-500 font-semibold mb-1">📢 팝업 노출 기간: ${n.popupFrom} ~ ${n.popupUntil}</p>` : ''}
       <p class="text-base text-gray-700 whitespace-pre-line">${escapeHtml(n.content)}</p>
-      ${n.imageUrl ? `<img src="${n.imageUrl}" class="w-full max-w-sm rounded-lg border border-gray-200 mt-2" alt="">` : ''}
+      ${n.imageUrl ? `<img src="${escapeAttr(n.imageUrl)}" class="w-full max-w-sm rounded-lg border border-gray-200 mt-2" alt="">` : ''}
       <div class="flex gap-1.5 mt-3 flex-wrap">
         ${(n.tags||[]).map(t => `<span class="text-xs bg-amber-light text-amber px-2 py-0.5 rounded-full">#${escapeHtml(t)}</span>`).join('')}
       </div>
