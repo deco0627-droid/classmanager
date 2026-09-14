@@ -2153,11 +2153,14 @@ function showInAppPushToast(title, body){
 // 공지 등록/수정 시 팝업 알림이 켜져 있거나, 포스트잇을 보낼 때 실제 휴대폰 푸시를 보낸다.
 // 결과(성공/실패 이유)를 화면에 토스트로 바로 보여줘서, 조용히 실패하는 일이 없게 한다.
 function sendPushNotification(title, content){
-  fetch('/api/send-notification', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ title, body: content }),
-  })
+  if (!auth.currentUser) { showInAppPushToast('푸시 발송 실패', '로그인이 필요합니다.'); return; }
+  auth.currentUser.getIdToken().then(idToken =>
+    fetch('/api/send-notification', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + idToken },
+      body: JSON.stringify({ title, body: content }),
+    })
+  )
     .then(res => res.json().catch(() => ({})).then(data => ({ ok: res.ok, data })))
     .then(({ ok, data }) => {
       if (!ok || data.error) {

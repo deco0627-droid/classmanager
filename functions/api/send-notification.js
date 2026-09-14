@@ -7,6 +7,30 @@
 // npm 패키지 없이 Web Crypto API만으로 Google 서비스 계정 OAuth2 인증을 직접 구현한다
 // (Cloudflare Pages Functions 런타임에서 firebase-admin 같은 Node 전용 SDK는 잘 안 돌아간다).
 
+const TEACHER_EMAIL = 'deco0627@nate.com';
+// 원래 이 API에 인증 확인이 전혀 없어서, URL만 알면 로그인 없이 누구나 등록된 모든 학생
+// 기기로 원하는 제목·내용의 푸시 알림을 보낼 수 있었다(스팸·피싱에 악용될 수 있는 구멍).
+// send-notification-absent.js와 같은 방식으로 교사 본인인지 먼저 확인한다.
+const FIREBASE_API_KEY = 'AIzaSyBl6Ler-fG-I9aauInrCNADs2s0EO3YztI';
+async function verifyTeacher(request) {
+  const authHeader = request.headers.get('Authorization') || '';
+  const idToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+  if (!idToken) return false;
+  try {
+    const res = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${FIREBASE_API_KEY}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ idToken }),
+    });
+    if (!res.ok) return false;
+    const data = await res.json();
+    const user = data.users && data.users[0];
+    return !!(user && user.email === TEACHER_EMAIL);
+  } catch (e) {
+    return false;
+  }
+}
+
 function base64UrlEncode(input) {
   let binary;
   if (typeof input === 'string') {
@@ -76,6 +100,9 @@ function firestoreValueToJs(value) {
 export async function onRequestPost(context) {
   try {
     const { request, env } = context;
+    if (!(await verifyTeacher(request))) {
+      return new Response(JSON.stringify({ error: '권한이 없습니다.' }), { status: 403 });
+    }
     const body = await request.json();
     const title = (body.title || '').toString().slice(0, 200);
     const message = (body.body || '').toString().slice(0, 500);
