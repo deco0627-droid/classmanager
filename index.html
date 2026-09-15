@@ -5970,7 +5970,7 @@ function renderModalContent(){
     el.innerHTML = `
       <p class="text-xs text-gray-400 mb-3">교사인 나만 볼 수 있는 표시예요 (차상위, 건강 주의 등). 학생 명단 카드에 이름 옆 작은 태그로 표시돼요.</p>
       <div class="flex flex-wrap gap-1.5 mb-4">
-        ${['💚 차상위','💛 중위소득','❤️‍🩹 건강주의','👀 관심필요','💬 상담필요'].map(preset => `
+        ${['💚 차상위','💛 중위소득','📚 교육비 지원','❤️‍🩹 건강주의','👀 관심필요','💬 상담필요'].map(preset => `
           <button onclick="addSticker('${escapeAttr(preset)}')" class="text-xs border border-gray-300 bg-card px-2.5 py-1 rounded-full hover:bg-gray-50">${escapeHtml(preset)}</button>`).join('')}
       </div>
       <div class="flex gap-2 mb-4">
