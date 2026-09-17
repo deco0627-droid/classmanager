@@ -1996,6 +1996,7 @@ let editingCounselingSlotId = null;
 let customPagesCache = [];
 let certExamsCache = [];
 let tasksCache = [];
+let editingTaskId = null;
 let weatherCache = null;
 let lunchMenuCache = null;
 let weeklyWeatherCache = [];
@@ -2255,7 +2256,8 @@ function bootstrapApp(){
     if (currentView === 'certinfo') renderCertInfo();
   });
   db.collection('tasks').onSnapshot(snap => {
-    tasksCache = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => (a.createdAt||0)-(b.createdAt||0));
+    // 최근에 입력한 항목을 위에서 바로 보이게, 오래된 순이 아니라 최신순으로 둔다.
+    tasksCache = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => (b.createdAt||0)-(a.createdAt||0));
     if (currentView === 'admin') renderTaskChecklist();
   }, err => console.error('tasks 컬렉션을 불러오지 못했습니다 (Firestore 보안 규칙을 확인하세요):', err));
 
@@ -6659,13 +6661,50 @@ function wallColumnDrop(e, i){
 function renderTaskChecklist(){
   const el = document.getElementById('taskChecklistList');
   if (!el) return;
-  el.innerHTML = tasksCache.length ? tasksCache.map(t => `
+  el.innerHTML = tasksCache.length ? tasksCache.map(t => {
+    const d = new Date(t.createdAt || Date.now());
+    const dateLabel = `${pad2(d.getMonth() + 1)}/${pad2(d.getDate())}`;
+    if (editingTaskId === t.id) {
+      return `
+      <div class="flex items-center gap-2 bg-white border border-forest rounded-lg px-3 py-2">
+        <span class="font-mono text-xs text-gray-400 shrink-0">${dateLabel}</span>
+        <input id="editTaskInput_${t.id}" value="${escapeAttr(t.text || '')}" onkeydown="if(event.key==='Enter') saveEditTask('${t.id}')" class="flex-1 border border-gray-300 rounded px-2 py-1 text-sm">
+        <button onclick="saveEditTask('${t.id}')" class="text-xs font-semibold text-forest-dark shrink-0">저장</button>
+        <button onclick="cancelEditTask()" class="text-xs text-gray-400 shrink-0">취소</button>
+      </div>`;
+    }
+    return `
     <div class="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-3 py-2">
       <input type="checkbox" ${t.done ? 'checked' : ''} onchange="toggleTask('${t.id}', ${!!t.done})" class="w-4 h-4 accent-forest shrink-0">
+      <span class="font-mono text-xs text-gray-400 shrink-0">${dateLabel}</span>
       <span class="flex-1 ${t.done ? 'line-through text-gray-400' : 'text-ink'}">${escapeHtml(t.text || '')}</span>
+      <button onclick="startEditTask('${t.id}')" class="text-gray-300 hover:text-forest-dark text-xs shrink-0">수정</button>
       <button onclick="deleteTask('${t.id}')" class="text-gray-300 hover:text-brick text-lg leading-none shrink-0">&times;</button>
-    </div>
-  `).join('') : '<p class="text-xs text-gray-400">등록된 할 일이 없습니다.</p>';
+    </div>`;
+  }).join('') : '<p class="text-xs text-gray-400">등록된 할 일이 없습니다.</p>';
+}
+function startEditTask(id){
+  editingTaskId = id;
+  renderTaskChecklist();
+  const input = document.getElementById('editTaskInput_' + id);
+  if (input) { input.focus(); input.setSelectionRange(input.value.length, input.value.length); }
+}
+function cancelEditTask(){
+  editingTaskId = null;
+  renderTaskChecklist();
+}
+function saveEditTask(id){
+  const input = document.getElementById('editTaskInput_' + id);
+  if (!input) return;
+  const text = input.value.trim();
+  if (!text) return alert('내용을 입력해주세요.');
+  db.collection('tasks').doc(id).update({ text })
+    .then(() => {
+      editingTaskId = null;
+      const t = tasksCache.find(x => x.id === id);
+      syncTaskToSheet('upsert', { id, text, done: t ? t.done : false, createdAt: t ? t.createdAt : Date.now() });
+    })
+    .catch(err => alert('수정에 실패했습니다: ' + err.message));
 }
 // 구글 시트와 양방향 동기화 (Apps Script 웹앱 배포 후 URL을 여기에 붙여넣으세요)
 const TASK_SHEET_WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbxRNnuw-iZsXYBYzFBDEA7-m_TfgwZfPG1z6lW3KJmkvX-uSt8sCkS-XA75QNJt2-99/exec';
