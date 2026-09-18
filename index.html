@@ -1766,7 +1766,7 @@ function timeAgo(ts){
 const STICKY_BG = ['#FFF6D8', '#DCEAE1', '#F1D9D2', '#E7E9F5', '#FCE8D6'];
 function linkifyText(escapedText){
   return escapedText.replace(/(https?:\/\/[^\s<]+)/g, url =>
-    `<a href="${url}" target="_blank" onclick="event.stopPropagation()" class="text-forest-dark underline break-all font-semibold">${url}</a>`);
+    `<a href="${url}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" class="text-forest-dark underline break-all font-semibold">${url}</a>`);
 }
 function renderWall(){
   const allPosts = isTeacher ? [...wallPostsPublicCache, ...wallPostsPrivateCache] : wallPostsPublicCache;
@@ -3337,7 +3337,7 @@ function renderDashboard(){
     ...extraLinks,
   ].filter(link => link && link.label && link.url);
   document.getElementById('dashBadgeLinks').innerHTML = primaryLinks.map(link => `
-    <a href="${escapeAttr(link.url)}" target="_blank" class="text-xs rounded-full px-3 py-1.5 hover:opacity-80 shrink-0 ${link.label.includes('유튜브') ? 'bg-brick-light text-brick' : link.label.includes('블로그') ? 'bg-forest-light text-forest-dark' : link.label.includes('CBT') ? 'bg-amber-light text-amber' : 'bg-card border border-gray-200'}">${escapeHtml(link.label)}</a>
+    <a href="${escapeAttr(link.url)}" target="_blank" rel="noopener noreferrer" class="text-xs rounded-full px-3 py-1.5 hover:opacity-80 shrink-0 ${link.label.includes('유튜브') ? 'bg-brick-light text-brick' : link.label.includes('블로그') ? 'bg-forest-light text-forest-dark' : link.label.includes('CBT') ? 'bg-amber-light text-amber' : 'bg-card border border-gray-200'}">${escapeHtml(link.label)}</a>
   `).join('');
 }
 
@@ -4069,10 +4069,10 @@ function renderCertInfo(){
     </div>`).join('') : `<p class="text-gray-400 text-sm">등록된 자격증 일정이 없습니다.</p>`;
 
   const certLinksHtml = settingsCache.certificateTypes.map(t => `
-      <a href="${escapeAttr(certLinkFor(t))}" target="_blank"
+      <a href="${escapeAttr(certLinkFor(t))}" target="_blank" rel="noopener noreferrer"
          class="text-xs bg-forest-light text-forest-dark px-3 py-1.5 rounded-full hover:opacity-80">${escapeHtml(t)} 🔍</a>`).join('');
   const extraLinksHtml = (settingsCache.extraCertLinks || []).map(l => `
-      <a href="${escapeAttr(l.url)}" target="_blank"
+      <a href="${escapeAttr(l.url)}" target="_blank" rel="noopener noreferrer"
          class="text-xs bg-amber-light text-amber px-3 py-1.5 rounded-full hover:opacity-80">${escapeHtml(l.label)} 🔗</a>`).join('');
   document.getElementById('certQnetLinks').innerHTML = (certLinksHtml + extraLinksHtml)
     || `<p class="text-gray-400 text-sm">등록된 자격증 종류가 없습니다. 관리자 탭에서 추가해주세요.</p>`;
