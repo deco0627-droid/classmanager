@@ -641,7 +641,7 @@ service cloud.firestore {
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
       <div class="assignment-layout-card p-5">
         <h2 class="font-display text-lg mb-3 text-forest-dark">🧑‍🎓 참여 학생 명단</h2>
-        <div id="afterschoolStudentsView" class="flex flex-wrap gap-2"></div>
+        <div id="afterschoolStudentsView" class="space-y-1.5"></div>
       </div>
       <div class="assignment-layout-card p-5">
         <h2 class="font-display text-lg mb-3 text-forest-dark">🗓 수업 일정</h2>
@@ -1467,6 +1467,17 @@ service cloud.firestore {
       <button onclick="cancelPasswordPrompt()" class="flex-1 border border-gray-300 py-2.5 rounded-lg text-sm font-semibold hover:bg-gray-50">취소</button>
       <button onclick="confirmPasswordPrompt()" class="flex-1 bg-forest text-white py-2.5 rounded-lg text-sm font-semibold hover:bg-forest-dark">확인</button>
     </div>
+  </div>
+</div>
+
+<div id="afterschoolAttendanceModal" class="hidden fixed inset-0 bg-ink/60 z-[70] flex items-center justify-center p-4" onclick="if(event.target===this) closeAfterschoolAttendance()">
+  <div class="bg-card rounded-2xl shadow-xl w-full max-w-md p-5 max-h-[85vh] overflow-y-auto">
+    <div class="flex items-center justify-between mb-3">
+      <h3 id="afterschoolAttendanceTitle" class="font-display text-lg text-forest-dark">출결 확인</h3>
+      <button onclick="closeAfterschoolAttendance()" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+    </div>
+    <div id="afterschoolAttendanceList" class="space-y-2"></div>
+    <button onclick="saveAfterschoolAttendance()" class="w-full mt-4 bg-forest text-white py-2 rounded-lg text-sm font-semibold hover:bg-forest-dark">저장</button>
   </div>
 </div>
 
@@ -2383,7 +2394,7 @@ function bootstrapApp(){
     document.getElementById('clubPhotoUploadLabel').classList.toggle('hidden', !isTeacher);
     syncAssignmentPhotoButtons();
     document.getElementById('dashBlogEditBtn').classList.toggle('hidden', !isTeacher);
-    if (isTeacher) { startStudentsListener(); startWallPrivateListener(); startCounselingSlotsListener(); } else { stopStudentsListener(); stopWallPrivateListener(); stopCounselingSlotsListener(); }
+    if (isTeacher) { startStudentsListener(); startWallPrivateListener(); startCounselingSlotsListener(); startAfterschoolAttendanceListener(); } else { stopStudentsListener(); stopWallPrivateListener(); stopCounselingSlotsListener(); stopAfterschoolAttendanceListener(); }
     const onPrivateCustom = currentView.startsWith('custom_') && (() => {
       const p = customPagesCache.find(x => 'custom_'+x.id === currentView);
       return p && !p.isPublic;
@@ -6099,13 +6110,88 @@ function renderAfterschoolScheduleAdmin(){
     }
     return `
     <div class="flex items-center justify-between bg-card border border-gray-200 rounded-lg px-3 py-2">
-      <div><p class="font-semibold text-sm">${escapeHtml(s.title || '')}</p><p class="font-mono text-xs text-gray-400">${afterschoolDateLabel(s.date)}${s.time ? ' · ' + escapeHtml(s.time) : ''}</p></div>
+      <div class="min-w-0">
+        <p class="font-semibold text-sm">${escapeHtml(s.title || '')}</p>
+        <p class="font-mono text-xs text-gray-400">${afterschoolDateLabel(s.date)}${s.time ? ' · ' + escapeHtml(s.time) : ''}</p>
+        <p class="text-[11px] ${afterschoolAttendanceCache[s.id] ? 'text-forest-dark font-semibold' : 'text-gray-300'}">${afterschoolAttendanceSummary(s.id) || '출결 미확인'}</p>
+      </div>
       <div class="flex items-center gap-2 shrink-0">
+        <button onclick="openAfterschoolAttendance('${s.id}')" class="text-xs font-semibold text-amber hover:underline">출결</button>
         <button onclick="editAfterschoolSchedule('${s.id}')" class="text-xs font-semibold text-forest-dark hover:underline">수정</button>
         <button onclick="deleteAfterschoolSchedule('${s.id}')" class="text-gray-300 hover:text-brick text-lg leading-none">&times;</button>
       </div>
     </div>`;
   }).join('') : `<p class="text-gray-400 text-sm">등록된 일정이 없습니다.</p>`;
+}
+// 출결 — 명단에 등록된 학생을 세션(일정)마다 출석/지각/결석/조퇴 + 사유로 기록한다.
+// 관리자 전용 기능이라(학생 화면엔 안 보임) 마스킹 없이 실명을 그대로 보여준다.
+let afterschoolAttendanceCache = {};
+let afterschoolAttendanceUnsub = null;
+let openAfterschoolAttendanceScheduleId = null;
+const AFTERSCHOOL_ATTENDANCE_STATUSES = ['출석', '지각', '결석', '조퇴'];
+function startAfterschoolAttendanceListener(){
+  if (afterschoolAttendanceUnsub) return;
+  afterschoolAttendanceUnsub = db.collection('afterschoolAttendance').onSnapshot(snap => {
+    afterschoolAttendanceCache = {};
+    snap.docs.forEach(d => { afterschoolAttendanceCache[d.id] = d.data().records || {}; });
+    renderAfterschoolScheduleAdmin();
+  }, err => console.error('afterschoolAttendance 컬렉션을 불러오지 못했습니다 (Firestore 보안 규칙을 확인하세요):', err));
+}
+function stopAfterschoolAttendanceListener(){
+  if (afterschoolAttendanceUnsub) { afterschoolAttendanceUnsub(); afterschoolAttendanceUnsub = null; }
+  afterschoolAttendanceCache = {};
+}
+function afterschoolAttendanceSummary(scheduleId){
+  const records = afterschoolAttendanceCache[scheduleId];
+  if (!records || !Object.keys(records).length) return '';
+  const counts = { 지각: 0, 결석: 0, 조퇴: 0 };
+  Object.values(records).forEach(r => { if (counts[r.status] !== undefined) counts[r.status]++; });
+  const parts = Object.entries(counts).filter(([, n]) => n > 0).map(([k, n]) => `${k} ${n}`);
+  return parts.length ? parts.join(' · ') : '전원 출석';
+}
+function openAfterschoolAttendance(scheduleId){
+  openAfterschoolAttendanceScheduleId = scheduleId;
+  const s = afterschoolScheduleCache.find(x => x.id === scheduleId);
+  document.getElementById('afterschoolAttendanceTitle').textContent = s ? `${afterschoolDateLabel(s.date)} ${escapeHtml(s.title || '')} 출결` : '출결 확인';
+  renderAfterschoolAttendanceForm();
+  document.getElementById('afterschoolAttendanceModal').classList.remove('hidden');
+}
+function closeAfterschoolAttendance(){
+  document.getElementById('afterschoolAttendanceModal').classList.add('hidden');
+  openAfterschoolAttendanceScheduleId = null;
+}
+function renderAfterschoolAttendanceForm(){
+  const el = document.getElementById('afterschoolAttendanceList');
+  const records = afterschoolAttendanceCache[openAfterschoolAttendanceScheduleId] || {};
+  const list = afterschoolStudents();
+  el.innerHTML = list.length ? list.map((s, i) => {
+    const rec = records[s.realName] || { status: '출석', reason: '' };
+    return `
+    <div class="flex items-center gap-2 border border-gray-200 rounded-lg px-2.5 py-2">
+      <span class="text-sm font-semibold w-20 shrink-0 truncate">${escapeHtml(s.grade || '')} ${escapeHtml(s.realName)}</span>
+      <select id="attStatus_${i}" onchange="toggleAttReasonField(${i})" class="border border-gray-300 rounded px-1.5 py-1 text-xs shrink-0">
+        ${AFTERSCHOOL_ATTENDANCE_STATUSES.map(st => `<option value="${st}" ${rec.status === st ? 'selected' : ''}>${st}</option>`).join('')}
+      </select>
+      <input id="attReason_${i}" value="${escapeAttr(rec.reason || '')}" placeholder="사유 (선택)" class="flex-1 border border-gray-300 rounded px-2 py-1 text-xs min-w-0 ${rec.status === '출석' ? 'hidden' : ''}">
+    </div>`;
+  }).join('') : `<p class="text-gray-400 text-sm">등록된 학생이 없습니다. 명단을 먼저 등록해주세요.</p>`;
+}
+function toggleAttReasonField(i){
+  const status = document.getElementById('attStatus_' + i).value;
+  document.getElementById('attReason_' + i).classList.toggle('hidden', status === '출석');
+}
+function saveAfterschoolAttendance(){
+  const list = afterschoolStudents();
+  const records = {};
+  list.forEach((s, i) => {
+    const statusEl = document.getElementById('attStatus_' + i);
+    const reasonEl = document.getElementById('attReason_' + i);
+    if (!statusEl) return;
+    records[s.realName] = { status: statusEl.value, reason: (reasonEl.value || '').trim() };
+  });
+  db.collection('afterschoolAttendance').doc(openAfterschoolAttendanceScheduleId).set({ records }, { merge: true })
+    .then(() => { alert('출결이 저장되었습니다.'); closeAfterschoolAttendance(); })
+    .catch(err => alert('저장에 실패했습니다: ' + err.message));
 }
 function renderAfterschoolScheduleView(){
   const el = document.getElementById('afterschoolScheduleView');
@@ -6113,15 +6199,16 @@ function renderAfterschoolScheduleView(){
   const upcoming = afterschoolScheduleCache.filter(s => (s.date || '') >= todayStr());
   const list = upcoming.length ? upcoming : afterschoolScheduleCache;
   el.innerHTML = list.length ? list.map(s => `
-    <div class="flex items-center justify-between bg-white border border-gray-200 rounded-lg px-3 py-2">
-      <span class="font-semibold text-sm">${escapeHtml(s.title || '')}</span>
-      <span class="font-mono text-xs text-gray-500">${afterschoolDateLabel(s.date)}${s.time ? ' · ' + escapeHtml(s.time) : ''}</span>
+    <div class="flex items-center justify-between bg-white border border-gray-200 rounded-lg px-3 py-2.5">
+      <span class="font-semibold text-base text-ink">${escapeHtml(s.title || '')}</span>
+      <span class="font-mono text-sm text-gray-500 shrink-0 ml-2">${afterschoolDateLabel(s.date)}${s.time ? ' · ' + escapeHtml(s.time) : ''}</span>
     </div>`).join('') : `<p class="text-gray-400 text-sm">등록된 일정이 없습니다.</p>`;
 }
 function renderAfterschoolView(){
   const list = afterschoolStudents();
   document.getElementById('afterschoolStudentsView').innerHTML = list.length
-    ? list.map(s => `<span class="chip bg-forest-light text-forest-dark px-3 py-1.5 rounded-full text-sm">${escapeHtml(s.grade || '')} ${escapeHtml(maskKoreanName(s.realName))}</span>`).join('')
+    ? list.map(s => `
+      <div class="bg-white border border-gray-200 rounded-lg px-3 py-2 text-ink font-semibold text-base">${escapeHtml(s.grade || '')} ${escapeHtml(maskKoreanName(s.realName))}</div>`).join('')
     : `<p class="text-gray-400 text-sm">등록된 학생이 없습니다.</p>`;
   const title = (settingsCache && settingsCache.afterschoolCourseTitle) || '';
   const info = (settingsCache && settingsCache.afterschoolCourseInfo) || '';
