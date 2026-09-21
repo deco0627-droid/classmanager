@@ -2375,6 +2375,7 @@ function bootstrapApp(){
     if (currentView === 'admin') renderTaskChecklist();
   }, err => console.error('tasks 컬렉션을 불러오지 못했습니다 (Firestore 보안 규칙을 확인하세요):', err));
   startAfterschoolScheduleListener();
+  startAfterschoolAttendanceListener();
 
   auth.onAuthStateChanged(user => {
     isTeacher = !!(user && user.email === TEACHER_EMAIL);
@@ -2399,7 +2400,7 @@ function bootstrapApp(){
     document.getElementById('clubPhotoUploadLabel').classList.toggle('hidden', !isTeacher);
     syncAssignmentPhotoButtons();
     document.getElementById('dashBlogEditBtn').classList.toggle('hidden', !isTeacher);
-    if (isTeacher) { startStudentsListener(); startWallPrivateListener(); startCounselingSlotsListener(); startAfterschoolAttendanceListener(); } else { stopStudentsListener(); stopWallPrivateListener(); stopCounselingSlotsListener(); stopAfterschoolAttendanceListener(); }
+    if (isTeacher) { startStudentsListener(); startWallPrivateListener(); startCounselingSlotsListener(); } else { stopStudentsListener(); stopWallPrivateListener(); stopCounselingSlotsListener(); }
     const onPrivateCustom = currentView.startsWith('custom_') && (() => {
       const p = customPagesCache.find(x => 'custom_'+x.id === currentView);
       return p && !p.isPublic;
@@ -6170,6 +6171,7 @@ function startAfterschoolAttendanceListener(){
     renderAfterschoolScheduleAdmin();
     renderAfterschoolAttendanceTable();
     renderAfterschoolStudentsAdmin();
+    if (currentView === 'afterschool') renderAfterschoolView();
   }, err => console.error('afterschoolAttendance 컬렉션을 불러오지 못했습니다 (Firestore 보안 규칙을 확인하세요):', err));
 }
 function stopAfterschoolAttendanceListener(){
@@ -6268,16 +6270,19 @@ function renderAfterschoolScheduleView(){
   const upcoming = afterschoolScheduleCache.filter(s => (s.date || '') >= todayStr());
   const list = upcoming.length ? upcoming : afterschoolScheduleCache;
   el.innerHTML = list.length ? list.map(s => `
-    <div class="flex items-center justify-between bg-white border border-gray-200 rounded-lg px-3 py-2.5">
-      <span class="font-semibold text-base text-ink">${escapeHtml(s.title || '')}</span>
-      <span class="font-mono text-sm text-gray-500 shrink-0 ml-2">${afterschoolDateLabel(s.date)}${s.time ? ' · ' + escapeHtml(s.time) : ''}</span>
+    <div class="flex items-center justify-between bg-forest-light rounded-lg px-3 py-2.5">
+      <span class="font-semibold text-base text-forest-dark">${escapeHtml(s.title || '')}</span>
+      <span class="font-mono text-sm text-gray-300 shrink-0 ml-2">${afterschoolDateLabel(s.date)}${s.time ? ' · ' + escapeHtml(s.time) : ''}</span>
     </div>`).join('') : `<p class="text-gray-400 text-sm">등록된 일정이 없습니다.</p>`;
 }
 function renderAfterschoolView(){
   const list = afterschoolStudents();
   document.getElementById('afterschoolStudentsView').innerHTML = list.length
     ? list.map(s => `
-      <div class="bg-white border border-gray-200 rounded-lg px-3 py-2 text-ink font-semibold text-base">${escapeHtml(s.grade || '')} ${escapeHtml(maskKoreanName(s.realName))}</div>`).join('')
+      <div class="flex items-center justify-between bg-forest-light rounded-lg px-3 py-2">
+        <span class="font-semibold text-base text-forest-dark">${escapeHtml(s.grade || '')} ${escapeHtml(maskKoreanName(s.realName))}</span>
+        <span class="text-sm text-gray-300 shrink-0 ml-2">${escapeHtml(afterschoolStudentAttendanceSummary(s.realName))}</span>
+      </div>`).join('')
     : `<p class="text-gray-400 text-sm">등록된 학생이 없습니다.</p>`;
   const title = (settingsCache && settingsCache.afterschoolCourseTitle) || '';
   const info = (settingsCache && settingsCache.afterschoolCourseInfo) || '';
