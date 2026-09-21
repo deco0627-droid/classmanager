@@ -6147,7 +6147,10 @@ function afterschoolDateLabel(dateStr){
 function renderAfterschoolScheduleAdmin(){
   const el = document.getElementById('afterschoolScheduleAdmin');
   if (!el) return;
-  el.innerHTML = afterschoolScheduleCache.length ? afterschoolScheduleCache.map(s => {
+  // 관리자 목록만 최근 날짜가 위로 오게 보여준다(출결 표 열 순서·학생 화면은 예정순이 더
+  // 자연스러워서 afterschoolScheduleCache 자체의 오름차순은 그대로 둔다).
+  const recentFirst = [...afterschoolScheduleCache].sort((a,b) => (b.date||'').localeCompare(a.date||'') || (b.time||'').localeCompare(a.time||''));
+  el.innerHTML = recentFirst.length ? recentFirst.map(s => {
     if (editingAfterschoolScheduleId === s.id) {
       return `
       <div class="flex items-center gap-1.5 bg-card border border-forest rounded-lg px-2 py-1.5">
