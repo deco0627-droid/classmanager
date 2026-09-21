@@ -6162,7 +6162,8 @@ let afterschoolAttendanceUnsub = null;
 let openAfterschoolAttendanceScheduleId = null;
 const AFTERSCHOOL_ATTENDANCE_STATUSES = ['출석', '지각', '조퇴', '질병결석', '무단결석'];
 // 결석을 사유별로 나눠서(질병/무단) 표·요약에서 아이콘만 보고도 바로 구분할 수 있게 한다.
-const AFTERSCHOOL_STATUS_ICON = { 출석: '✅', 지각: '⏰', 조퇴: '🚪', 질병결석: '🤒', 무단결석: '🚫' };
+// "결석"은 질병/무단으로 나누기 전에 이미 기록된 옛 값이 남아있을 수 있어 그대로 인식되게 둔다.
+const AFTERSCHOOL_STATUS_ICON = { 출석: '✅', 지각: '⏰', 조퇴: '🚪', 질병결석: '🤒', 무단결석: '🚫', 결석: '❌' };
 function startAfterschoolAttendanceListener(){
   if (afterschoolAttendanceUnsub) return;
   afterschoolAttendanceUnsub = db.collection('afterschoolAttendance').onSnapshot(snap => {
@@ -6186,7 +6187,7 @@ function afterschoolAttendanceSummary(scheduleId){
   const parts = Object.entries(counts).map(([k, n]) => `${AFTERSCHOOL_STATUS_ICON[k] || ''}${k} ${n}`);
   return parts.length ? parts.join(' · ') : '전원 출석';
 }
-const AFTERSCHOOL_STATUS_CELL_CLASS = { 출석: 'text-forest-dark', 지각: 'text-amber font-semibold', 조퇴: 'text-amber font-semibold', 질병결석: 'text-gray-500 font-semibold', 무단결석: 'text-brick font-semibold' };
+const AFTERSCHOOL_STATUS_CELL_CLASS = { 출석: 'text-forest-dark', 지각: 'text-amber font-semibold', 조퇴: 'text-amber font-semibold', 질병결석: 'text-brick font-semibold', 무단결석: 'text-brick font-semibold', 결석: 'text-brick font-semibold' };
 // 학생 x 날짜 표로 한눈에 볼 수 있게 — 세션이 많아지면 옆으로 길어지므로 가로 스크롤 컨테이너 안에 둔다.
 function renderAfterschoolAttendanceTable(){
   const el = document.getElementById('afterschoolAttendanceTable');
@@ -6198,23 +6199,23 @@ function renderAfterschoolAttendanceTable(){
     return;
   }
   el.innerHTML = `
-    <table class="text-xs border-collapse">
+    <table class="text-sm border-collapse">
       <thead>
         <tr>
-          <th class="sticky left-0 bg-card border border-gray-200 px-2 py-1.5 text-left whitespace-nowrap">학생</th>
-          ${sessions.map(s => `<th class="border border-gray-200 px-2 py-1.5 whitespace-nowrap font-mono text-gray-500">${afterschoolDateLabel(s.date)}</th>`).join('')}
+          <th class="sticky left-0 bg-card border border-gray-200 px-3 py-2.5 text-left whitespace-nowrap">학생</th>
+          ${sessions.map(s => `<th class="border border-gray-200 px-3 py-2.5 whitespace-nowrap font-mono text-gray-500">${afterschoolDateLabel(s.date)}</th>`).join('')}
         </tr>
       </thead>
       <tbody>
         ${students.map(st => `
           <tr>
-            <td class="sticky left-0 bg-card border border-gray-200 px-2 py-1.5 font-semibold whitespace-nowrap">${escapeHtml(st.grade || '')} ${escapeHtml(st.realName)}</td>
+            <td class="sticky left-0 bg-card border border-gray-200 px-3 py-2.5 font-semibold whitespace-nowrap">${escapeHtml(st.grade || '')} ${escapeHtml(st.realName)}</td>
             ${sessions.map(s => {
               const rec = (afterschoolAttendanceCache[s.id] || {})[st.realName];
               const cls = rec ? (AFTERSCHOOL_STATUS_CELL_CLASS[rec.status] || '') : 'text-gray-300';
               const titleAttr = rec && rec.reason ? ` title="${escapeAttr(rec.reason)}"` : '';
               const label = rec ? `${AFTERSCHOOL_STATUS_ICON[rec.status] || ''} ${rec.status}` : '-';
-              return `<td class="border border-gray-200 px-2 py-1.5 text-center whitespace-nowrap ${cls}"${titleAttr}>${escapeHtml(label)}</td>`;
+              return `<td class="border border-gray-200 px-3 py-2.5 text-center whitespace-nowrap ${cls}"${titleAttr}>${escapeHtml(label)}</td>`;
             }).join('')}
           </tr>`).join('')}
       </tbody>
