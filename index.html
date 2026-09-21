@@ -1212,6 +1212,12 @@ service cloud.firestore {
             </div>
             <p class="text-[11px] text-gray-400 mt-1">위 명단에 등록된 이름과, 학생이 알림 켤 때 등록한 이름이 일치해야 받을 수 있어요(담임 학급 전체가 아니라 이 명단에 있는 학생에게만 가요).</p>
           </div>
+
+          <div class="mt-4 pt-3 border-t border-gray-100">
+            <p class="text-xs font-semibold text-brick mb-1">🏁 학기 종료</p>
+            <p class="text-[11px] text-gray-400 mb-2">학기가 끝나면 눌러주세요. 참여 학생 명단·수업 일정·출결 기록이 전부 삭제되고 상단 메뉴에서도 "방과후수업" 탭이 사라져요(저장공간을 아끼려고 남겨두지 않고 지워요). 다음 학기 걸 다시 등록하면 탭이 자동으로 다시 나타납니다.</p>
+            <button onclick="endAfterschoolTerm()" class="w-full border border-brick/40 text-brick py-1.5 rounded-lg text-sm font-semibold hover:bg-brick/10">이번 학기 방과후수업 종료·초기화</button>
+          </div>
         </div>
       </div>
       <div class="bg-card border border-gray-200 rounded-xl p-5" data-admin-card="navOrder">
@@ -2732,8 +2738,14 @@ const NAV_ITEMS = [
 function navLabel(key, fallback){
   return (settingsCache && settingsCache.navLabels && settingsCache.navLabels[key]) || fallback;
 }
+// 방과후수업은 학기 단위로 열고 닫는다 — 학기 종료 후 초기화하면 명단·일정이 비니, 그동안은
+// 메뉴에서 아예 숨겨서 "지금은 운영 안 함"을 자연스럽게 나타내고, 새 학기 것을 등록하는 순간
+// 다시 나타나게 한다.
+function hasActiveAfterschool(){
+  return afterschoolStudents().length > 0 || (afterschoolScheduleCache && afterschoolScheduleCache.length > 0);
+}
 function visibleNavItems(){
-  const pub = NAV_ITEMS.filter(n => !n.teacherOnly);
+  const pub = NAV_ITEMS.filter(n => !n.teacherOnly && (n.key !== 'afterschool' || hasActiveAfterschool()));
   const order = (settingsCache.navOrder && settingsCache.navOrder.length) ? settingsCache.navOrder : pub.map(n => n.key);
   const orderedPub = order.map(k => pub.find(n => n.key === k)).filter(Boolean);
   pub.forEach(n => { if (!orderedPub.includes(n)) orderedPub.push(n); }); // 새로 추가된 항목 뒤에 붙이기
@@ -5923,6 +5935,7 @@ function saveAfterschoolStudents(next){
   db.collection('settings').doc('general').set({ afterschoolStudents: next }, { merge: true });
   renderAfterschoolStudentsAdmin();
   renderAfterschoolAttendanceTable();
+  renderNav();
 }
 let editingAfterschoolStudentIndex = null;
 function addAfterschoolStudent(){
@@ -6035,6 +6048,7 @@ function startAfterschoolScheduleListener(){
     renderAfterschoolScheduleAdmin();
     renderAfterschoolAttendanceTable();
     renderAfterschoolStudentsAdmin();
+    renderNav();
     if (currentView === 'afterschool') renderAfterschoolScheduleView();
   }, err => console.error('afterschoolSchedule 컬렉션을 불러오지 못했습니다 (Firestore 보안 규칙을 확인하세요):', err));
 }
@@ -6308,6 +6322,34 @@ function sendAfterschoolPush(){
   sendPushNotification(title, content, names);
   document.getElementById('afterschoolPushTitle').value = '';
   document.getElementById('afterschoolPushBody').value = '';
+}
+// 학기 단위로 열고 닫는다 — 무료 요금제 1GB 저장 공간을 감안해 지난 학기 것은 남겨두지 않고
+// 지운다(요청: "1기가 저장공간을 고려해서 삭제해도 되고"). 명단·일정이 비면 방과후수업 탭도
+// 자동으로 메뉴에서 사라지고(hasActiveAfterschool 참고), 다음 학기 걸 등록하면 다시 나타난다.
+function endAfterschoolTerm(){
+  if (!confirm('이번 학기 방과후수업을 종료할까요?\n참여 학생 명단·수업 일정·출결 기록이 모두 삭제되고, 메뉴에서도 "방과후수업" 탭이 사라집니다.\n(다음 학기 걸 다시 등록하면 탭이 다시 나타나요)')) return;
+  Promise.all([
+    db.collection('afterschoolSchedule').get().then(snap => {
+      const batch = db.batch();
+      snap.docs.forEach(d => batch.delete(d.ref));
+      return batch.commit();
+    }),
+    db.collection('afterschoolAttendance').get().then(snap => {
+      const batch = db.batch();
+      snap.docs.forEach(d => batch.delete(d.ref));
+      return batch.commit();
+    }),
+    db.collection('settings').doc('general').set({
+      afterschoolStudents: [], afterschoolCourseTitle: '', afterschoolCourseInfo: '',
+    }, { merge: true }),
+  ]).then(() => {
+    settingsCache.afterschoolStudents = [];
+    settingsCache.afterschoolCourseTitle = '';
+    settingsCache.afterschoolCourseInfo = '';
+    alert('종료했습니다. 다음 학기 명단·일정을 등록하면 메뉴에 다시 나타나요.');
+    renderAdmin();
+    renderNav();
+  }).catch(err => alert('초기화에 실패했습니다: ' + err.message));
 }
 function requireRosterImportPassword(onSuccess){
   openPasswordPrompt('학생 명단을 불러오려면 비밀번호를 입력하세요.', async (input) => {
