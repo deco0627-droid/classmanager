@@ -1197,6 +1197,11 @@ service cloud.firestore {
           </div>
 
           <div class="mt-4 pt-3 border-t border-gray-100">
+            <p class="text-xs font-semibold text-gray-500 mb-2">📊 출결 현황 (학생 × 날짜 한눈에 보기)</p>
+            <div id="afterschoolAttendanceTable" class="overflow-x-auto"></div>
+          </div>
+
+          <div class="mt-4 pt-3 border-t border-gray-100">
             <p class="text-xs font-semibold text-gray-500 mb-2">참여 학생에게만 알림 보내기</p>
             <div class="flex gap-2 mb-2">
               <input id="afterschoolPushTitle" placeholder="제목 (예: 방과후수업 안내)" class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm">
@@ -5916,6 +5921,7 @@ function saveAfterschoolStudents(next){
   settingsCache.afterschoolStudents = next;
   db.collection('settings').doc('general').set({ afterschoolStudents: next }, { merge: true });
   renderAfterschoolStudentsAdmin();
+  renderAfterschoolAttendanceTable();
 }
 let editingAfterschoolStudentIndex = null;
 function addAfterschoolStudent(){
@@ -6003,6 +6009,7 @@ function startAfterschoolScheduleListener(){
     afterschoolScheduleCache = snap.docs.map(d => ({ id: d.id, ...d.data() }))
       .sort((a,b) => (a.date||'').localeCompare(b.date||'') || (a.time||'').localeCompare(b.time||''));
     renderAfterschoolScheduleAdmin();
+    renderAfterschoolAttendanceTable();
     if (currentView === 'afterschool') renderAfterschoolScheduleView();
   }, err => console.error('afterschoolSchedule 컬렉션을 불러오지 못했습니다 (Firestore 보안 규칙을 확인하세요):', err));
 }
@@ -6135,6 +6142,7 @@ function startAfterschoolAttendanceListener(){
     afterschoolAttendanceCache = {};
     snap.docs.forEach(d => { afterschoolAttendanceCache[d.id] = d.data().records || {}; });
     renderAfterschoolScheduleAdmin();
+    renderAfterschoolAttendanceTable();
   }, err => console.error('afterschoolAttendance 컬렉션을 불러오지 못했습니다 (Firestore 보안 규칙을 확인하세요):', err));
 }
 function stopAfterschoolAttendanceListener(){
@@ -6148,6 +6156,39 @@ function afterschoolAttendanceSummary(scheduleId){
   Object.values(records).forEach(r => { if (counts[r.status] !== undefined) counts[r.status]++; });
   const parts = Object.entries(counts).filter(([, n]) => n > 0).map(([k, n]) => `${k} ${n}`);
   return parts.length ? parts.join(' · ') : '전원 출석';
+}
+const AFTERSCHOOL_STATUS_CELL_CLASS = { 출석: 'text-forest-dark', 지각: 'text-amber font-semibold', 결석: 'text-brick font-semibold', 조퇴: 'text-amber font-semibold' };
+// 학생 x 날짜 표로 한눈에 볼 수 있게 — 세션이 많아지면 옆으로 길어지므로 가로 스크롤 컨테이너 안에 둔다.
+function renderAfterschoolAttendanceTable(){
+  const el = document.getElementById('afterschoolAttendanceTable');
+  if (!el) return;
+  const students = afterschoolStudents();
+  const sessions = afterschoolScheduleCache;
+  if (!students.length || !sessions.length) {
+    el.innerHTML = `<p class="text-gray-400 text-sm">학생 명단과 일정을 먼저 등록해주세요.</p>`;
+    return;
+  }
+  el.innerHTML = `
+    <table class="text-xs border-collapse">
+      <thead>
+        <tr>
+          <th class="sticky left-0 bg-card border border-gray-200 px-2 py-1.5 text-left whitespace-nowrap">학생</th>
+          ${sessions.map(s => `<th class="border border-gray-200 px-2 py-1.5 whitespace-nowrap font-mono text-gray-500">${afterschoolDateLabel(s.date)}</th>`).join('')}
+        </tr>
+      </thead>
+      <tbody>
+        ${students.map(st => `
+          <tr>
+            <td class="sticky left-0 bg-card border border-gray-200 px-2 py-1.5 font-semibold whitespace-nowrap">${escapeHtml(st.grade || '')} ${escapeHtml(st.realName)}</td>
+            ${sessions.map(s => {
+              const rec = (afterschoolAttendanceCache[s.id] || {})[st.realName];
+              const cls = rec ? (AFTERSCHOOL_STATUS_CELL_CLASS[rec.status] || '') : 'text-gray-300';
+              const titleAttr = rec && rec.reason ? ` title="${escapeAttr(rec.reason)}"` : '';
+              return `<td class="border border-gray-200 px-2 py-1.5 text-center ${cls}"${titleAttr}>${escapeHtml(rec ? rec.status : '-')}</td>`;
+            }).join('')}
+          </tr>`).join('')}
+      </tbody>
+    </table>`;
 }
 function openAfterschoolAttendance(scheduleId){
   openAfterschoolAttendanceScheduleId = scheduleId;
@@ -7326,6 +7367,7 @@ function renderAdmin(){
   renderTaskChecklist();
   renderAfterschoolStudentsAdmin();
   renderAfterschoolScheduleAdmin();
+  renderAfterschoolAttendanceTable();
   renderPersonalLinksInputs();
   renderCertRoadmapForm();
   renderAdminCardOrderList();
