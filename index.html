@@ -7387,12 +7387,17 @@ function renderTaskChecklist(){
     const d = new Date(t.createdAt || Date.now());
     const dateLabel = `${pad2(d.getMonth() + 1)}/${pad2(d.getDate())}`;
     if (editingTaskId === t.id) {
+      // 할 일 내용이 긴 문단인 경우가 많아서(줄바꿈 여러 개), 한 줄짜리 input에 우겨넣으면
+      // 글자 길이만큼 input이 늘어나면서 저장·취소 버튼이 화면 밖으로 밀려나 안 눌리는
+      // 문제가 있었다 — textarea로 바꾸고 버튼을 아래 별도 줄에 둔다.
       return `
-      <div class="flex items-center gap-2 bg-white border border-forest rounded-lg px-3 py-2">
-        <span class="font-mono text-xs text-gray-400 shrink-0">${dateLabel}</span>
-        <input id="editTaskInput_${t.id}" value="${escapeAttr(t.text || '')}" onkeydown="if(event.key==='Enter') saveEditTask('${t.id}')" class="flex-1 border border-gray-300 rounded px-2 py-1 text-sm">
-        <button onclick="saveEditTask('${t.id}')" class="text-xs font-semibold text-forest-dark shrink-0">저장</button>
-        <button onclick="cancelEditTask()" class="text-xs text-gray-400 shrink-0">취소</button>
+      <div class="bg-white border border-forest rounded-lg px-3 py-2">
+        <span class="font-mono text-xs text-gray-400">${dateLabel}</span>
+        <textarea id="editTaskInput_${t.id}" rows="3" class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm mt-1 mb-1.5">${escapeHtml(t.text || '')}</textarea>
+        <div class="flex gap-2">
+          <button onclick="saveEditTask('${t.id}')" class="text-xs font-semibold text-forest-dark">저장</button>
+          <button onclick="cancelEditTask()" class="text-xs text-gray-400">취소</button>
+        </div>
       </div>`;
     }
     return `
