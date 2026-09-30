@@ -234,6 +234,10 @@ service cloud.firestore {
       </div>
       <div class="flex items-center justify-between sm:justify-start gap-3">
         <div id="dashCbtQrBox" class="hidden bg-card border border-gray-200 rounded-xl px-3 py-2.5 text-center min-w-[76px] self-stretch flex flex-row items-center justify-center gap-3 shrink-0"></div>
+        <a href="https://cbt-program.pages.dev/" target="_blank" rel="noopener noreferrer" class="teacher-only-hint hidden bg-card border border-gray-200 rounded-xl px-3 py-2.5 text-center min-w-[52px] self-stretch flex flex-col items-center justify-center hover:bg-gray-50 shrink-0" title="CBT 관리자 페이지를 새 탭으로 열어서 오늘의 QR 자동 순환을 확인·생성합니다">
+          <span class="text-xl leading-none">🔑</span>
+          <span class="text-[9px] text-forest-dark font-semibold leading-tight mt-0.5">CBT 관리자</span>
+        </a>
         <button onclick="switchView('checkin')" class="bg-card border border-gray-200 rounded-xl px-3 py-2 text-center min-w-[76px] self-stretch flex flex-col items-center justify-center gap-1 shrink-0 hover:bg-gray-50" title="이 화면에서 바로 등교 확인하기">
           <p class="text-[9px] text-forest-dark font-semibold leading-tight">📍 등교 확인</p>
           <img id="dashCheckinQr" class="w-14 h-14 rounded bg-white border border-gray-200 pointer-events-none" alt="등교 확인 QR">
