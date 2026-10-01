@@ -7466,6 +7466,7 @@ function saveEditTask(id){
   db.collection('tasks').doc(id).update({ text })
     .then(() => {
       editingTaskId = null;
+      renderTaskChecklist();
       const t = tasksCache.find(x => x.id === id);
       syncTaskToSheet('upsert', { id, text, done: t ? t.done : false, createdAt: t ? t.createdAt : Date.now() });
     })
