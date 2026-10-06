@@ -69,6 +69,13 @@
      흰색 그대로라 밝은 본문 글자색이 흰 배경 위에 그대로 얹혀 잘 안 보였다. */
   input, select, textarea { background-color: #1E3B32; color: #EDECE3; }
   input::placeholder, textarea::placeholder { color: #8FA89C; }
+  /* 생활기록부 도우미: 밝은 입력칸·선택칸·흰 버튼은 눈부심을 줄이려 옅은 회색 바탕에 진한 적색 글씨로 맞춘다 */
+  [data-admin-card="recordWriter"] input:not([type="checkbox"]),
+  [data-admin-card="recordWriter"] select,
+  [data-admin-card="recordWriter"] textarea,
+  [data-admin-card="recordWriter"] button.bg-white { background-color: #c4c9d0; color: #991b1b; }
+  [data-admin-card="recordWriter"] option { background-color: #d1d5db; color: #991b1b; }
+  [data-admin-card="recordWriter"] ::placeholder { color: #4b5563; }
   .font-display { font-family: 'ElectricalSafety', serif; }
   .font-mono { font-family: 'JetBrains Mono', monospace; }
   .weather-detail-text { font-size: 0.78rem; }
@@ -1480,10 +1487,10 @@ service cloud.firestore {
               </div>
               <div>
                 <label class="text-xs font-semibold text-gray-500">과목 유형</label>
-                <select id="rwKind" class="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white" style="color:#f87171">
-                  <option value="general" style="background-color:#1E3B32;color:#f87171">일반 교과</option>
-                  <option value="arts" style="background-color:#1E3B32;color:#f87171">체육·예술 실기</option>
-                  <option value="practical" style="background-color:#1E3B32;color:#f87171">전문교과 실무 (능력단위)</option>
+                <select id="rwKind" class="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white">
+                  <option value="general">일반 교과</option>
+                  <option value="arts">체육·예술 실기</option>
+                  <option value="practical">전문교과 실무 (능력단위)</option>
                 </select>
               </div>
             </div>
