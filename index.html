@@ -1456,7 +1456,7 @@ service cloud.firestore {
         <button onclick="saveBlogBadge()" class="mt-4 bg-forest text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-forest-dark">저장</button>
         </div>
       </div>
-      <div class="bg-card border border-gray-200 rounded-xl p-5" data-admin-card="recordWriter">
+      <div class="bg-card border border-gray-200 rounded-xl p-5 lg:col-span-2" data-admin-card="recordWriter">
         <button id="adminCollapseBtn_recordWriter" onclick="toggleAdminCollapse('recordWriter')" aria-expanded="false" class="admin-collapse-btn">
           <h2 class="font-display text-lg text-forest-dark">📝 생활기록부 초안 도우미 (과세특·행발)</h2>
           <span class="admin-collapse-chevron">▶</span>
@@ -1480,10 +1480,10 @@ service cloud.firestore {
               </div>
               <div>
                 <label class="text-xs font-semibold text-gray-500">과목 유형</label>
-                <select id="rwKind" class="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white">
-                  <option value="general">일반 교과</option>
-                  <option value="arts">체육·예술 실기</option>
-                  <option value="practical">전문교과 실무 (능력단위)</option>
+                <select id="rwKind" class="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white" style="color:#f87171">
+                  <option value="general" style="background-color:#1E3B32;color:#f87171">일반 교과</option>
+                  <option value="arts" style="background-color:#1E3B32;color:#f87171">체육·예술 실기</option>
+                  <option value="practical" style="background-color:#1E3B32;color:#f87171">전문교과 실무 (능력단위)</option>
                 </select>
               </div>
             </div>
@@ -1623,21 +1623,21 @@ service cloud.firestore {
 
         <div id="rwPanelBatch" class="hidden">
           <div class="border border-gray-200 rounded-lg p-3 mb-3">
-            <p class="text-xs text-gray-600 mb-2">과목명은 ①에서 입력한 값을 씁니다. 현재 과목: <b id="rwBatchSubjectView">(없음)</b></p>
-            <div class="mb-2">
-              <label class="text-xs font-semibold text-gray-500">무엇을 만들까요?</label>
-              <select id="rwBatchKind" class="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white">
-                <option value="subject">과세특 (과목 기본 자료 사용)</option>
-                <option value="homeroom">행동특성 및 종합의견</option>
-              </select>
-            </div>
-            <p class="text-xs text-gray-500 mb-1">한 줄에 한 학생: <b>식별자 | 성취수준(비우면 기본 B) | 사례1;사례2 | 태그1,태그2</b>. 과세특이면 태그는 관찰 태도, 행동특성이면 행동특성입니다. 예: <span class="font-mono">2-5-15 | A | 회로 결선 오류를 스스로 찾아 수정했다. | 실습,문제해결</span></p>
-            <textarea id="rwBatchRows" rows="6" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white font-mono" placeholder="2-5-15 | A | 사례 | 실습"></textarea>
+            <p class="text-xs font-semibold text-gray-500 mb-1">① 과목 고르기 (과목 기본 자료에 저장된 과목 중에서 여러 개를 한 번에 고를 수 있어요)</p>
+            <div id="rwBatchSubjects" class="flex flex-wrap gap-2 text-sm mb-2"></div>
+            <label class="flex items-center gap-2 text-sm"><input type="checkbox" id="rwBatchHr" checked onchange="rwBatchSaveDraft()"> 행동특성 및 종합의견도 함께 만들기</label>
+          </div>
+
+          <div class="border border-gray-200 rounded-lg p-3 mb-3">
+            <p class="text-xs font-semibold text-gray-500 mb-1">② 학생 입력 (한 줄에 한 학생, 엑셀에서 복사해 붙여넣을 수 있어요)</p>
+            <p class="text-xs text-gray-500 mb-1">열 순서: <b>학번 | 행동특성 태그 | 행동특성 사례 | 과목마다(성취수준 | 사례 | 태그)</b>. 사례가 여러 개면 ;으로 구분합니다. 첫 줄이 머리글(학번 …)이면 머리글 이름으로 열을 찾습니다.</p>
+            <button type="button" onclick="rwBatchTemplate()" class="px-3 py-1.5 rounded-lg border border-gray-300 text-xs font-semibold bg-white mb-2">머리글(입력 양식) 넣기</button>
+            <textarea id="rwBatchRows" rows="8" oninput="rwBatchSaveDraft()" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white font-mono" placeholder="2-5-01 | 성실 | 청소 당번을 빠짐없이 맡음. | A | 개항기 자료를 비교하여 발표 자료를 만들었다. | 발표"></textarea>
             <button type="button" onclick="rwBatchGenerate()" class="px-4 py-2 rounded-lg bg-forest-dark text-white text-sm font-semibold mt-2">일괄 초안 만들기</button>
           </div>
 
           <div class="border border-gray-200 rounded-lg p-3 mb-3">
-            <p class="text-xs font-semibold text-gray-500 mb-1">복사 전 확인 (학생마다 복사하기 전에 모두 체크)</p>
+            <p class="text-xs font-semibold text-gray-500 mb-1">복사·엑셀 전 확인 (모두 체크해야 복사하거나 엑셀로 받을 수 있습니다)</p>
             <div class="text-sm space-y-1">
               <label class="flex items-center gap-2"><input type="checkbox" class="rwConfirmB"> 사례는 교사가 직접 관찰·평가한 내용인가</label>
               <label class="flex items-center gap-2"><input type="checkbox" class="rwConfirmB"> 학생의 실제 수행과 다른 과장 표현은 없는가</label>
@@ -1647,6 +1647,10 @@ service cloud.firestore {
             </div>
           </div>
 
+          <div class="flex flex-wrap items-center gap-2 mb-2">
+            <button type="button" onclick="rwBatchExcel()" class="px-4 py-2 rounded-lg bg-forest-dark text-white text-sm font-semibold">엑셀로 받기</button>
+            <span id="rwBatchExcelMsg" class="text-xs"></span>
+          </div>
           <div id="rwBatchSummary" class="text-xs space-y-1"></div>
           <div id="rwBatchResults" class="mt-2"></div>
         </div>
@@ -7567,7 +7571,10 @@ function navDrop(e, i){
 // 생활기록부 초안 도우미 — 문장 생성·검사는 record-writer.js(RecordWriter)가 담당.
 // 과목 기본 자료(recordProfiles)와 학교명 금지어(recordSchoolNames)는 settings/general에 저장한다.
 let rwLastDropped = [];
-let rwBatchSource = [];
+let rwBatchGroups = [];      // 일괄 작성 결과 묶음: 과목 하나 또는 행동특성 하나
+let rwBatchMissing = [];     // 머리글에 없는 열 이름
+let rwBatchDraftLoaded = false;
+let rwBatchDraftState = {};
 const RW_LEVELS = ['A', 'B', 'C', 'D', 'E'];
 function rwProfiles(){ return Array.isArray(settingsCache.recordProfiles) ? settingsCache.recordProfiles : []; }
 function rwFindProfile(subject){
@@ -7587,9 +7594,7 @@ function rwSwitchMode(mode){
   document.getElementById('rwTabSubject').className = isSubj ? on : off;
   document.getElementById('rwTabHomeroom').className = isHr ? on : off;
   document.getElementById('rwTabBatch').className = isBatch ? on : off;
-  if (isBatch) {
-    document.getElementById('rwBatchSubjectView').textContent = document.getElementById('rwSubject').value.trim() || '(①에서 과목명을 입력해 주세요)';
-  }
+  if (isBatch) rwRenderBatchSubjects();
   rwRecheck();
 }
 function rwChecked(name){ return [...document.querySelectorAll(`input[name="${name}"]:checked`)].map(i => i.value); }
@@ -7598,7 +7603,6 @@ function rwCsv(id){ return document.getElementById(id).value.split(',').map(s =>
 function rwSeedValue(){ return document.getElementById('rwSeed').value.trim(); }
 function rwSetMsg(id, text){ const el = document.getElementById(id); if (el) el.textContent = text; }
 function rwLimit(){ return rwMode() === 'subject' ? RecordWriter.LIMITS.subjectNote : RecordWriter.LIMITS.homeroom; }
-function rwBatchLimit(){ return document.getElementById('rwBatchKind').value === 'subject' ? RecordWriter.LIMITS.subjectNote : RecordWriter.LIMITS.homeroom; }
 
 // 관리자 화면을 그릴 때 설정값을 입력칸에 반영한다(입력 중인 칸은 건드리지 않음).
 function rwRenderAdminFields(){
@@ -7606,6 +7610,8 @@ function rwRenderAdminFields(){
   if (dl) dl.innerHTML = rwProfiles().map(p => `<option value="${escapeHtml(p.subject)}"></option>`).join('');
   const sn = document.getElementById('rwSchoolNamesInput');
   if (sn && document.activeElement !== sn) sn.value = rwSchoolNames().join(', ');
+  if (!rwBatchDraftLoaded) { rwBatchDraftLoaded = true; rwBatchLoadDraft(); }
+  rwRenderBatchSubjects();
 }
 
 function rwFillProfileForm(p){
@@ -7713,7 +7719,8 @@ function rwRecheck(){
   const text = document.getElementById('rwOutput').value;
   const limit = rwLimit();
   const bytes = RecordWriter.byteLen(text);
-  const warnings = text.trim() ? RecordWriter.checkText(text, { schoolNames: rwSchoolNames(), limit }) : [];
+  const context = rwMode() === 'homeroom' ? 'homeroom' : undefined;
+  const warnings = text.trim() ? RecordWriter.checkText(text, { schoolNames: rwSchoolNames(), limit, context }) : [];
   document.getElementById('rwBytes').textContent = bytes + ' / ' + limit + ' 바이트 (한글 약 ' + Math.floor(bytes / 3) + '자)';
   document.getElementById('rwWarnings').innerHTML = warnings.length
     ? warnings.map(w => `<div class="${w.level === 'error' ? 'text-red-600' : 'text-amber-700'}">[${w.level === 'error' ? '기재 불가' : '확인'}] ${escapeHtml(w.message)}${w.match ? ' · "' + escapeHtml(w.match) + '"' : ''}</div>`).join('')
@@ -7722,11 +7729,11 @@ function rwRecheck(){
 }
 
 // 복사는 모두 한 곳을 거친다: 확인 체크리스트 전부 체크 + 기재 불가 오류 없음
-async function rwCopyText(text, msgEl, checkSelector, limit){
+async function rwCopyText(text, msgEl, checkSelector, limit, context){
   if (!text.trim()) { msgEl.textContent = '복사할 초안이 없습니다.'; return; }
   const checks = [...document.querySelectorAll(checkSelector)];
   if (!checks.length || !checks.every(c => c.checked)) { msgEl.textContent = '확인 체크리스트를 모두 체크한 뒤 복사할 수 있습니다.'; return; }
-  const errors = RecordWriter.checkText(text, { schoolNames: rwSchoolNames(), limit }).filter(w => w.level === 'error');
+  const errors = RecordWriter.checkText(text, { schoolNames: rwSchoolNames(), limit, context }).filter(w => w.level === 'error');
   if (errors.length) { msgEl.textContent = '기재 불가 항목을 먼저 지워 주세요: ' + errors[0].message; return; }
   try {
     await navigator.clipboard.writeText(text);
@@ -7736,79 +7743,189 @@ async function rwCopyText(text, msgEl, checkSelector, limit){
   }
 }
 async function rwCopy(){
-  return rwCopyText(document.getElementById('rwOutput').value, document.getElementById('rwCopyMsg'), '.rwConfirm', rwLimit());
+  return rwCopyText(document.getElementById('rwOutput').value, document.getElementById('rwCopyMsg'), '.rwConfirm', rwLimit(), rwMode() === 'homeroom' ? 'homeroom' : undefined);
 }
 
-// 학급 일괄 작성
-function rwParseBatch(){
-  return document.getElementById('rwBatchRows').value.split('\n').map(s => s.trim()).filter(Boolean).map(line => {
-    const cols = line.split('|').map(s => s.trim());
-    return {
-      id: cols[0] || '',
-      level: (cols[1] || '').toUpperCase(),
-      evidence: (cols[2] || '').split(';').map(s => s.trim()).filter(Boolean),
-      tags: (cols[3] || '').split(',').map(s => s.trim()).filter(Boolean)
-    };
-  }).filter(r => r.id);
+// 학급 일괄 작성 — 과목을 여러 개 고르고, 학생 한 줄에 행동특성과 과목별 열을 두어 한 번에 만든다.
+// 머리글(학번 …)이 있으면 열 이름으로 찾고, 없으면 기본 순서(학번·행동특성 태그·행동특성 사례·과목별 성취수준·사례·태그)를 쓴다.
+const RW_HR_LABEL = '행동특성 및 종합의견';
+const RW_HR_TAG = '행동특성 태그';
+const RW_HR_EV = '행동특성 사례';
+function rwBatchPicked(){ return [...document.querySelectorAll('input[name="rwBatchSubj"]:checked')].map(i => i.value); }
+function rwBatchHrOn(){ return document.getElementById('rwBatchHr').checked; }
+function rwBatchMsg(text){ document.getElementById('rwBatchSummary').innerHTML = '<div class="text-red-600">' + escapeHtml(text) + '</div>'; }
+function rwBatchSplit(line){ return (line.indexOf('\t') >= 0 ? line.split('\t') : line.split('|')).map(s => s.trim()); }
+function rwSplitList(v, sep){ return String(v || '').split(sep).map(s => s.trim()).filter(Boolean); }
+
+// 입력 칸은 브라우저에 임시 저장한다(교사 본인 기기의 입력 중 내용 복구용, 서버에는 저장하지 않음)
+function rwBatchSaveDraft(){
+  try {
+    localStorage.setItem('rwBatchDraft', JSON.stringify({ subjects: rwBatchPicked(), hr: rwBatchHrOn(), rows: document.getElementById('rwBatchRows').value }));
+  } catch (e) { /* 브라우저 저장이 막혀 있으면 임시 저장만 건너뜀 */ }
 }
+function rwBatchLoadDraft(){
+  let d = {};
+  try { d = JSON.parse(localStorage.getItem('rwBatchDraft') || '{}') || {}; } catch (e) { d = {}; }
+  rwBatchDraftState = d;
+  document.getElementById('rwBatchHr').checked = d.hr !== false;
+  const rows = document.getElementById('rwBatchRows');
+  if (!rows.value) rows.value = d.rows || '';
+}
+function rwRenderBatchSubjects(){
+  const box = document.getElementById('rwBatchSubjects');
+  if (!box) return;
+  const keep = new Set(box.dataset.ready ? rwBatchPicked() : (rwBatchDraftState.subjects || []));
+  box.dataset.ready = '1';
+  const profs = rwProfiles();
+  box.innerHTML = profs.length
+    ? profs.map(p => `<label class="flex items-center gap-1 border border-gray-300 rounded-lg px-2 py-1 bg-white"><input type="checkbox" name="rwBatchSubj" value="${escapeHtml(p.subject)}" ${keep.has(p.subject) ? 'checked' : ''} onchange="rwBatchSaveDraft()"> ${escapeHtml(p.subject)}</label>`).join('')
+    : '<span class="text-xs text-gray-500">저장된 과목 기본 자료가 없습니다. ① 탭에서 과목을 먼저 저장해 주세요.</span>';
+}
+// 고른 과목 순서대로 머리글을 넣는다(이미 적은 학생 줄은 유지)
+function rwBatchTemplate(){
+  const subjects = rwBatchPicked();
+  const header = ['학번', RW_HR_TAG, RW_HR_EV, ...subjects.flatMap(s => [s + ' 성취수준', s + ' 사례', s + ' 태그'])].join('\t');
+  const box = document.getElementById('rwBatchRows');
+  const body = box.value.split('\n').filter(l => l.trim() && rwBatchSplit(l)[0] !== '학번');
+  box.value = [header, ...body].join('\n');
+  rwBatchSaveDraft();
+}
+
+function rwBatchParse(subjects, hrOn){
+  const lines = document.getElementById('rwBatchRows').value.split('\n').map(s => s.trim()).filter(Boolean);
+  let header = null;
+  if (lines.length && rwBatchSplit(lines[0])[0] === '학번') header = rwBatchSplit(lines.shift());
+  const colOf = (name, pos) => (header ? header.indexOf(name) : pos);
+  const hrTag = colOf(RW_HR_TAG, 1), hrEv = colOf(RW_HR_EV, 2);
+  const cols = {};
+  subjects.forEach((s, i) => {
+    cols[s] = { level: colOf(s + ' 성취수준', 3 + 3 * i), evidence: colOf(s + ' 사례', 4 + 3 * i), tags: colOf(s + ' 태그', 5 + 3 * i) };
+  });
+  const missing = [];
+  if (header) {
+    const need = [...(hrOn ? [RW_HR_TAG, RW_HR_EV] : []), ...subjects.flatMap(s => [s + ' 성취수준', s + ' 사례', s + ' 태그'])];
+    need.forEach(n => { if (header.indexOf(n) < 0) missing.push(n); });
+  }
+  const at = (c, i) => (i >= 0 ? (c[i] || '') : '');
+  const students = lines.map(line => {
+    const c = rwBatchSplit(line);
+    const st = { id: c[0] || '', hr: { tags: rwSplitList(at(c, hrTag), ','), evidence: rwSplitList(at(c, hrEv), ';') }, subj: {} };
+    subjects.forEach(s => {
+      const k = cols[s];
+      st.subj[s] = { level: at(c, k.level).toUpperCase(), evidence: rwSplitList(at(c, k.evidence), ';'), tags: rwSplitList(at(c, k.tags), ',') };
+    });
+    return st;
+  }).filter(st => st.id);
+  return { students, missing };
+}
+
 function rwBatchGenerate(){
   if (!window.RecordWriter) return;
-  const rows = rwParseBatch();
-  if (!rows.length) { rwSetMsg('rwBatchSummary', '학생 줄을 한 줄 이상 입력해 주세요.'); return; }
-  const kind = document.getElementById('rwBatchKind').value;
-  let common;
-  if (kind === 'subject') {
-    const subject = document.getElementById('rwSubject').value.trim();
-    if (!subject) { rwSetMsg('rwBatchSummary', '과목명을 ①에 먼저 입력해 주세요.'); return; }
-    common = {
-      profile: rwFindProfile(subject) || rwProfileFromForm(),
-      level: document.getElementById('rwLevel').value,
-      keywords: [],
-      hasGrowth: document.getElementById('rwSubjectGrowth').checked,
-      schoolNames: rwSchoolNames()
-    };
-  } else {
-    common = { growth: document.getElementById('rwHrGrowth').checked, schoolNames: rwSchoolNames() };
+  const subjects = rwBatchPicked();
+  const hrOn = rwBatchHrOn();
+  if (!subjects.length && !hrOn) { rwBatchMsg('과목을 하나 이상 고르거나 행동특성 작성을 선택해 주세요.'); return; }
+  const parsed = rwBatchParse(subjects, hrOn);
+  if (!parsed.students.length) { rwBatchMsg('학생 줄을 한 줄 이상 입력해 주세요.'); return; }
+  const schoolNames = rwSchoolNames();
+  const groups = [];
+  subjects.forEach(s => {
+    const rows = parsed.students.filter(st => st.subj[s].evidence.length).map(st => ({
+      id: st.id,
+      level: ['A', 'B', 'C', 'D', 'E'].includes(st.subj[s].level) ? st.subj[s].level : 'B',
+      evidence: st.subj[s].evidence,
+      tags: st.subj[s].tags
+    }));
+    if (!rows.length) return;
+    const res = RecordWriter.composeBatch('subject', rows, { profile: rwFindProfile(s), hasGrowth: document.getElementById('rwSubjectGrowth').checked, schoolNames });
+    groups.push({ label: s, limit: RecordWriter.LIMITS.subjectNote, context: undefined, sameEvidence: res.sameEvidence, items: res.items });
+  });
+  if (hrOn) {
+    const rows = parsed.students.filter(st => st.hr.evidence.length || st.hr.tags.length).map(st => ({ id: st.id, tags: st.hr.tags, evidence: st.hr.evidence }));
+    if (rows.length) {
+      const res = RecordWriter.composeBatch('homeroom', rows, { growth: document.getElementById('rwHrGrowth').checked, schoolNames });
+      groups.push({ label: RW_HR_LABEL, limit: RecordWriter.LIMITS.homeroom, context: 'homeroom', sameEvidence: res.sameEvidence, items: res.items });
+    }
   }
-  const res = RecordWriter.composeBatch(kind === 'subject' ? 'subject' : 'homeroom', rows, common);
-  rwBatchSource = rows;
-  document.getElementById('rwBatchResults').innerHTML = res.items.map(it => `
-    <div class="rwb-card border border-gray-200 rounded-lg p-2 mb-2">
-      <div class="text-xs font-semibold text-gray-600">${escapeHtml(it.id)} · <span class="rwb-bytes"></span></div>
-      <textarea class="rwb-text w-full text-sm border border-gray-300 rounded p-1 mt-1 bg-white" rows="3" data-id="${escapeHtml(it.id)}" oninput="rwBatchCheck()">${escapeHtml(it.text)}</textarea>
-      <div class="rwb-warn text-xs mt-1"></div>
-      <div class="flex items-center gap-2 mt-1">
-        <button type="button" onclick="rwBatchCopy(this)" class="px-3 py-1 rounded border border-gray-300 text-xs font-semibold bg-white">이 학생 복사</button>
-        <span class="rwb-copymsg text-xs"></span>
-      </div>
+  if (!groups.length) { rwBatchMsg('사례가 입력된 학생이 없습니다. 열 이름과 사례 칸을 확인해 주세요.'); return; }
+  rwBatchGroups = groups;
+  rwBatchMissing = parsed.missing;
+  const ids = [];
+  parsed.students.forEach(st => { if (!ids.includes(st.id) && groups.some(g => g.items.some(it => it.id === st.id))) ids.push(st.id); });
+  document.getElementById('rwBatchResults').innerHTML = ids.map(id => `
+    <div class="border border-gray-200 rounded-lg p-2 mb-2">
+      <div class="text-sm font-semibold text-forest-dark mb-1">${escapeHtml(id)}</div>
+      ${groups.map((g, gi) => {
+        const it = g.items.find(x => x.id === id);
+        return it ? `
+      <div class="rwb-block mb-2">
+        <div class="text-xs font-semibold text-gray-600">${escapeHtml(g.label)} · <span class="rwb-bytes"></span></div>
+        <textarea class="rwb-text w-full text-sm border border-gray-300 rounded p-1 mt-1 bg-white" rows="3" data-gi="${gi}" data-id="${escapeHtml(id)}" oninput="rwBatchCheck()">${escapeHtml(it.text)}</textarea>
+        <div class="rwb-warn text-xs mt-1"></div>
+        <div class="flex items-center gap-2 mt-1">
+          <button type="button" onclick="rwBatchCopy(this)" class="px-3 py-1 rounded border border-gray-300 text-xs font-semibold bg-white">이 칸 복사</button>
+          <span class="rwb-copymsg text-xs"></span>
+        </div>
+      </div>` : '';
+      }).join('')}
     </div>`).join('');
   rwBatchCheck();
 }
 async function rwBatchCopy(btn){
-  const card = btn.closest('.rwb-card');
-  return rwCopyText(card.querySelector('.rwb-text').value, card.querySelector('.rwb-copymsg'), '.rwConfirmB', rwBatchLimit());
+  const block = btn.closest('.rwb-block');
+  const b = block.querySelector('.rwb-text');
+  const g = rwBatchGroups[+b.dataset.gi];
+  return rwCopyText(b.value, block.querySelector('.rwb-copymsg'), '.rwConfirmB', g.limit, g.context);
 }
 function rwBatchCheck(){
-  const limit = rwBatchLimit();
   const boxes = [...document.querySelectorAll('#rwBatchResults .rwb-text')];
+  const schoolNames = rwSchoolNames();
+  let errors = 0;
   boxes.forEach(b => {
-    const card = b.closest('.rwb-card');
-    card.querySelector('.rwb-bytes').textContent = RecordWriter.byteLen(b.value) + ' / ' + limit + ' 바이트';
-    const w = RecordWriter.checkText(b.value, { schoolNames: rwSchoolNames(), limit });
-    card.querySelector('.rwb-warn').innerHTML = w.map(x => `<div class="${x.level === 'error' ? 'text-red-600' : 'text-amber-700'}">[${x.level === 'error' ? '기재 불가' : '확인'}] ${escapeHtml(x.message)}</div>`).join('');
+    const g = rwBatchGroups[+b.dataset.gi];
+    const block = b.closest('.rwb-block');
+    block.querySelector('.rwb-bytes').textContent = RecordWriter.byteLen(b.value) + ' / ' + g.limit + ' 바이트';
+    const w = RecordWriter.checkText(b.value, { schoolNames, limit: g.limit, context: g.context });
+    errors += w.filter(x => x.level === 'error').length;
+    block.querySelector('.rwb-warn').innerHTML = w.map(x => `<div class="${x.level === 'error' ? 'text-red-600' : 'text-amber-700'}">[${x.level === 'error' ? '기재 불가' : '확인'}] ${escapeHtml(x.message)}</div>`).join('');
   });
-  const items = boxes.map(b => ({ id: b.dataset.id, text: b.value }));
-  const pairs = RecordWriter.findSimilar(items, RecordWriter.DUPLICATE_THRESHOLD);
-  const seen = {};
-  rwBatchSource.forEach(r => r.evidence.forEach(e => { (seen[e] = seen[e] || []).push(r.id); }));
   const lines = [];
-  pairs.forEach(p => lines.push(`<div class="text-amber-700">[중복 의심] ${escapeHtml(p.a)} ↔ ${escapeHtml(p.b)} · 유사도 ${p.score} (기준 ${RecordWriter.DUPLICATE_THRESHOLD} 이상)</div>`));
-  Object.keys(seen).forEach(e => {
-    if (seen[e].length > 1) lines.push(`<div class="text-amber-700">[같은 사례] "${escapeHtml(e)}" → ${seen[e].map(escapeHtml).join(', ')}</div>`);
+  if (rwBatchMissing.length) lines.push(`<div class="text-amber-700">[열 확인] 머리글에 없는 열: ${escapeHtml(rwBatchMissing.join(', '))}</div>`);
+  rwBatchGroups.forEach((g, gi) => {
+    const items = boxes.filter(b => +b.dataset.gi === gi).map(b => ({ id: b.dataset.id, text: b.value }));
+    RecordWriter.findSimilar(items, RecordWriter.DUPLICATE_THRESHOLD).forEach(p => lines.push(`<div class="text-amber-700">[${escapeHtml(g.label)} 중복 의심] ${escapeHtml(p.a)} ↔ ${escapeHtml(p.b)} · 유사도 ${p.score}</div>`));
+    g.sameEvidence.forEach(e => lines.push(`<div class="text-amber-700">[${escapeHtml(g.label)} 같은 사례] "${escapeHtml(e.text)}" → ${e.ids.map(escapeHtml).join(', ')}</div>`));
   });
+  const ids = new Set(boxes.map(b => b.dataset.id));
   document.getElementById('rwBatchSummary').innerHTML = boxes.length
-    ? (lines.length ? lines.join('') : '<div class="text-green-700">학생 간 중복이 감지되지 않았습니다.</div>')
+    ? `<div class="${errors ? 'text-red-600' : 'text-green-700'}">학생 ${ids.size}명 · 항목 ${rwBatchGroups.length}개 · 기재 불가 ${errors}건</div>` + lines.join('')
     : '';
+}
+// 엑셀: 시트 1은 학생별 과목 칸, 시트 2는 칸마다 바이트·경고. 기재 불가가 있으면 받지 않는다.
+function rwBatchExcel(){
+  const say = t => { document.getElementById('rwBatchExcelMsg').textContent = t; };
+  if (!window.XLSX) return say('엑셀 도구를 불러오지 못했습니다. 새로고침 후 다시 시도해 주세요.');
+  const boxes = [...document.querySelectorAll('#rwBatchResults .rwb-text')];
+  if (!boxes.length) return say('먼저 일괄 초안을 만들어 주세요.');
+  if (![...document.querySelectorAll('.rwConfirmB')].every(c => c.checked)) return say('확인 체크리스트를 모두 체크한 뒤 받을 수 있습니다.');
+  const schoolNames = rwSchoolNames();
+  const check = boxes.map(b => {
+    const g = rwBatchGroups[+b.dataset.gi];
+    const w = RecordWriter.checkText(b.value, { schoolNames, limit: g.limit, context: g.context });
+    return { id: b.dataset.id, gi: +b.dataset.gi, text: b.value, g, w };
+  });
+  const bad = check.filter(c => c.w.some(x => x.level === 'error'));
+  if (bad.length) return say('기재 불가 항목이 ' + bad.length + '칸 있습니다. 먼저 지워 주세요.');
+  const ids = [...new Set(check.map(c => c.id))];
+  const header = ['학번', ...rwBatchGroups.map(g => g.label)];
+  const rows = ids.map(id => [id, ...rwBatchGroups.map((g, gi) => { const c = check.find(x => x.id === id && x.gi === gi); return c ? c.text : ''; })]);
+  const checkRows = [['학번', '구분', '바이트', '한도', '확인 문구'], ...check.map(c => [c.id, c.g.label, RecordWriter.byteLen(c.text), c.g.limit, c.w.map(x => x.message).join(' / ')])];
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
+  ws['!cols'] = header.map((h, i) => ({ wch: i === 0 ? 12 : 70 }));
+  XLSX.utils.book_append_sheet(wb, ws, '생활기록부 초안');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(checkRows), '점검');
+  XLSX.writeFile(wb, `${settingsCache.className || '학급'}_생활기록부_초안_${todayStr()}.xlsx`);
+  say(`엑셀로 받았습니다. 학생 ${ids.length}명, 항목 ${rwBatchGroups.length}개. NEIS에 붙여넣은 뒤 다시 확인하세요.`);
 }
 const ADMIN_CARD_LABELS = {
   shareLink: '🔗 학생 공유 링크 & QR',

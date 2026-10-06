@@ -296,6 +296,11 @@
     { code: 'list-format', level: 'warn', re: /(^|\n)\s*([-•*]|\d+[.)]|\()\s/, message: '번호·기호 목록 형식은 지양' }
   ];
 
+  const HOMEROOM_RULES = [
+    { code: 'homeroom-career', level: 'error', re: /진로|진학|장래|희망s*직업|취업|직업|대학s*(진학|입학)|학과s*선택/, message: '행동특성 및 종합의견에는 진로 내용을 기재할 수 없음 (진로는 진로활동 항목에 기재)' },
+    { code: 'homeroom-study', level: 'error', re: /학업|성적|성취도|석차|등급|점수|학력|시험|모의고사|공부s*성과/, message: '행동특성 및 종합의견에는 학업·성적 내용을 기재할 수 없음 (교과학습 항목에 기재)' }
+  ];
+
   function splitSentences(text) {
     return String(text).split(/\.\s*/).map(s => s.trim()).filter(Boolean);
   }
@@ -307,6 +312,12 @@
     for (const r of RULES) {
       const m = t.match(r.re);
       if (m) out.push({ level: r.level, code: r.code, match: m[0], message: r.message });
+    }
+    if (o.context === 'homeroom') {
+      for (const r of HOMEROOM_RULES) {
+        const m = t.match(r.re);
+        if (m) out.push({ level: r.level, code: r.code, match: m[0], message: r.message });
+      }
     }
     (o.schoolNames || []).forEach(name => {
       if (name && t.includes(name)) {
@@ -392,7 +403,7 @@
       limit,
       dropped,
       sentences: parts.map(p => ({ role: p.role, text: p.text })),
-      warnings: checkText(text, { schoolNames: o.schoolNames, limit }),
+      warnings: checkText(text, { schoolNames: o.schoolNames, limit, context: o.context }),
       confirm: CONFIRM_ITEMS
     };
   }
@@ -486,7 +497,7 @@
       parts.push({ role: 'growth', prio: 4, text: pick(HOMEROOM_GROWTH, seed + 'G') + '.' });
     }
     parts.push({ role: 'closing', prio: 5, text: pick(HOMEROOM_CLOSING, seed + 'C') + '.' });
-    return finish(parts, limit, o);
+    return finish(parts, limit, Object.assign({}, o, { context: 'homeroom' }));
   }
 
   // rows: [{ id, evidence: [], tags: [] }]  (homeroom이면 tags는 행동특성)
