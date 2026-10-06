@@ -21,6 +21,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="record-writer.js"></script>
 <script>
   tailwind.config = {
     theme: {
@@ -1453,6 +1454,176 @@ service cloud.firestore {
           <div id="extraBadgeLinkList" class="space-y-1"></div>
         </div>
         <button onclick="saveBlogBadge()" class="mt-4 bg-forest text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-forest-dark">저장</button>
+        </div>
+      </div>
+      <div class="bg-card border border-gray-200 rounded-xl p-5" data-admin-card="recordWriter">
+        <button id="adminCollapseBtn_recordWriter" onclick="toggleAdminCollapse('recordWriter')" aria-expanded="false" class="admin-collapse-btn">
+          <h2 class="font-display text-lg text-forest-dark">📝 생활기록부 초안 도우미 (과세특·행발)</h2>
+          <span class="admin-collapse-chevron">▶</span>
+        </button>
+        <div id="adminCollapseBody_recordWriter" class="hidden mt-3">
+        <p class="text-xs text-gray-500 mb-3">과목별 기본 자료를 한 번 등록해 두면, 그 과목의 학생 초안에 자동으로 반영됩니다. 외부 AI로 보내지 않고 이 화면 안에서만 작성합니다. 초안은 반드시 직접 확인·수정한 뒤 NEIS에 입력하세요.</p>
+        <div class="flex gap-2 mb-3">
+          <button id="rwTabSubject" onclick="rwSwitchMode('subject')" class="px-3 py-1.5 rounded-lg text-sm font-semibold bg-forest-dark text-white">과세특</button>
+          <button id="rwTabHomeroom" onclick="rwSwitchMode('homeroom')" class="px-3 py-1.5 rounded-lg text-sm font-semibold bg-gray-100 text-gray-600">행동특성 및 종합의견</button>
+        </div>
+
+        <div id="rwPanelSubject">
+          <div class="border border-gray-200 rounded-lg p-3 mb-3 bg-gray-50">
+            <p class="text-xs font-semibold text-gray-600 mb-2">① 과목 기본 자료 (과목마다 한 번만 등록)</p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
+              <div>
+                <label class="text-xs font-semibold text-gray-500">과목명</label>
+                <input id="rwSubject" list="rwProfileList" onchange="rwLoadProfile()" class="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white" placeholder="과목명을 입력하거나 목록에서 고르세요">
+                <datalist id="rwProfileList"></datalist>
+              </div>
+              <div>
+                <label class="text-xs font-semibold text-gray-500">과목 유형</label>
+                <select id="rwKind" class="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white">
+                  <option value="general">일반 교과</option>
+                  <option value="arts">체육·예술 실기</option>
+                  <option value="practical">전문교과 실무 (능력단위)</option>
+                </select>
+              </div>
+            </div>
+            <div class="mb-2">
+              <label class="text-xs font-semibold text-gray-500">성취기준 원문 (참고용, 키워드 추천의 바탕)</label>
+              <textarea id="rwStandards" rows="2" class="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white" placeholder="교육과정 성취기준 문장을 붙여넣으세요"></textarea>
+            </div>
+            <div class="grid grid-cols-1 gap-2 mb-2">
+              <div><label class="text-xs font-semibold text-gray-500">A 성취수준 기술 (교사가 쓴 문장)</label><input id="rwLvA" class="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"></div>
+              <div><label class="text-xs font-semibold text-gray-500">B 성취수준 기술</label><input id="rwLvB" class="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"></div>
+              <div><label class="text-xs font-semibold text-gray-500">C 성취수준 기술</label><input id="rwLvC" class="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"></div>
+              <div><label class="text-xs font-semibold text-gray-500">D 성취수준 기술</label><input id="rwLvD" class="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"></div>
+              <div><label class="text-xs font-semibold text-gray-500">E 성취수준 기술</label><input id="rwLvE" class="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"></div>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
+              <div>
+                <label class="text-xs font-semibold text-gray-500">과목 핵심 키워드 (쉼표 구분)</label>
+                <div class="flex gap-2 mt-1">
+                  <input id="rwProfKeywords" class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white" placeholder="예: 배선 작업, 결선">
+                  <button type="button" onclick="rwSuggest()" class="px-3 rounded-lg border border-gray-300 text-xs font-semibold bg-white">추천</button>
+                </div>
+              </div>
+              <div>
+                <label class="text-xs font-semibold text-gray-500">실무 능력단위 (쉼표 구분, 전문교과 실무일 때)</label>
+                <input id="rwUnits" class="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white" placeholder="예: 변전설비 운영">
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <button type="button" onclick="rwSaveProfile()" class="px-4 py-2 rounded-lg bg-forest-dark text-white text-sm font-semibold">기본 자료 저장</button>
+              <button type="button" onclick="rwDeleteProfile()" class="px-3 py-2 rounded-lg border border-gray-300 text-sm bg-white">이 과목 삭제</button>
+              <span id="rwProfileMsg" class="text-xs text-gray-600"></span>
+            </div>
+          </div>
+
+          <div class="border border-gray-200 rounded-lg p-3 mb-3">
+            <p class="text-xs font-semibold text-gray-600 mb-2">② 학생별 입력</p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
+              <div>
+                <label class="text-xs font-semibold text-gray-500">이 학생의 성취수준</label>
+                <select id="rwLevel" class="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white">
+                  <option value="A">A</option>
+                  <option value="B" selected>B</option>
+                  <option value="C">C</option>
+                  <option value="D">D</option>
+                  <option value="E">E</option>
+                </select>
+              </div>
+              <div>
+                <label class="text-xs font-semibold text-gray-500">이 학생에게 더할 키워드 (선택)</label>
+                <input id="rwKeywords" class="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white" placeholder="예: 측정">
+              </div>
+            </div>
+            <div class="mb-2">
+              <label class="text-xs font-semibold text-gray-500">학생 관찰 사례 (한 줄에 한 개, 근거 자료 기반)</label>
+              <textarea id="rwEvidence" rows="3" class="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white" placeholder="예: 회로 결선 오류를 스스로 찾아 수정했다."></textarea>
+            </div>
+            <div class="mb-2">
+              <p class="text-xs font-semibold text-gray-500 mb-1">관찰된 태도·역량 (선택)</p>
+              <div class="flex flex-wrap gap-2 text-sm">
+                <label><input type="checkbox" name="rwSubjectTag" value="탐구"> 탐구</label>
+                <label><input type="checkbox" name="rwSubjectTag" value="발표"> 발표</label>
+                <label><input type="checkbox" name="rwSubjectTag" value="협업"> 협업</label>
+                <label><input type="checkbox" name="rwSubjectTag" value="실습"> 실습</label>
+                <label><input type="checkbox" name="rwSubjectTag" value="성실"> 성실</label>
+                <label><input type="checkbox" name="rwSubjectTag" value="문제해결"> 문제해결</label>
+                <label><input type="checkbox" name="rwSubjectTag" value="안전"> 안전</label>
+                <label><input type="checkbox" name="rwSubjectTag" value="창의"> 창의</label>
+                <label><input type="checkbox" name="rwSubjectTag" value="자기주도"> 자기주도</label>
+                <label><input type="checkbox" name="rwSubjectTag" value="질문"> 질문</label>
+              </div>
+            </div>
+            <label class="flex items-center gap-2 text-sm"><input type="checkbox" id="rwSubjectGrowth" checked> 성장 전망 문장 포함 (학생의 변화를 실제로 관찰한 경우만)</label>
+          </div>
+        </div>
+
+        <div id="rwPanelHomeroom" class="hidden">
+          <div class="mb-2">
+            <p class="text-xs font-semibold text-gray-500 mb-1">행동특성 (선택)</p>
+            <div class="flex flex-wrap gap-2 text-sm">
+              <label><input type="checkbox" name="rwTrait" value="성실"> 성실</label>
+              <label><input type="checkbox" name="rwTrait" value="책임"> 책임</label>
+              <label><input type="checkbox" name="rwTrait" value="협력"> 협력</label>
+              <label><input type="checkbox" name="rwTrait" value="배려"> 배려</label>
+              <label><input type="checkbox" name="rwTrait" value="리더십"> 리더십</label>
+              <label><input type="checkbox" name="rwTrait" value="자기주도"> 자기주도</label>
+              <label><input type="checkbox" name="rwTrait" value="소통"> 소통</label>
+              <label><input type="checkbox" name="rwTrait" value="규칙"> 규칙</label>
+              <label><input type="checkbox" name="rwTrait" value="호기심"> 호기심</label>
+              <label><input type="checkbox" name="rwTrait" value="긍정"> 긍정</label>
+            </div>
+          </div>
+          <div class="mb-2">
+            <label class="text-xs font-semibold text-gray-500">학급 생활 관찰 사례 (한 줄에 한 개)</label>
+            <textarea id="rwHrEvidence" rows="3" class="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white" placeholder="예: 청소 당번을 빠짐없이 맡음."></textarea>
+          </div>
+          <label class="flex items-center gap-2 text-sm mb-2"><input type="checkbox" id="rwHrGrowth"> 변화·성장이 실제로 관찰된 경우 체크</label>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
+          <div>
+            <label class="text-xs font-semibold text-gray-500">문장 변주 키 (학생 번호 등, 같은 입력이라도 학생마다 문장을 다르게 만듦)</label>
+            <input id="rwSeed" class="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white" placeholder="예: 2-5-15">
+          </div>
+          <div>
+            <label class="text-xs font-semibold text-gray-500">학교명·별칭 금지어 (쉼표 구분, 학급 설정으로 저장)</label>
+            <div class="flex gap-2 mt-1">
+              <input id="rwSchoolNamesInput" class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white" placeholder="예: ○○고등학교, ○○고">
+              <button type="button" onclick="rwSaveSchoolNames()" class="px-3 rounded-lg border border-gray-300 text-xs font-semibold bg-white">저장</button>
+            </div>
+          </div>
+        </div>
+
+        <button onclick="rwGenerate()" class="px-4 py-2 rounded-lg bg-forest-dark text-white text-sm font-semibold mb-3">학생 초안 만들기</button>
+
+        <textarea id="rwOutput" rows="6" oninput="rwEdited()" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white" placeholder="여기에 초안이 나옵니다. 직접 수정할 수 있어요."></textarea>
+        <p id="rwBytes" class="text-xs text-gray-500 mt-1"></p>
+        <div id="rwWarnings" class="text-xs mt-2 space-y-1"></div>
+        <div id="rwDropped" class="text-xs text-gray-500 mt-1"></div>
+
+        <div class="mt-3 border-t pt-3">
+          <p class="text-xs font-semibold text-gray-500 mb-1">복사 전 확인 (모두 체크해야 복사됩니다)</p>
+          <div class="text-sm space-y-1">
+            <label class="flex items-center gap-2"><input type="checkbox" class="rwConfirm"> 사례는 교사가 직접 관찰·평가한 내용인가</label>
+            <label class="flex items-center gap-2"><input type="checkbox" class="rwConfirm"> 학생의 실제 수행과 다른 과장 표현은 없는가</label>
+            <label class="flex items-center gap-2"><input type="checkbox" class="rwConfirm"> 학생이 작성한 문장을 그대로 옮긴 것은 아닌가</label>
+            <label class="flex items-center gap-2"><input type="checkbox" class="rwConfirm"> AI로 생성한 문장을 그대로 붙인 것은 아닌가</label>
+            <label class="flex items-center gap-2"><input type="checkbox" class="rwConfirm"> 학교명·대회·자격증·해외 활동 등 기재 불가 내용이 없는가</label>
+          </div>
+          <button type="button" onclick="rwCopy()" class="px-4 py-2 rounded-lg border border-gray-300 text-sm font-semibold mt-2 bg-white">복사</button>
+          <p id="rwCopyMsg" class="text-xs mt-1"></p>
+        </div>
+
+        <div class="mt-5 border-t pt-4">
+          <p class="text-xs font-semibold text-gray-600 mb-1">③ 학급 일괄 작성 (학생 여러 명을 한 번에, 같은 과목·같은 기본 자료 사용)</p>
+          <p class="text-xs text-gray-500 mb-2">한 줄에 한 학생: <b>식별자 | 성취수준(비우면 위 값) | 사례1;사례2 | 태그1,태그2</b> — 과세특이면 태그는 관찰 태도, 행동특성이면 행동특성입니다. 예: <span class="font-mono">2-5-15 | A | 회로 결선 오류를 스스로 찾아 수정했다. | 실습,문제해결</span></p>
+          <textarea id="rwBatchRows" rows="5" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white font-mono" placeholder="2-5-15 | A | 사례 | 실습"></textarea>
+          <button type="button" onclick="rwBatchGenerate()" class="px-4 py-2 rounded-lg bg-forest-dark text-white text-sm font-semibold mt-2">일괄 초안 만들기</button>
+          <div id="rwBatchSummary" class="text-xs mt-2 space-y-1"></div>
+          <div id="rwBatchResults" class="mt-2"></div>
+          <p class="text-xs text-gray-500 mt-2">일괄 초안도 학생별 칸에서 직접 확인·수정해야 합니다. 복사는 학생 한 명씩 위의 복사 기능을 이용해 주세요.</p>
+        </div>
         </div>
       </div>
       <div class="bg-card border border-gray-200 rounded-xl p-5" data-admin-card="weatherLocation">
@@ -7367,6 +7538,233 @@ function navDrop(e, i){
 /* ============================================================
    관리자 카드 순서 편집 (드래그 앤 드롭)
 ============================================================ */
+// 생활기록부 초안 도우미 — 문장 생성·검사는 record-writer.js(RecordWriter)가 담당.
+// 과목 기본 자료(recordProfiles)와 학교명 금지어(recordSchoolNames)는 settings/general에 저장한다.
+let rwLastDropped = [];
+let rwBatchSource = [];
+const RW_LEVELS = ['A', 'B', 'C', 'D', 'E'];
+function rwProfiles(){ return Array.isArray(settingsCache.recordProfiles) ? settingsCache.recordProfiles : []; }
+function rwFindProfile(subject){
+  const s = (subject || '').trim();
+  return s ? (rwProfiles().find(p => p.subject === s) || null) : null;
+}
+function rwSchoolNames(){ return Array.isArray(settingsCache.recordSchoolNames) ? settingsCache.recordSchoolNames : []; }
+function rwMode(){ return document.getElementById('rwPanelHomeroom').classList.contains('hidden') ? 'subject' : 'homeroom'; }
+function rwSwitchMode(mode){
+  const isSubj = mode === 'subject';
+  document.getElementById('rwPanelSubject').classList.toggle('hidden', !isSubj);
+  document.getElementById('rwPanelHomeroom').classList.toggle('hidden', isSubj);
+  document.getElementById('rwTabSubject').className = 'px-3 py-1.5 rounded-lg text-sm font-semibold ' + (isSubj ? 'bg-forest-dark text-white' : 'bg-gray-100 text-gray-600');
+  document.getElementById('rwTabHomeroom').className = 'px-3 py-1.5 rounded-lg text-sm font-semibold ' + (isSubj ? 'bg-gray-100 text-gray-600' : 'bg-forest-dark text-white');
+  rwRecheck();
+}
+function rwChecked(name){ return [...document.querySelectorAll(`input[name="${name}"]:checked`)].map(i => i.value); }
+function rwLines(id){ return document.getElementById(id).value.split('\n').map(s => s.trim()).filter(Boolean); }
+function rwCsv(id){ return document.getElementById(id).value.split(',').map(s => s.trim()).filter(Boolean); }
+function rwSeedValue(){ return document.getElementById('rwSeed').value.trim(); }
+function rwSetMsg(id, text){ const el = document.getElementById(id); if (el) el.textContent = text; }
+function rwLimit(){ return rwMode() === 'subject' ? RecordWriter.LIMITS.subjectNote : RecordWriter.LIMITS.homeroom; }
+
+// 관리자 화면을 그릴 때 설정값을 입력칸에 반영한다(입력 중인 칸은 건드리지 않음).
+function rwRenderAdminFields(){
+  const dl = document.getElementById('rwProfileList');
+  if (dl) dl.innerHTML = rwProfiles().map(p => `<option value="${escapeHtml(p.subject)}"></option>`).join('');
+  const sn = document.getElementById('rwSchoolNamesInput');
+  if (sn && document.activeElement !== sn) sn.value = rwSchoolNames().join(', ');
+}
+
+function rwFillProfileForm(p){
+  document.getElementById('rwKind').value = p.kind || 'general';
+  RW_LEVELS.forEach(k => { document.getElementById('rwLv' + k).value = (p.levels && p.levels[k]) || ''; });
+  document.getElementById('rwStandards').value = p.standards || '';
+  document.getElementById('rwProfKeywords').value = (p.keywords || []).join(', ');
+  document.getElementById('rwUnits').value = (p.units || []).join(', ');
+}
+function rwLoadProfile(){
+  const p = rwFindProfile(document.getElementById('rwSubject').value);
+  if (!p) { rwSetMsg('rwProfileMsg', '등록된 기본 자료가 없습니다. 아래에 입력해 저장하면 다음부터 자동 반영됩니다.'); return; }
+  rwFillProfileForm(p);
+  rwSetMsg('rwProfileMsg', '등록된 기본 자료를 불러왔습니다.');
+  rwRecheck();
+}
+function rwProfileFromForm(){
+  const levels = {};
+  RW_LEVELS.forEach(k => { const v = document.getElementById('rwLv' + k).value.trim(); if (v) levels[k] = v; });
+  return {
+    subject: document.getElementById('rwSubject').value.trim(),
+    kind: document.getElementById('rwKind').value,
+    levels,
+    standards: document.getElementById('rwStandards').value.trim(),
+    keywords: rwCsv('rwProfKeywords'),
+    units: rwCsv('rwUnits')
+  };
+}
+async function rwWriteProfiles(list){
+  settingsCache.recordProfiles = list;
+  await db.collection('settings').doc('general').set({ recordProfiles: list }, { merge: true });
+  rwRenderAdminFields();
+}
+async function rwSaveProfile(){
+  const p = rwProfileFromForm();
+  const errs = RecordWriter.validateProfile(p);
+  if (errs.length) { rwSetMsg('rwProfileMsg', errs.join(' ')); return; }
+  try {
+    await rwWriteProfiles(rwProfiles().filter(x => x.subject !== p.subject).concat([p]));
+    rwSetMsg('rwProfileMsg', "'" + p.subject + "' 기본 자료를 저장했습니다.");
+  } catch (e) {
+    rwSetMsg('rwProfileMsg', '저장에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+  }
+}
+async function rwDeleteProfile(){
+  const s = document.getElementById('rwSubject').value.trim();
+  if (!rwFindProfile(s)) { rwSetMsg('rwProfileMsg', '삭제할 기본 자료가 없습니다.'); return; }
+  if (!confirm("'" + s + "' 기본 자료를 삭제할까요?")) return;
+  try {
+    await rwWriteProfiles(rwProfiles().filter(x => x.subject !== s));
+    rwSetMsg('rwProfileMsg', '삭제했습니다.');
+  } catch (e) {
+    rwSetMsg('rwProfileMsg', '삭제에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+  }
+}
+function rwSuggest(){
+  const ks = RecordWriter.suggestKeywords(document.getElementById('rwStandards').value, 5);
+  if (!ks.length) { rwSetMsg('rwProfileMsg', '성취기준 문장을 먼저 입력해 주세요.'); return; }
+  document.getElementById('rwProfKeywords').value = ks.join(', ');
+  rwSetMsg('rwProfileMsg', '성취기준에서 키워드 후보를 추렸습니다. 확인 후 저장하세요.');
+}
+async function rwSaveSchoolNames(){
+  const list = rwCsv('rwSchoolNamesInput');
+  settingsCache.recordSchoolNames = list;
+  try {
+    await db.collection('settings').doc('general').set({ recordSchoolNames: list }, { merge: true });
+    alert('학교명 금지어를 저장했습니다.');
+  } catch (e) {
+    alert('저장에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+  }
+}
+
+function rwShowWarn(text){ document.getElementById('rwWarnings').innerHTML = '<div class="text-red-600">' + escapeHtml(text) + '</div>'; }
+function rwGenerate(){
+  if (!window.RecordWriter) { alert('초안 엔진을 불러오지 못했습니다. 새로고침 후 다시 시도해 주세요.'); return; }
+  let r;
+  if (rwMode() === 'subject') {
+    const subject = document.getElementById('rwSubject').value.trim();
+    if (!subject) { rwShowWarn('과목명을 입력해 주세요.'); return; }
+    r = RecordWriter.composeSubjectNote({
+      profile: rwFindProfile(subject) || rwProfileFromForm(),
+      level: document.getElementById('rwLevel').value,
+      keywords: rwCsv('rwKeywords'),
+      evidence: rwLines('rwEvidence'),
+      tags: rwChecked('rwSubjectTag'),
+      hasGrowth: document.getElementById('rwSubjectGrowth').checked,
+      seed: rwSeedValue(),
+      schoolNames: rwSchoolNames()
+    });
+  } else {
+    r = RecordWriter.composeHomeroom({
+      traits: rwChecked('rwTrait'),
+      evidence: rwLines('rwHrEvidence'),
+      growth: document.getElementById('rwHrGrowth').checked,
+      seed: rwSeedValue(),
+      schoolNames: rwSchoolNames()
+    });
+  }
+  document.getElementById('rwOutput').value = r.text;
+  rwLastDropped = r.dropped;
+  rwRecheck();
+}
+function rwEdited(){ rwLastDropped = []; rwRecheck(); }
+function rwRecheck(){
+  const text = document.getElementById('rwOutput').value;
+  const limit = rwLimit();
+  const bytes = RecordWriter.byteLen(text);
+  const warnings = text.trim() ? RecordWriter.checkText(text, { schoolNames: rwSchoolNames(), limit }) : [];
+  document.getElementById('rwBytes').textContent = bytes + ' / ' + limit + ' 바이트 (한글 약 ' + Math.floor(bytes / 3) + '자)';
+  document.getElementById('rwWarnings').innerHTML = warnings.length
+    ? warnings.map(w => `<div class="${w.level === 'error' ? 'text-red-600' : 'text-amber-700'}">[${w.level === 'error' ? '기재 불가' : '확인'}] ${escapeHtml(w.message)}${w.match ? ' · "' + escapeHtml(w.match) + '"' : ''}</div>`).join('')
+    : (text.trim() ? '<div class="text-green-700">기재 불가 항목이 감지되지 않았습니다. 확인 체크리스트도 직접 확인하세요.</div>' : '');
+  document.getElementById('rwDropped').textContent = rwLastDropped.length ? '분량 한도로 제외된 문장: ' + rwLastDropped.join(' / ') : '';
+}
+async function rwCopy(){
+  const msg = document.getElementById('rwCopyMsg');
+  const text = document.getElementById('rwOutput').value.trim();
+  if (!text) { msg.textContent = '복사할 초안이 없습니다.'; return; }
+  const checks = [...document.querySelectorAll('.rwConfirm')];
+  if (!checks.length || !checks.every(c => c.checked)) { msg.textContent = '확인 체크리스트를 모두 체크한 뒤 복사할 수 있습니다.'; return; }
+  const errors = RecordWriter.checkText(text, { schoolNames: rwSchoolNames(), limit: rwLimit() }).filter(w => w.level === 'error');
+  if (errors.length) { msg.textContent = '기재 불가 항목을 먼저 지워 주세요: ' + errors[0].message; return; }
+  try {
+    await navigator.clipboard.writeText(text);
+    msg.textContent = '복사했습니다. NEIS에 붙여넣은 뒤 다시 한번 확인하세요.';
+  } catch (e) {
+    msg.textContent = '복사에 실패했습니다. 초안을 직접 선택해 복사해 주세요.';
+  }
+}
+
+// ③ 학급 일괄 작성
+function rwParseBatch(){
+  return document.getElementById('rwBatchRows').value.split('\n').map(s => s.trim()).filter(Boolean).map(line => {
+    const cols = line.split('|').map(s => s.trim());
+    return {
+      id: cols[0] || '',
+      level: (cols[1] || '').toUpperCase(),
+      evidence: (cols[2] || '').split(';').map(s => s.trim()).filter(Boolean),
+      tags: (cols[3] || '').split(',').map(s => s.trim()).filter(Boolean)
+    };
+  }).filter(r => r.id);
+}
+function rwBatchGenerate(){
+  if (!window.RecordWriter) return;
+  const rows = rwParseBatch();
+  if (!rows.length) { rwSetMsg('rwBatchSummary', '학생 줄을 한 줄 이상 입력해 주세요.'); return; }
+  const mode = rwMode();
+  let common;
+  if (mode === 'subject') {
+    const subject = document.getElementById('rwSubject').value.trim();
+    if (!subject) { rwSetMsg('rwBatchSummary', '과목명을 먼저 입력해 주세요.'); return; }
+    common = {
+      profile: rwFindProfile(subject) || rwProfileFromForm(),
+      level: document.getElementById('rwLevel').value,
+      keywords: rwCsv('rwKeywords'),
+      hasGrowth: document.getElementById('rwSubjectGrowth').checked,
+      schoolNames: rwSchoolNames()
+    };
+  } else {
+    common = { growth: document.getElementById('rwHrGrowth').checked, schoolNames: rwSchoolNames() };
+  }
+  const res = RecordWriter.composeBatch(mode, rows, common);
+  rwBatchSource = rows;
+  document.getElementById('rwBatchResults').innerHTML = res.items.map(it => `
+    <div class="border border-gray-200 rounded-lg p-2 mb-2">
+      <div class="text-xs font-semibold text-gray-600">${escapeHtml(it.id)} · <span class="rwb-bytes"></span></div>
+      <textarea class="rwb-text w-full text-sm border border-gray-300 rounded p-1 mt-1 bg-white" rows="3" data-id="${escapeHtml(it.id)}" oninput="rwBatchCheck()">${escapeHtml(it.text)}</textarea>
+      <div class="rwb-warn text-xs mt-1"></div>
+    </div>`).join('');
+  rwBatchCheck();
+}
+function rwBatchCheck(){
+  const mode = rwMode();
+  const limit = mode === 'subject' ? RecordWriter.LIMITS.subjectNote : RecordWriter.LIMITS.homeroom;
+  const boxes = [...document.querySelectorAll('#rwBatchResults .rwb-text')];
+  boxes.forEach(b => {
+    const card = b.parentElement;
+    card.querySelector('.rwb-bytes').textContent = RecordWriter.byteLen(b.value) + ' / ' + limit + ' 바이트';
+    const w = RecordWriter.checkText(b.value, { schoolNames: rwSchoolNames(), limit });
+    card.querySelector('.rwb-warn').innerHTML = w.map(x => `<div class="${x.level === 'error' ? 'text-red-600' : 'text-amber-700'}">[${x.level === 'error' ? '기재 불가' : '확인'}] ${escapeHtml(x.message)}</div>`).join('');
+  });
+  const items = boxes.map(b => ({ id: b.dataset.id, text: b.value }));
+  const pairs = RecordWriter.findSimilar(items, RecordWriter.DUPLICATE_THRESHOLD);
+  const seen = {};
+  rwBatchSource.forEach(r => r.evidence.forEach(e => { (seen[e] = seen[e] || []).push(r.id); }));
+  const lines = [];
+  pairs.forEach(p => lines.push(`<div class="text-amber-700">[중복 의심] ${escapeHtml(p.a)} ↔ ${escapeHtml(p.b)} · 유사도 ${p.score} (기준 ${RecordWriter.DUPLICATE_THRESHOLD} 이상)</div>`));
+  Object.keys(seen).forEach(e => {
+    if (seen[e].length > 1) lines.push(`<div class="text-amber-700">[같은 사례] "${escapeHtml(e)}" → ${seen[e].map(escapeHtml).join(', ')}</div>`);
+  });
+  document.getElementById('rwBatchSummary').innerHTML = boxes.length
+    ? (lines.length ? lines.join('') : '<div class="text-green-700">학생 간 중복이 감지되지 않았습니다.</div>')
+    : '';
+}
 const ADMIN_CARD_LABELS = {
   shareLink: '🔗 학생 공유 링크 & QR',
   attendanceGeo: '📍 등교 확인 QR (위치 기반)',
@@ -7379,6 +7777,7 @@ const ADMIN_CARD_LABELS = {
   wallColumns: '🧱 담벼락 게시판 관리',
   classInfo: '🏷 학급 기본 정보',
   blogBadge: '✍️ 블로그·유튜브 소개 문구',
+  recordWriter: '📝 생활기록부 초안 도우미 (과세특·행발)',
   weatherLocation: '🌤 날씨 위치 설정',
   mealSchool: '🍱 점심메뉴 학교 설정',
   customPages: '➕ 메뉴탭 직접 추가',
@@ -7789,6 +8188,7 @@ function resetCertRoadmap(){
 }
 function renderAdmin(){
   if (!ensureTeacherAccess()) return;
+  rwRenderAdminFields();
   renderAfterschoolStudentsAdmin();
   renderAfterschoolScheduleAdmin();
   renderAfterschoolAttendanceTable();
