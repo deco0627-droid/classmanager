@@ -1,0 +1,233 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isTeacher() {
+      return request.auth != null
+        && request.auth.token.email == "deco0627@nate.com"
+        && request.auth.token.email_verified == true;
+    }
+    function isAdmin() {
+      return request.auth != null
+        && request.auth.token.email == "deco0627@gmail.com"
+        && request.auth.token.email_verified == true;
+    }
+    function userDoc() {
+      return get(/databases/$(database)/documents/cbtUsers/$(request.auth.uid));
+    }
+    function myField(f) {
+      return userDoc().data.get(f, null);
+    }
+    function isApprovedUser() {
+      return isAdmin() || (
+        request.auth != null &&
+        userDoc().data.get('status', '') == 'approved'
+      );
+    }
+    function isCbtOwner(uid) {
+      return isApprovedUser() && request.auth.uid == uid;
+    }
+    function isSubAdmin() {
+      return isApprovedUser() && myField('role') == 'subadmin';
+    }
+    function canManageBooks() {
+      return isAdmin() || isSubAdmin();
+    }
+    function mySchool() {
+      return myField('school');
+    }
+    function myTrack() {
+      return myField('track');
+    }
+    function isSchoolAdmin() {
+      return isApprovedUser() && myField('role') == 'schoolAdmin';
+    }
+    function isClassAdmin() {
+      return isApprovedUser() && myField('role') == 'classAdmin';
+    }
+
+    match /schedules/{doc} { allow read: if true; allow write: if isTeacher(); }
+    match /notices/{doc}   { allow read: if true; allow write: if isTeacher(); }
+    match /settings/{doc}  { allow read: if true; allow write: if isTeacher(); }
+    match /students/{doc}  { allow read, write: if isTeacher(); }
+    match /customPages/{doc} { allow read: if true; allow write: if isTeacher(); }
+    match /certExams/{doc} { allow read: if true; allow write: if isTeacher(); }
+    match /certNotices/{doc} { allow read: if true; allow write: if isTeacher(); }
+
+    match /tasks/{doc} { allow read, write: if isTeacher(); }
+
+    match /stats/{doc} {
+      allow read: if true;
+      allow create, update: if request.resource.data.keys().hasOnly(['total', 'dailyDate', 'dailyCount'])
+        && request.resource.data.total is number
+        && request.resource.data.dailyCount is number
+        && request.resource.data.dailyDate is string;
+    }
+
+    match /visitLog/{doc} {
+      allow read: if true;
+      allow create, update: if request.resource.data.keys().hasOnly(['lastVisit'])
+        && request.resource.data.lastVisit is number;
+      allow delete: if isTeacher();
+    }
+
+    match /wallPosts/{doc} {
+      allow read: if resource.data.isPrivate == false || isTeacher();
+      allow create: if request.auth != null
+        && request.resource.data.authorEmail == request.auth.token.email
+        && request.resource.data.keys().hasOnly(['column', 'author', 'authorEmail', 'content', 'image', 'createdAt', 'isPrivate'])
+        && request.resource.data.content is string
+        && request.resource.data.content.size() <= 2000
+        && request.resource.data.isPrivate is bool;
+      allow update: if isTeacher() || (
+        request.auth != null
+        && request.auth.token.email == resource.data.authorEmail
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['content'])
+        && request.resource.data.content.size() <= 2000
+      );
+      allow delete: if isTeacher() || (
+        request.auth != null
+        && request.auth.token.email == resource.data.authorEmail
+      );
+    }
+
+    match /attendance/{doc} {
+      allow read: if true;
+      allow create: if true;
+      allow update, delete: if isTeacher();
+    }
+
+    match /fcmTokens/{doc} {
+      allow read: if isTeacher();
+      allow create, update: if request.resource.data.token is string
+        && request.resource.data.token.size() <= 500
+        && (!('name' in request.resource.data) || request.resource.data.name is string);
+      allow delete: if isTeacher();
+    }
+
+    match /tetrisScores/{doc} {
+      allow read, create: if true;
+      allow update, delete: if isTeacher();
+    }
+    match /liveNotes/{doc} { allow read, write: if isTeacher(); }
+    match /counselingSlots/{doc} { allow read, write: if isTeacher(); }
+    match /afterschoolSchedule/{doc} { allow read: if true; allow write: if isTeacher(); }
+    match /afterschoolAttendance/{doc} { allow read: if true; allow write: if isTeacher(); }
+    match /afterschoolMessages/{doc} { allow read: if true; allow write: if isTeacher(); }
+
+    match /cbtUsers/{uid} {
+      allow get: if request.auth != null && (
+        request.auth.uid == uid || isAdmin() ||
+        (isSchoolAdmin() && resource.data.school == mySchool()) ||
+        (isClassAdmin() && resource.data.school == mySchool() && resource.data.track == myTrack())
+      );
+      allow list: if isAdmin() ||
+        (isSchoolAdmin() && resource.data.school == mySchool()) ||
+        (isClassAdmin() && resource.data.school == mySchool() && resource.data.track == myTrack());
+      allow create: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.status == 'pending'
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.keys().hasOnly([
+          'email', 'displayName', 'photoURL', 'status', 'requestedAt',
+          'isStudent', 'school', 'grade', 'classNum', 'studentNum', 'department', 'track'
+        ]);
+      allow update: if isAdmin() || (
+        isSchoolAdmin() && request.auth.uid != uid
+        && resource.data.school == mySchool()
+        && request.resource.data.school == resource.data.school
+        && (
+          request.resource.data.get('role', null) == resource.data.get('role', null) ||
+          (request.resource.data.get('role', null) == 'classAdmin' && request.resource.data.track is string) ||
+          (resource.data.get('role', null) == 'classAdmin' && !('role' in request.resource.data))
+        )
+      ) || (
+        isClassAdmin() && request.auth.uid != uid
+        && resource.data.school == mySchool() && resource.data.track == myTrack()
+        && request.resource.data.school == resource.data.school
+        && request.resource.data.track == resource.data.track
+        && request.resource.data.get('role', null) == resource.data.get('role', null)
+      );
+      allow delete: if request.auth != null && request.auth.uid == uid
+        && resource.data.get('status', '') == 'rejected';
+    }
+
+    match /cbtBooks/{doc} {
+      allow read: if isApprovedUser();
+      allow create, update, delete: if canManageBooks();
+    }
+    match /cbtQuestions/{doc} {
+      allow read: if isApprovedUser();
+      allow create, update, delete: if canManageBooks();
+    }
+    match /cbtCategories/{doc} {
+      allow read: if isApprovedUser();
+      allow create, update, delete: if canManageBooks();
+    }
+
+    match /cbtExamAttempts/{doc} {
+      allow read: if isAdmin() || isCbtOwner(resource.data.ownerId) ||
+        (isSchoolAdmin() && resource.data.school == mySchool()) ||
+        (isClassAdmin() && resource.data.school == mySchool() && resource.data.track == myTrack());
+      allow create: if isCbtOwner(request.resource.data.ownerId)
+        && request.resource.data.school == mySchool()
+        && (
+          request.resource.data.track == myTrack() ||
+          (request.resource.data.track == '' && myTrack() == null)
+        );
+      allow update: if isAdmin();
+      allow delete: if isAdmin() || isCbtOwner(resource.data.ownerId) ||
+        (isSchoolAdmin() && resource.data.school == mySchool()) ||
+        (isClassAdmin() && resource.data.school == mySchool() && resource.data.track == myTrack());
+    }
+
+    match /cbtSettings/{doc} {
+      allow read: if true;
+      allow write: if isAdmin() || (
+        isSchoolAdmin() && doc.matches('^checkin_.*$')
+        && request.resource.data.examConfig.school == mySchool()
+      ) || (
+        isClassAdmin() && doc.matches('^checkin_.*$')
+        && request.resource.data.examConfig.school == mySchool()
+        && request.resource.data.examConfig.targetTrack == myTrack()
+      );
+    }
+    match /cbtSignupOptions/{doc} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin() || (
+        isSchoolAdmin() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['departments', 'tracks'])
+      );
+    }
+    match /cbtStats/{doc} {
+      allow read: if true;
+      allow create, update: if request.resource.data.keys().hasOnly(['total', 'dailyDate', 'dailyCount'])
+        && request.resource.data.total is number
+        && request.resource.data.dailyCount is number
+        && request.resource.data.dailyDate is string;
+    }
+    match /cbtVisitLog/{doc} {
+      allow read: if true;
+      allow create, update: if request.resource.data.keys().hasOnly(['lastVisit'])
+        && request.resource.data.lastVisit is number;
+      allow delete: if isAdmin();
+    }
+
+    match /cbtLiveProgress/{uid} {
+      allow read: if isAdmin() ||
+        (isSchoolAdmin() && resource.data.school == mySchool()) ||
+        (isClassAdmin() && resource.data.school == mySchool() && resource.data.track == myTrack());
+      allow create, update: if isCbtOwner(uid)
+        && request.resource.data.keys().hasOnly([
+          'name', 'school', 'track', 'studentNum', 'label', 'total', 'answered', 'startedAt', 'updatedAt'
+        ])
+        && request.resource.data.school == mySchool()
+        && (
+          request.resource.data.track == myTrack() ||
+          (request.resource.data.track == '' && myTrack() == null)
+        );
+      allow delete: if isCbtOwner(uid) || isAdmin() ||
+        (isSchoolAdmin() && resource.data.school == mySchool()) ||
+        (isClassAdmin() && resource.data.school == mySchool() && resource.data.track == myTrack());
+    }
+  }
+}
