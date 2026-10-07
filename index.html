@@ -70,7 +70,7 @@
   input, select, textarea { background-color: #1E3B32; color: #EDECE3; }
   input::placeholder, textarea::placeholder { color: #8FA89C; }
   /* 생활기록부 도우미: 밝은 입력칸·선택칸·흰 버튼은 눈부심을 줄이려 옅은 회색 바탕에 진한 적색 글씨로 맞춘다 */
-  [data-admin-card="recordWriter"] input:not([type="checkbox"]),
+  [data-admin-card="recordWriter"] input:not([type="checkbox"]):not([type="file"]),
   [data-admin-card="recordWriter"] select,
   [data-admin-card="recordWriter"] textarea,
   [data-admin-card="recordWriter"] button.bg-white { background-color: #c4c9d0; color: #991b1b; }
@@ -1479,6 +1479,12 @@ service cloud.firestore {
         <div id="rwPanelSubject">
           <div class="border border-gray-200 rounded-lg p-3 mb-3 bg-gray-50">
             <p class="text-xs font-semibold text-gray-600 mb-2">① 과목 기본 자료 (과목마다 한 번만 등록)</p>
+            <div class="border border-dashed border-gray-400 rounded-lg p-2 mb-2">
+              <p class="text-xs text-gray-600 mb-1">평가계획서(PDF)를 올리면 성취기준·성취수준을 읽어 아래 칸에 채웁니다. 파일은 이 브라우저 안에서만 읽고 서버로 보내지 않습니다. 읽은 내용은 확인·수정한 뒤 '기본 자료 저장'을 눌러야 저장됩니다.</p>
+              <input type="file" id="rwPlanFile" accept="application/pdf" onchange="rwReadPlan(this.files[0])" class="text-xs">
+              <p id="rwPlanMsg" class="text-xs mt-1"></p>
+              <details class="mt-1"><summary class="text-xs cursor-pointer text-gray-600">읽은 원문 보기</summary><pre id="rwPlanRaw" class="text-xs whitespace-pre-wrap max-h-40 overflow-auto mt-1"></pre></details>
+            </div>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
               <div>
                 <label class="text-xs font-semibold text-gray-500">과목명</label>
@@ -7673,6 +7679,77 @@ async function rwDeleteProfile(){
   } catch (e) {
     rwSetMsg('rwProfileMsg', '삭제에 실패했습니다. 잠시 후 다시 시도해 주세요.');
   }
+}
+// 평가계획 PDF 읽기 — pdf.js는 처음 쓸 때만 불러온다. 글은 브라우저 안에서만 처리한다.
+let rwPdfJsPromise = null;
+function rwLoadPdfJs(){
+  if (window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
+  if (!rwPdfJsPromise) rwPdfJsPromise = new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+    s.onload = () => {
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      resolve(window.pdfjsLib);
+    };
+    s.onerror = () => { rwPdfJsPromise = null; reject(new Error('pdf.js load failed')); };
+    document.head.appendChild(s);
+  });
+  return rwPdfJsPromise;
+}
+// 같은 높이의 글자끼리 한 줄로 묶어서 페이지별 글로 만든다
+async function rwPdfText(file){
+  const lib = await rwLoadPdfJs();
+  const pdf = await lib.getDocument({ data: await file.arrayBuffer() }).promise;
+  const pages = [];
+  for (let p = 1; p <= pdf.numPages; p++) {
+    const tc = await (await pdf.getPage(p)).getTextContent();
+    const items = tc.items.filter(it => it.str).map(it => ({ s: it.str, x: it.transform[4], y: it.transform[5], w: it.width || 0, fs: Math.abs(it.transform[3]) || 10 }));
+    items.sort((a, b) => (b.y - a.y) || (a.x - b.x));
+    const lines = [];
+    items.forEach(it => {
+      const last = lines[lines.length - 1];
+      if (last && Math.abs(last.y - it.y) < 3) last.parts.push(it); else lines.push({ y: it.y, parts: [it] });
+    });
+    // 글자 조각 사이 간격이 글자 크기의 일부(0.15em)보다 넓을 때만 띄어쓰기를 넣는다. 자간이 넓은 글도 낱말이 깨지지 않게 한다.
+    pages.push(lines.map(l => {
+      let s = '', end = null;
+      l.parts.sort((a, b) => a.x - b.x).forEach(q => {
+        if (end !== null && q.x - end > q.fs * 0.15 && !/\s$/.test(s) && !/^\s/.test(q.s)) s += ' ';
+        s += q.s;
+        end = q.x + q.w;
+      });
+      return s.replace(/\s+/g, ' ').trim();
+    }).join('\n'));
+  }
+  return pages.join('\n');
+}
+// 읽은 내용은 비어 있는 칸만 덮지 않고, 찾은 항목만 채운다. 저장은 하지 않는다.
+function rwApplyPlan(plan){
+  if (plan.subject) document.getElementById('rwSubject').value = plan.subject;
+  if (plan.kind === 'practical') document.getElementById('rwKind').value = 'practical';
+  if (plan.standardsText) document.getElementById('rwStandards').value = plan.standardsText;
+  RW_LEVELS.forEach(k => { if (plan.levels[k]) document.getElementById('rwLv' + k).value = plan.levels[k]; });
+  if (plan.keywords.length) document.getElementById('rwProfKeywords').value = plan.keywords.join(', ');
+  if (plan.units.length) document.getElementById('rwUnits').value = plan.units.join(', ');
+}
+async function rwReadPlan(file){
+  if (!file || !window.RecordWriter) return;
+  rwSetMsg('rwPlanMsg', '평가계획을 읽는 중입니다...');
+  let text = '';
+  try { text = await rwPdfText(file); }
+  catch (e) { rwSetMsg('rwPlanMsg', 'PDF를 읽지 못했습니다. 파일을 확인하거나 인터넷 연결을 확인해 주세요.'); return; }
+  document.getElementById('rwPlanRaw').textContent = text;
+  if (!text.trim()) { rwSetMsg('rwPlanMsg', '글자를 읽지 못했습니다. 스캔한 파일일 수 있습니다. 칸을 직접 입력해 주세요.'); return; }
+  const plan = RecordWriter.parsePlanText(text);
+  rwApplyPlan(plan);
+  const lv = Object.keys(plan.levels).length;
+  // 읽은 글은 표 구조 때문에 낱말이 붙거나 문장 앞이 잘릴 수 있으니 확인을 요청한다
+  const notes = [];
+  if (lv < 5) notes.push('성취수준 A~E를 다 찾지 못했습니다(상/중/하 표기일 수 있음). 빠진 칸은 직접 채워 주세요.');
+  if (plan.levelNote) notes.push(plan.levelNote);
+  notes.push('표 구조 때문에 낱말 사이가 붙거나 문장 앞이 잘린 곳이 있을 수 있으니 원문과 대조해 확인하세요.');
+  rwSetMsg('rwPlanMsg', '성취기준 ' + plan.standards.length + '개, 성취수준 ' + lv + '개를 읽었습니다. 아래 칸을 확인·수정한 뒤 \'기본 자료 저장\'을 누르세요. (아직 저장되지 않았습니다) ' + notes.join(' '));
+  rwRecheck();
 }
 function rwSuggest(){
   const ks = RecordWriter.suggestKeywords(document.getElementById('rwStandards').value, 5);

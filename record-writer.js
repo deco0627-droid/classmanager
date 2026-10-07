@@ -542,6 +542,116 @@
     return out;
   }
 
+  // 평가계획(PDF에서 읽은 글)에서 과목 기본 자료를 뽑는다. 결과는 교사가 확인한 뒤에만 저장된다.
+  //  과목명: "(철도신호제어시공)교과 …" 제목, 또는 "과목명: 정보"
+  //  능력단위: "능력단위: 가, 나" 줄, 없으면 "이름 (1901100210_14v1)" 같은 능력단위 코드 줄
+  //  성취기준: "[12정보01-01]" 코드 줄, 없으면 수행평가 세부 계획의 "성취기준" 칸(있다.로 끝나는 문장만)
+  //  성취수준: "학기 단위 성취수준" 표의 A~E(글자 줄은 빼고 문장 단위로 나눠 A~E 순서로 넣는다), 없으면 "A: 내용" 형식
+  function parsePlanText(text) {
+    const t = String(text || '').replace(/\r/g, '');
+    const out = { subject: '', kind: 'general', standards: [], standardsText: '', levels: {}, levelNote: '', keywords: [], units: [] };
+    const tm = t.match(/\(([가-힣·]{2,20})\)\s*교과/) || t.match(/과목명?\s*[:：]\s*([가-힣A-Za-z·]{2,20})/);
+    if (tm) out.subject = tm[1];
+    if (/능력단위/.test(t)) out.kind = 'practical';
+    let m;
+
+    // PDF 줄바꿈: 한글 사이에서 끊긴 줄은 공백 없이 잇고, 나머지는 공백으로 잇는다
+    const joinLines = arr => {
+      let s = '';
+      arr.forEach(l => {
+        if (!l) return;
+        if (!s) s = l;
+        else if (/[가-힣]$/.test(s) && /^[가-힣]/.test(l)) s += l;
+        else s += ' ' + l;
+      });
+      return s.replace(/\s+/g, ' ').trim();
+    };
+
+    // 성취기준 — 코드가 있는 형식
+    const seen = new Set();
+    const sre = /\[?(\d{1,2}[가-힣A-Za-z]{1,8}\d{2}-\d{2})\]?\s*([^\n[]{4,200})/g;
+    while ((m = sre.exec(t))) {
+      if (seen.has(m[1])) continue;
+      seen.add(m[1]);
+      out.standards.push({ code: m[1], text: m[2].replace(/\s+/g, ' ').trim() });
+    }
+    // 성취기준 — 수행평가 세부 계획의 "성취기준" 칸(코드 없는 형식). 평가요소 항목(□, ✔)은 칸에 섞여 있어 그 앞에서 자른다.
+    const stdSeen = new Set(out.standards.map(s => s.text));
+    const bre = /(?:^|\n)[ \t]*성취기준(?![ \t]*및)[ \t]*\n?([\s\S]*?)(?=\s*(?:평가요소|평가 요소|평가방법|평가시기|□|✔|(?<![가-힣A-Za-z])o\s))/g;
+    while ((m = bre.exec(t))) {
+      const body = m[1];
+      if (body.length > 800 || /수업방법/.test(body)) continue;
+      // ▣가 있으면 첫 ▣ 앞의 글은 같은 칸의 다른 열 조각이라 버린다
+      const pieces = body.indexOf('▣') >= 0 ? body.split('▣').slice(1) : [body];
+      pieces.forEach(piece => {
+        const s = joinLines(piece.split('\n').map(x => x.trim()));
+        if (s.length >= 10 && /있다\.?$/.test(s) && !stdSeen.has(s)) {
+          stdSeen.add(s);
+          out.standards.push({ code: '', text: s });
+        }
+      });
+    }
+    out.standardsText = out.standards.map(s => (s.code ? '[' + s.code + '] ' : '- ') + s.text).join('\n');
+    if (out.standards.length) out.keywords = suggestKeywords(out.standards.map(s => s.text).join(' '), 6);
+
+    // 능력단위 — 코드(1901100210_14v1)가 붙은 줄의 이름. 같은 코드는 한 번만 쓴다. 세부 단위(.1 등)는 제외.
+    const lines = t.split('\n').map(s => s.trim());
+    const codeOnly = /^\(?\s*(?:LM)?(\d{10}_\d+v\d+)\s*\)?$/;
+    const nameAndCode = /^(.+?)\s*\(\s*(?:LM)?(\d{10}_\d+v\d+)\s*\)$/;
+    const labelRe = /^(내용영역|능력단위|내용영역요소|평가|교육과정|시기|학년|학기|영역$)/;
+    const codes = new Set();
+    const found = [];
+    lines.forEach((ln, i) => {
+      let name = '', code = '';
+      const a = ln.match(nameAndCode);
+      if (a) { name = a[1]; code = a[2]; }
+      else {
+        const c = ln.match(codeOnly);
+        if (c && i > 0) { name = lines[i - 1]; code = c[1]; }
+      }
+      if (!code || codes.has(code)) return;
+      name = name.replace(/^\(?능력단위\)?\s*/, '').replace(/^\d{1,2}\s+\d-\d\s*/, '').trim();
+      if (name.length < 3 || !/[가-힣]/.test(name) || name.length > 30 || labelRe.test(name)) return;
+      codes.add(code);
+      found.push(name);
+    });
+    const um = t.match(/능력단위\s*[:：]\s*([^\n]{2,80})/);
+    out.units = um ? um[1].split(/[,，]/).map(s => s.trim()).filter(Boolean) : found;
+
+    // 성취수준 — "학기 단위 성취수준" 표. 글자 줄(A~E)은 칸 가운데에 있어 위치로 나눌 수 없으므로,
+    // 글자를 빼고 이어 붙인 뒤 문장 단위로 나눠 다섯 문장이면 A~E 순서로 넣는다.
+    const lvAt = t.indexOf('학기 단위 성취수준');
+    if (lvAt >= 0) {
+      const body = [];
+      let stop = false;
+      t.slice(lvAt).split('\n').slice(1).forEach(raw => {
+        if (stop) return;
+        const line = raw.trim();
+        if (!line) return;
+        if (/^\(고\)\s*최소/.test(line) || /^\d{1,2}\.\s/.test(line)) { stop = true; return; }
+        if (/성취수준/.test(line) && line.length < 20) return;
+        body.push(line.replace(/^[A-E](\s+|$)/, ''));
+      });
+      // 마침표로 끝난 문장만 쓴다. 표 끝의 조각(마침표 없음)은 다음 행의 일부라 버린다.
+      const sentences = joinLines(body).split(/(?<=\.)\s+/).filter(s => /\.$/.test(s));
+      if (sentences.length === 5) {
+        ['A', 'B', 'C', 'D', 'E'].forEach((k, i) => { out.levels[k] = sentences[i]; });
+      } else if (sentences.length) {
+        out.levelNote = '학기 단위 성취수준 문장을 ' + sentences.length + '개로 나누었습니다(A~E는 5개여야 함). 칸을 직접 확인해 주세요.';
+      }
+    }
+    // 성취수준 — "A: 내용" 형식(위 표가 없을 때)
+    if (!Object.keys(out.levels).length) {
+      const at = t.indexOf('성취수준');
+      const scope = at >= 0 ? t.slice(at) : t;
+      const lre = /(?:^|[\s|·])([A-E])\s*(?:\([^)\n]{0,20}\))?\s*[:：]\s*([가-힣][^\n]*?)(?=\s+[A-E]\s*(?:\([^)\n]{0,20}\))?\s*[:：]|\n|$)/g;
+      while ((m = lre.exec(scope))) {
+        if (!out.levels[m[1]]) out.levels[m[1]] = m[2].replace(/\s+/g, ' ').trim();
+      }
+    }
+    return out;
+  }
+
   // 프로필 저장 전 검사: 과목명과 최소 한 개의 자료가 있어야 한다.
   function validateProfile(p) {
     const errs = [];
@@ -598,6 +708,7 @@
     composeHomeroom,
     composeBatch,
     suggestKeywords,
+    parsePlanText,
     validateProfile,
     similarity,
     findSimilar,
