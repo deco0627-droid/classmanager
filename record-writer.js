@@ -542,11 +542,110 @@
     return out;
   }
 
+  // 상/중/하 3단계 설명을 A~E에 옮긴다: 상=A·B, 중=C·D, 하=E (교사가 정한 기준). 없는 단계는 건너뛴다.
+  function mapBandLevels(band) {
+    const out = {};
+    const put = (keys, text) => { if (text) keys.forEach(k => { out[k] = text; }); };
+    put(['A', 'B'], band['상']);
+    put(['C', 'D'], band['중']);
+    put(['E'], band['하']);
+    return out;
+  }
+
+  // 줄 끝이 이 조사·어미면 낱말이 끝난 것으로 본다
+  const WORD_END = /(을|를|은|는|에|의|로|으로|과|와|고|며|에서|하고|이고|에게|도|만|할|될|함|음)$/;
+
+  // PDF 줄바꿈: 한글 사이에서 끊긴 줄은 공백 없이 잇고, 나머지는 공백으로 잇는다
+  function joinLines(arr) {
+    let s = '';
+    arr.forEach(l => {
+      if (!l) return;
+      if (!s) s = l;
+      // 한글끼리 끊긴 줄은 낱말 중간일 때가 많아 붙여 잇되, 조사·어미로 끝난 줄은 낱말이 끝난 것으로 보고 띄운다
+      else if (/[가-힣]$/.test(s) && /^[가-힣]/.test(l) && !WORD_END.test(s)) s += l;
+      else s += ' ' + l;
+    });
+    return s.replace(/\s+/g, ' ').trim();
+  }
+
+  // 글자 조각(위치 포함)을 한 칸의 글로 만든다. 줄은 같은 높이끼리 묶고, 조각 사이 간격이 넓을 때만 띄어쓴다.
+  function cellText(items) {
+    const sorted = items.slice().sort((a, b) => (b.y - a.y) || (a.x - b.x));
+    const lines = [];
+    sorted.forEach(it => {
+      const last = lines[lines.length - 1];
+      if (last && Math.abs(last.y - it.y) < 2) last.parts.push(it); else lines.push({ y: it.y, parts: [it] });
+    });
+    return joinLines(lines.map(l => {
+      let s = '', end = null;
+      l.parts.sort((a, b) => a.x - b.x).forEach(q => {
+        if (end !== null && q.x - end > (q.fs || 10) * 0.15 && !/\s$/.test(s)) s += ' ';
+        s += q.s;
+        end = q.x + (q.w || 0);
+      });
+      return s;
+    }));
+  }
+
+  // 상/중/하가 머리글인 표(3학년형)를 내용요소(행)별로 읽는다.
+  // pages: 쪽마다 글자 조각 배열 [{s, x, y, w, fs}]. 칸은 머리글 위치로, 행은 줄 간격이 20 이상 벌어지는 곳으로 나눈다.
+  // 반환: [{ label, 상, 중, 하 }] — label은 같은 행의 성취기준 칸 앞부분
+  function parseBandRows(pages) {
+    const rows = [];
+    // 쪽을 넘어간 행: 앞 쪽의 마지막 행이 세 칸 모두 문장이 덜 끝났고 다음 쪽 첫 행이면 이어 붙인다
+    const incomplete = row => ['상', '중', '하'].filter(k => row[k] && !/\.$/.test(row[k].trim())).length >= 2;
+    let prev = null;
+    (pages || []).forEach(items => {
+      let hdr = null;
+      items.filter(i => i.s === '상').forEach(sang => {
+        if (hdr) return;
+        const jung = items.find(i => i.s === '중' && Math.abs(i.y - sang.y) < 2 && i.x > sang.x);
+        const ha = jung && items.find(i => i.s === '하' && Math.abs(i.y - sang.y) < 2 && i.x > jung.x);
+        if (ha) hdr = { y: sang.y, x: sang.x, cw: jung.x - sang.x };
+      });
+      if (!hdr) return;
+      // 머리글 글자는 칸 가운데보다 왼쪽에 있어서, 칸 왼쪽 끝은 글자 위치에서 칸 너비의 0.373배만큼 뺀다
+      const left = hdr.x - hdr.cw * 0.373;
+      const band = items.filter(i => i.y < hdr.y - 5 && i.x >= left && i.x < left + hdr.cw * 3);
+      const ys = [...new Set(band.map(i => Math.round(i.y)))].sort((a, b) => b - a);
+      const groups = [];
+      ys.forEach(y => {
+        const g = groups[groups.length - 1];
+        if (g && g[g.length - 1] - y < 2) g.push(y); else groups.push([y]);
+      });
+      const ranges = [];
+      let cur = [];
+      groups.forEach((g, gi) => {
+        cur.push(...g);
+        const next = groups[gi + 1];
+        if (!next || g[g.length - 1] - next[0] > 20) { ranges.push(cur); cur = []; }
+      });
+      let first = true;
+      ranges.forEach(r => {
+        const top = Math.max(...r) + 2, bottom = Math.min(...r) - 2;
+        const inRow = items.filter(i => i.y <= top && i.y >= bottom);
+        const col = c => cellText(inRow.filter(i => i.x >= left + c * hdr.cw && i.x < left + (c + 1) * hdr.cw && i.y < hdr.y - 5 && i.y >= bottom));
+        const label = cellText(inRow.filter(i => i.x >= left - 100 && i.x < left - 2)).slice(0, 18);
+        const row = { label: label, '상': col(0), '중': col(1), '하': col(2) };
+        if (!row['상'] && !row['중'] && !row['하']) return;
+        if (first && prev && incomplete(prev)) {
+          ['상', '중', '하'].forEach(k => { prev[k] = joinLines([prev[k], row[k]]); });
+        } else {
+          rows.push(row);
+        }
+        first = false;
+      });
+      prev = rows.length ? rows[rows.length - 1] : null;
+    });
+    return rows;
+  }
+
   // 평가계획(PDF에서 읽은 글)에서 과목 기본 자료를 뽑는다. 결과는 교사가 확인한 뒤에만 저장된다.
   //  과목명: "(철도신호제어시공)교과 …" 제목, 또는 "과목명: 정보"
   //  능력단위: "능력단위: 가, 나" 줄, 없으면 "이름 (1901100210_14v1)" 같은 능력단위 코드 줄
   //  성취기준: "[12정보01-01]" 코드 줄, 없으면 수행평가 세부 계획의 "성취기준" 칸(있다.로 끝나는 문장만)
-  //  성취수준: "학기 단위 성취수준" 표의 A~E(글자 줄은 빼고 문장 단위로 나눠 A~E 순서로 넣는다), 없으면 "A: 내용" 형식
+  //  핵심 키워드: 수행평가 "평가 영역" 제목(실무 능력 항목), 없으면 성취기준 문장에서 추린 단어
+  //  성취수준: "학기 단위 성취수준" 표의 A~E(글자 줄은 빼고 문장 단위로 나눠 A~E 순서로 넣는다), 없으면 "A: 내용" 또는 "상: 내용" 형식
   function parsePlanText(text) {
     const t = String(text || '').replace(/\r/g, '');
     const out = { subject: '', kind: 'general', standards: [], standardsText: '', levels: {}, levelNote: '', keywords: [], units: [] };
@@ -554,18 +653,6 @@
     if (tm) out.subject = tm[1];
     if (/능력단위/.test(t)) out.kind = 'practical';
     let m;
-
-    // PDF 줄바꿈: 한글 사이에서 끊긴 줄은 공백 없이 잇고, 나머지는 공백으로 잇는다
-    const joinLines = arr => {
-      let s = '';
-      arr.forEach(l => {
-        if (!l) return;
-        if (!s) s = l;
-        else if (/[가-힣]$/.test(s) && /^[가-힣]/.test(l)) s += l;
-        else s += ' ' + l;
-      });
-      return s.replace(/\s+/g, ' ').trim();
-    };
 
     // 성취기준 — 코드가 있는 형식
     const seen = new Set();
@@ -592,7 +679,17 @@
       });
     }
     out.standardsText = out.standards.map(s => (s.code ? '[' + s.code + '] ' : '- ') + s.text).join('\n');
-    if (out.standards.length) out.keywords = suggestKeywords(out.standards.map(s => s.text).join(' '), 6);
+
+    // 핵심 키워드 — 수행평가 "평가 영역" 제목(실무 능력 항목). 뒤의 차시 번호는 뗀다.
+    const areas = [];
+    t.split('\n').forEach(ln => {
+      const am = ln.trim().match(/^평가 영역\s+(.+)$/);
+      if (!am) return;
+      const a = am[1].replace(/\s*\d+$/, '').trim();
+      if (a.length >= 3 && !areas.includes(a)) areas.push(a);
+    });
+    if (areas.length) out.keywords = areas.slice(0, 8);
+    else if (out.standards.length) out.keywords = suggestKeywords(out.standards.map(s => s.text).join(' '), 6);
 
     // 능력단위 — 코드(1901100210_14v1)가 붙은 줄의 이름. 같은 코드는 한 번만 쓴다. 세부 단위(.1 등)는 제외.
     const lines = t.split('\n').map(s => s.trim());
@@ -648,6 +745,15 @@
       while ((m = lre.exec(scope))) {
         if (!out.levels[m[1]]) out.levels[m[1]] = m[2].replace(/\s+/g, ' ').trim();
       }
+    }
+    // 성취수준 — 상/중/하 3단계("상: 내용") 형식(위에서 A~E를 못 찾았을 때). 상=A·B, 중=C·D, 하=E로 옮긴다.
+    if (!Object.keys(out.levels).length) {
+      const band = {};
+      ['상', '중', '하'].forEach(k => {
+        const bm = t.match(new RegExp('(?:^|\\n)\\s*' + k + '\\s*[:：]\\s*([^\\n]{4,200})'));
+        if (bm) band[k] = bm[1].trim();
+      });
+      Object.assign(out.levels, mapBandLevels(band));
     }
     return out;
   }
@@ -709,6 +815,8 @@
     composeBatch,
     suggestKeywords,
     parsePlanText,
+    mapBandLevels,
+    parseBandRows,
     validateProfile,
     similarity,
     findSimilar,

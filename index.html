@@ -1485,6 +1485,17 @@ service cloud.firestore {
               <p id="rwPlanMsg" class="text-xs mt-1"></p>
               <details class="mt-1"><summary class="text-xs cursor-pointer text-gray-600">읽은 원문 보기</summary><pre id="rwPlanRaw" class="text-xs whitespace-pre-wrap max-h-40 overflow-auto mt-1"></pre></details>
             </div>
+            <div class="border border-gray-400 rounded-lg p-2 mb-2">
+              <p class="text-xs text-gray-600 mb-1">상/중/하 3단계로 적힌 평가계획은 PDF를 읽을 때 내용요소별로 자동으로 넣습니다. 상=A·B, 중=C·D, 하=E 칸에 채워지며, 내용요소는 아래 목록에서 바꿀 수 있습니다. 직접 입력해도 됩니다.</p>
+              <select id="rwBandRow" onchange="rwBandPick()" class="hidden w-full mb-2 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"></select>
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <div><label class="text-xs font-semibold text-gray-500">상 (A·B)</label><input id="rwBandHigh" class="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"></div>
+                <div><label class="text-xs font-semibold text-gray-500">중 (C·D)</label><input id="rwBandMid" class="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"></div>
+                <div><label class="text-xs font-semibold text-gray-500">하 (E)</label><input id="rwBandLow" class="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"></div>
+              </div>
+              <button type="button" onclick="rwBandFill()" class="px-3 py-1.5 rounded-lg border border-gray-300 text-xs font-semibold bg-white mt-2">A~E 칸에 채우기</button>
+              <p id="rwBandMsg" class="text-xs mt-1"></p>
+            </div>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
               <div>
                 <label class="text-xs font-semibold text-gray-500">과목명</label>
@@ -7697,13 +7708,18 @@ function rwLoadPdfJs(){
   return rwPdfJsPromise;
 }
 // 같은 높이의 글자끼리 한 줄로 묶어서 페이지별 글로 만든다
+// 마지막으로 읽은 PDF의 글자 위치(쪽별). 상/중/하 표를 칸 위치로 나눌 때 쓴다.
+let rwPdfPageItems = [];
+let rwBandRows = [];
 async function rwPdfText(file){
   const lib = await rwLoadPdfJs();
   const pdf = await lib.getDocument({ data: await file.arrayBuffer() }).promise;
   const pages = [];
+  rwPdfPageItems = [];
   for (let p = 1; p <= pdf.numPages; p++) {
     const tc = await (await pdf.getPage(p)).getTextContent();
     const items = tc.items.filter(it => it.str).map(it => ({ s: it.str, x: it.transform[4], y: it.transform[5], w: it.width || 0, fs: Math.abs(it.transform[3]) || 10 }));
+    rwPdfPageItems.push(items.slice());
     items.sort((a, b) => (b.y - a.y) || (a.x - b.x));
     const lines = [];
     items.forEach(it => {
@@ -7742,14 +7758,47 @@ async function rwReadPlan(file){
   if (!text.trim()) { rwSetMsg('rwPlanMsg', '글자를 읽지 못했습니다. 스캔한 파일일 수 있습니다. 칸을 직접 입력해 주세요.'); return; }
   const plan = RecordWriter.parsePlanText(text);
   rwApplyPlan(plan);
-  const lv = Object.keys(plan.levels).length;
-  // 읽은 글은 표 구조 때문에 낱말이 붙거나 문장 앞이 잘릴 수 있으니 확인을 요청한다
+  // 상/중/하 표(3학년형): A~E 문장이 없으면 글 위치로 내용요소별 상·중·하를 읽고 첫 번째를 A~E에 넣는다
   const notes = [];
+  if (!Object.keys(plan.levels).length) {
+    rwBandRows = RecordWriter.parseBandRows(rwPdfPageItems);
+    if (rwBandRows.length) {
+      const sel = document.getElementById('rwBandRow');
+      sel.innerHTML = rwBandRows.map((r, i) => '<option value="' + i + '">' + (i + 1) + '. ' + escapeHtml(r.label || '(이름 없음)') + '</option>').join('');
+      sel.classList.remove('hidden');
+      rwBandPick();
+      notes.push('상/중/하 표에서 내용요소 ' + rwBandRows.length + '개를 읽어 첫 번째를 A~E에 넣었습니다. 다른 내용요소는 아래 목록에서 고르세요.');
+    }
+  }
+  if (Object.keys(plan.levels).length) { rwBandRows = []; const bs = document.getElementById('rwBandRow'); bs.innerHTML = ''; bs.classList.add('hidden'); }
+  const lv = RW_LEVELS.filter(k => document.getElementById('rwLv' + k).value.trim()).length;
+  // 읽은 글은 표 구조 때문에 낱말이 붙거나 문장 앞이 잘릴 수 있으니 확인을 요청한다
   if (lv < 5) notes.push('성취수준 A~E를 다 찾지 못했습니다(상/중/하 표기일 수 있음). 빠진 칸은 직접 채워 주세요.');
   if (plan.levelNote) notes.push(plan.levelNote);
   notes.push('표 구조 때문에 낱말 사이가 붙거나 문장 앞이 잘린 곳이 있을 수 있으니 원문과 대조해 확인하세요.');
   rwSetMsg('rwPlanMsg', '성취기준 ' + plan.standards.length + '개, 성취수준 ' + lv + '개를 읽었습니다. 아래 칸을 확인·수정한 뒤 \'기본 자료 저장\'을 누르세요. (아직 저장되지 않았습니다) ' + notes.join(' '));
   rwRecheck();
+}
+// 선택한 내용요소의 상·중·하를 입력칸에 넣고 A~E 칸을 다시 채운다(저장은 하지 않음)
+function rwBandPick(){
+  const r = rwBandRows[+document.getElementById('rwBandRow').value];
+  if (!r) return;
+  RW_LEVELS.forEach(k => { document.getElementById('rwLv' + k).value = ''; });
+  document.getElementById('rwBandHigh').value = r['상'] || '';
+  document.getElementById('rwBandMid').value = r['중'] || '';
+  document.getElementById('rwBandLow').value = r['하'] || '';
+  rwBandFill();
+}
+// 상/중/하 설명을 A~E 칸에 옮긴다(저장은 하지 않음). 상=A·B, 중=C·D, 하=E
+function rwBandFill(){
+  const map = RecordWriter.mapBandLevels({
+    '상': document.getElementById('rwBandHigh').value.trim(),
+    '중': document.getElementById('rwBandMid').value.trim(),
+    '하': document.getElementById('rwBandLow').value.trim()
+  });
+  if (!Object.keys(map).length) { rwSetMsg('rwBandMsg', '상/중/하 설명을 하나 이상 입력해 주세요.'); return; }
+  RW_LEVELS.forEach(k => { if (map[k]) document.getElementById('rwLv' + k).value = map[k]; });
+  rwSetMsg('rwBandMsg', 'A~E 칸에 채웠습니다. 확인한 뒤 \'기본 자료 저장\'을 누르세요. (아직 저장되지 않았습니다)');
 }
 function rwSuggest(){
   const ks = RecordWriter.suggestKeywords(document.getElementById('rwStandards').value, 5);
