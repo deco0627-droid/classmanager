@@ -1562,15 +1562,8 @@ service cloud.firestore {
           <div class="border border-gray-200 rounded-lg p-3 mb-3">
             <p class="text-xs font-semibold text-gray-600 mb-2">② 학생별 입력 (한 명)</p>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
-              <div>
-                <label class="text-xs font-semibold text-gray-500 rw-tip" data-tip="이 학생의 성취 등급(A~E)입니다. 과목 기본 자료의 같은 수준 문장이 과세특 첫 부분이 됩니다.">이 학생의 성취수준</label>
-                <select id="rwLevel" class="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white">
-                  <option value="A">A</option>
-                  <option value="B" selected>B</option>
-                  <option value="C">C</option>
-                  <option value="D">D</option>
-                  <option value="E">E</option>
-                </select>
+              <div class="flex items-end">
+                <p class="text-xs text-gray-600">성취수준은 여기서 고르지 않습니다. 아래 <b>학번</b>(문장 변주 키)에 맞는 줄을 <b>학급 일괄 작성 표</b>에서 가져와 과세특을 만듭니다.</p>
               </div>
               <div>
                 <label class="text-xs font-semibold text-gray-500 rw-tip" data-tip="이 학생의 사례에서 강조하고 싶은 단어입니다. 비워도 됩니다.">이 학생에게 더할 키워드 (선택)</label>
@@ -1630,7 +1623,7 @@ service cloud.firestore {
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
             <div>
               <select id="rwRosterPick" onchange="rwRosterPickStudent()" class="w-full mb-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"></select>
-              <label class="text-xs font-semibold text-gray-500 rw-tip" data-tip="같은 입력이라도 학생마다 문장을 다르게 만드는 값입니다. 키가 다르면 다른 문장이 나옵니다. 수업 학생 명단에서 고르면 자동으로 들어가며, 비워도 됩니다.">문장 변주 키 (학생 번호 등, 같은 입력이라도 학생마다 문장을 다르게 만듦)</label>
+              <label class="text-xs font-semibold text-gray-500 rw-tip" data-tip="학번입니다. 일괄 작성 표에서 이 학번의 줄을 찾아 성취수준과 사례를 가져오고, 학번마다 문장도 달라집니다. 수업 학생 명단에서 고르면 자동으로 들어갑니다.">문장 변주 키 (학생 번호 등, 같은 입력이라도 학생마다 문장을 다르게 만듦)</label>
               <input id="rwSeed" class="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white" placeholder="예: 2-5-15">
             </div>
             <div>
@@ -7913,18 +7906,29 @@ async function rwSaveSchoolNames(){
 }
 
 function rwShowWarn(text){ document.getElementById('rwWarnings').innerHTML = '<div class="text-red-600">' + escapeHtml(text) + '</div>'; }
+// 일괄 작성 표에서 학번(id)의 과목 줄(성취수준·사례·태그)을 찾는다. 없으면 null.
+function rwTableRow(id, subject){
+  if (!id || !subject) return null;
+  const st = rwBatchParse([subject], false).students.find(s => s.id === id);
+  return st ? st.subj[subject] : null;
+}
 function rwGenerate(){
   if (!window.RecordWriter) { alert('초안 엔진을 불러오지 못했습니다. 새로고침 후 다시 시도해 주세요.'); return; }
   let r;
   if (rwMode() === 'subject') {
     const subject = document.getElementById('rwSubject').value.trim();
     if (!subject) { rwShowWarn('과목명을 입력해 주세요.'); return; }
+    // 성취수준·사례·태그는 일괄 작성 표에서 학번(문장 변주 키)에 맞는 줄을 가져온다. 칸에 직접 적은 사례·태그가 있으면 그것을 쓴다.
+    const sid = rwSeedValue();
+    const row = rwTableRow(sid, subject);
+    const level = row && ['A', 'B', 'C', 'D', 'E'].includes(row.level) ? row.level : '';
+    if (!level) { rwShowWarn('일괄 작성 표에서 학번 ' + (sid || '(없음)') + '의 ' + subject + ' 성취수준을 찾지 못했습니다. 학번(문장 변주 키)과 표의 성취수준 열을 확인하세요.'); return; }
     r = RecordWriter.composeSubjectNote({
       profile: rwFindProfile(subject) || rwProfileFromForm(),
-      level: document.getElementById('rwLevel').value,
+      level: level,
       keywords: rwCsv('rwKeywords'),
-      evidence: rwLines('rwEvidence'),
-      tags: rwChecked('rwSubjectTag'),
+      evidence: rwLines('rwEvidence').length ? rwLines('rwEvidence') : (row.evidence || []),
+      tags: rwChecked('rwSubjectTag').length ? rwChecked('rwSubjectTag') : (row.tags || []),
       hasGrowth: document.getElementById('rwSubjectGrowth').checked,
       seed: rwSeedValue(),
       schoolNames: rwSchoolNames(),
