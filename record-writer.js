@@ -297,8 +297,8 @@
   ];
 
   const HOMEROOM_RULES = [
-    { code: 'homeroom-career', level: 'error', re: /진로|진학|장래|희망s*직업|취업|직업|대학s*(진학|입학)|학과s*선택/, message: '행동특성 및 종합의견에는 진로 내용을 기재할 수 없음 (진로는 진로활동 항목에 기재)' },
-    { code: 'homeroom-study', level: 'error', re: /학업|성적|성취도|석차|등급|점수|학력|시험|모의고사|공부s*성과/, message: '행동특성 및 종합의견에는 학업·성적 내용을 기재할 수 없음 (교과학습 항목에 기재)' }
+    { code: 'homeroom-career', level: 'error', re: /진로|진학|장래|희망\s*직업|취업|직업|대학\s*(진학|입학)|학과\s*선택/, message: '행동특성 및 종합의견에는 진로 내용을 기재할 수 없음 (진로는 진로활동 항목에 기재)' },
+    { code: 'homeroom-study', level: 'error', re: /학업|성적|성취도|석차|등급|점수|학력|시험|모의고사|공부\s*성과/, message: '행동특성 및 종합의견에는 학업·성적 내용을 기재할 수 없음 (교과학습 항목에 기재)' }
   ];
 
   function splitSentences(text) {
@@ -758,6 +758,31 @@
     return out;
   }
 
+  // 수업 학생 명단 붙여넣기: "학년 반 번호 이름"(탭, |, 쉼표, 공백 구분). 머리글이나 번호가 없는 줄은 건너뛴다.
+  // id는 학번 형식(2-5-15). 번호는 두 자리로 맞춘다.
+  function parseRoster(text) {
+    const out = [];
+    String(text || '').split('\n').forEach(line => {
+      const l = line.trim();
+      if (!l) return;
+      const cols = (l.indexOf('\t') >= 0 ? l.split('\t')
+        : /[|,]/.test(l) ? l.split(/[|,]/)
+        : l.split(/\s+/)).map(s => s.trim()).filter(s => s !== '');
+      const grade = cols[0], cls = cols[1], num = cols[2];
+      if (!/^\d+$/.test(grade || '') || !/^\d+$/.test(cls || '') || !/^\d+$/.test(num || '')) return;
+      out.push({
+        grade: +grade, cls: +cls, num: +num,
+        id: grade + '-' + cls + '-' + String(num).padStart(2, '0'),
+        name: cols.slice(3).join(' ')
+      });
+    });
+    return out;
+  }
+  // 학급 목록(예: ['2-5', '3-6'])
+  function rosterClasses(list) {
+    return [...new Set((list || []).map(s => s.grade + '-' + s.cls))].sort();
+  }
+
   // 프로필 저장 전 검사: 과목명과 최소 한 개의 자료가 있어야 한다.
   function validateProfile(p) {
     const errs = [];
@@ -817,6 +842,8 @@
     parsePlanText,
     mapBandLevels,
     parseBandRows,
+    parseRoster,
+    rosterClasses,
     validateProfile,
     similarity,
     findSimilar,

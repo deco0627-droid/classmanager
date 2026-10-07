@@ -76,6 +76,13 @@
   [data-admin-card="recordWriter"] button.bg-white { background-color: #c4c9d0; color: #991b1b; }
   [data-admin-card="recordWriter"] option { background-color: #d1d5db; color: #991b1b; }
   [data-admin-card="recordWriter"] ::placeholder { color: #4b5563; }
+  /* 생활기록부 도우미: 항목에 마우스를 올리면 크게 보이는 설명문 */
+  [data-admin-card="recordWriter"] .rw-tip { position: relative; cursor: help; text-decoration: underline dotted; }
+  [data-admin-card="recordWriter"] .rw-tip:hover::after, [data-admin-card="recordWriter"] .rw-tip:focus::after {
+    content: attr(data-tip); position: absolute; left: 0; top: 100%; z-index: 60; width: 24rem; max-width: 90vw;
+    margin-top: 0.3rem; padding: 0.75rem 1rem; background: #f3f4f6; color: #1f2937; border: 1px solid #6b7280;
+    border-radius: 0.5rem; box-shadow: 0 8px 24px rgba(0,0,0,0.35); font-size: 15px; line-height: 1.6;
+    font-weight: 400; white-space: normal; text-decoration: none; pointer-events: none; }
   .font-display { font-family: 'ElectricalSafety', serif; }
   .font-mono { font-family: 'JetBrains Mono', monospace; }
   .weather-detail-text { font-size: 0.78rem; }
@@ -1470,6 +1477,16 @@ service cloud.firestore {
         </button>
         <div id="adminCollapseBody_recordWriter" class="hidden mt-3">
         <p class="text-xs text-gray-500 mb-3">과목별 기본 자료를 한 번 등록해 두면, 그 과목의 학생 초안에 자동으로 반영됩니다. 외부 AI로 보내지 않고 이 화면 안에서만 작성합니다. 초안은 반드시 직접 확인·수정한 뒤 NEIS에 입력하세요.</p>
+        <div class="border border-gray-400 rounded-lg p-3 mb-3">
+          <p class="text-xs font-semibold text-gray-500 mb-1 rw-tip" data-tip="엑셀에서 복사한 수업 학생 명단을 이 컴퓨터에 저장합니다. 담임 명단(행동특성)과 별개이며, 저장한 학생은 한 명 탭과 일괄 탭에서 고를 수 있습니다.">수업 학생 명단 (과세특용 · 이 컴퓨터에만 저장)</p>
+          <p class="text-xs text-gray-600 mb-1">담임 명단(행동특성)과 별개입니다. 엑셀에서 <b>학년 · 반 · 번호 · 이름</b>을 복사해 붙여넣으세요. 이름은 화면에서만 보이고 초안 글에는 들어가지 않습니다.</p>
+          <textarea id="rwRosterText" rows="3" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white font-mono" placeholder="2	5	15	김하나"></textarea>
+          <div class="flex flex-wrap items-center gap-2 mt-2">
+            <button type="button" onclick="rwRosterSave()" class="px-3 py-1.5 rounded-lg bg-forest-dark text-white text-xs font-semibold">명단 저장</button>
+            <button type="button" onclick="rwRosterClear()" class="px-3 py-1.5 rounded-lg border border-gray-300 text-xs font-semibold bg-white">명단 지우기</button>
+            <span id="rwRosterMsg" class="text-xs"></span>
+          </div>
+        </div>
         <div class="flex flex-wrap gap-2 mb-3">
           <button id="rwTabSubject" onclick="rwSwitchMode('subject')" class="px-3 py-1.5 rounded-lg text-sm font-semibold bg-forest-dark text-white">과세특 (1명)</button>
           <button id="rwTabHomeroom" onclick="rwSwitchMode('homeroom')" class="px-3 py-1.5 rounded-lg text-sm font-semibold bg-gray-100 text-gray-600">행동특성 및 종합의견 (1명)</button>
@@ -1498,12 +1515,12 @@ service cloud.firestore {
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
               <div>
-                <label class="text-xs font-semibold text-gray-500">과목명</label>
+                <label class="text-xs font-semibold text-gray-500 rw-tip" data-tip="과목의 이름입니다. 한 번 등록해 두면 같은 과목의 과세특 초안과 일괄 작성에서 이 이름으로 불러옵니다.">과목명</label>
                 <input id="rwSubject" list="rwProfileList" onchange="rwLoadProfile()" class="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white" placeholder="과목명을 입력하거나 목록에서 고르세요">
                 <datalist id="rwProfileList"></datalist>
               </div>
               <div>
-                <label class="text-xs font-semibold text-gray-500">과목 유형</label>
+                <label class="text-xs font-semibold text-gray-500 rw-tip" data-tip="일반 교과, 체육·예술 실기, 전문교과 실무(능력단위) 중 고릅니다. 실무를 고르면 능력단위 문장이 과세특에 들어갑니다.">과목 유형</label>
                 <select id="rwKind" class="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white">
                   <option value="general">일반 교과</option>
                   <option value="arts">체육·예술 실기</option>
@@ -1512,26 +1529,26 @@ service cloud.firestore {
               </div>
             </div>
             <div class="mb-2">
-              <label class="text-xs font-semibold text-gray-500">성취기준 원문 (참고용, 키워드 추천의 바탕)</label>
+              <label class="text-xs font-semibold text-gray-500 rw-tip" data-tip="교육과정 성취기준 문장입니다. 참고용이며 핵심 키워드를 추천할 때 씁니다. 평가계획 PDF를 읽으면 자동으로 채워집니다.">성취기준 원문 (참고용, 키워드 추천의 바탕)</label>
               <textarea id="rwStandards" rows="2" class="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white" placeholder="교육과정 성취기준 문장을 붙여넣으세요"></textarea>
             </div>
             <div class="grid grid-cols-1 gap-2 mb-2">
-              <div><label class="text-xs font-semibold text-gray-500">A 성취수준 기술 (교사가 쓴 문장)</label><input id="rwLvA" class="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"></div>
-              <div><label class="text-xs font-semibold text-gray-500">B 성취수준 기술</label><input id="rwLvB" class="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"></div>
-              <div><label class="text-xs font-semibold text-gray-500">C 성취수준 기술</label><input id="rwLvC" class="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"></div>
-              <div><label class="text-xs font-semibold text-gray-500">D 성취수준 기술</label><input id="rwLvD" class="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"></div>
-              <div><label class="text-xs font-semibold text-gray-500">E 성취수준 기술</label><input id="rwLvE" class="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"></div>
+              <div><label class="text-xs font-semibold text-gray-500 rw-tip" data-tip="A 수준을 설명하는 문장입니다(교사가 쓴 문장). 학생의 성취 등급이 A이면 이 문장이 과세특 첫 부분에 들어갑니다.">A 성취수준 기술 (교사가 쓴 문장)</label><input id="rwLvA" class="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"></div>
+              <div><label class="text-xs font-semibold text-gray-500 rw-tip" data-tip="B 수준을 설명하는 문장입니다(교사가 쓴 문장). 학생의 성취 등급이 B이면 이 문장이 과세특 첫 부분에 들어갑니다.">B 성취수준 기술</label><input id="rwLvB" class="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"></div>
+              <div><label class="text-xs font-semibold text-gray-500 rw-tip" data-tip="C 수준을 설명하는 문장입니다(교사가 쓴 문장). 학생의 성취 등급이 C이면 이 문장이 과세특 첫 부분에 들어갑니다.">C 성취수준 기술</label><input id="rwLvC" class="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"></div>
+              <div><label class="text-xs font-semibold text-gray-500 rw-tip" data-tip="D 수준을 설명하는 문장입니다(교사가 쓴 문장). 학생의 성취 등급이 D이면 이 문장이 과세특 첫 부분에 들어갑니다.">D 성취수준 기술</label><input id="rwLvD" class="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"></div>
+              <div><label class="text-xs font-semibold text-gray-500 rw-tip" data-tip="E 수준을 설명하는 문장입니다(교사가 쓴 문장). 학생의 성취 등급이 E이면 이 문장이 과세특 첫 부분에 들어갑니다.">E 성취수준 기술</label><input id="rwLvE" class="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"></div>
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
               <div>
-                <label class="text-xs font-semibold text-gray-500">과목 핵심 키워드 (쉼표 구분)</label>
+                <label class="text-xs font-semibold text-gray-500 rw-tip" data-tip="과세특 문장에 넣을 핵심 단어입니다(쉼표로 구분). 평가계획의 수행평가 영역 제목으로 자동 채워지며, 추천 버튼으로 성취기준에서 뽑을 수도 있습니다.">과목 핵심 키워드 (쉼표 구분)</label>
                 <div class="flex gap-2 mt-1">
                   <input id="rwProfKeywords" class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white" placeholder="예: 배선 작업, 결선">
                   <button type="button" onclick="rwSuggest()" class="px-3 rounded-lg border border-gray-300 text-xs font-semibold bg-white">추천</button>
                 </div>
               </div>
               <div>
-                <label class="text-xs font-semibold text-gray-500">실무 능력단위 (쉼표 구분, 전문교과 실무일 때)</label>
+                <label class="text-xs font-semibold text-gray-500 rw-tip" data-tip="전문교과 실무일 때 능력단위 이름입니다(쉼표로 구분). 평가계획의 능력단위로 자동 채워집니다.">실무 능력단위 (쉼표 구분, 전문교과 실무일 때)</label>
                 <input id="rwUnits" class="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white" placeholder="예: 변전설비 운영">
               </div>
             </div>
@@ -1546,7 +1563,7 @@ service cloud.firestore {
             <p class="text-xs font-semibold text-gray-600 mb-2">② 학생별 입력 (한 명)</p>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
               <div>
-                <label class="text-xs font-semibold text-gray-500">이 학생의 성취수준</label>
+                <label class="text-xs font-semibold text-gray-500 rw-tip" data-tip="이 학생의 성취 등급(A~E)입니다. 과목 기본 자료의 같은 수준 문장이 과세특 첫 부분이 됩니다.">이 학생의 성취수준</label>
                 <select id="rwLevel" class="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white">
                   <option value="A">A</option>
                   <option value="B" selected>B</option>
@@ -1556,12 +1573,12 @@ service cloud.firestore {
                 </select>
               </div>
               <div>
-                <label class="text-xs font-semibold text-gray-500">이 학생에게 더할 키워드 (선택)</label>
+                <label class="text-xs font-semibold text-gray-500 rw-tip" data-tip="이 학생의 사례에서 강조하고 싶은 단어입니다. 비워도 됩니다.">이 학생에게 더할 키워드 (선택)</label>
                 <input id="rwKeywords" class="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white" placeholder="예: 측정">
               </div>
             </div>
             <div class="mb-2">
-              <label class="text-xs font-semibold text-gray-500">학생 관찰 사례 (한 줄에 한 개, 근거 자료 기반)</label>
+              <label class="text-xs font-semibold text-gray-500 rw-tip" data-tip="교사가 직접 관찰한 행동을 한 줄에 하나씩 적습니다. 근거가 되는 자료를 바탕으로 씁니다.">학생 관찰 사례 (한 줄에 한 개, 근거 자료 기반)</label>
               <textarea id="rwEvidence" rows="3" class="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white" placeholder="예: 회로 결선 오류를 스스로 찾아 수정했다."></textarea>
             </div>
             <div class="mb-2">
@@ -1612,11 +1629,12 @@ service cloud.firestore {
         <div id="rwPanelSingle">
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
             <div>
-              <label class="text-xs font-semibold text-gray-500">문장 변주 키 (학생 번호 등, 같은 입력이라도 학생마다 문장을 다르게 만듦)</label>
+              <select id="rwRosterPick" onchange="rwRosterPickStudent()" class="w-full mb-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"></select>
+              <label class="text-xs font-semibold text-gray-500 rw-tip" data-tip="같은 입력이라도 학생마다 문장을 다르게 만드는 값입니다. 키가 다르면 다른 문장이 나옵니다. 수업 학생 명단에서 고르면 자동으로 들어가며, 비워도 됩니다.">문장 변주 키 (학생 번호 등, 같은 입력이라도 학생마다 문장을 다르게 만듦)</label>
               <input id="rwSeed" class="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white" placeholder="예: 2-5-15">
             </div>
             <div>
-              <label class="text-xs font-semibold text-gray-500">학교명·별칭 금지어 (쉼표 구분, 학급 설정으로 저장)</label>
+              <label class="text-xs font-semibold text-gray-500 rw-tip" data-tip="이 목록의 학교 이름이 초안에 들어가면 기재 불가로 막습니다. 쉼표로 구분해 적고 저장을 누르세요. 줄임말도 함께 적어야 걸립니다.">학교명·별칭 금지어 (쉼표 구분, 학급 설정으로 저장)</label>
               <div class="flex gap-2 mt-1">
                 <input id="rwSchoolNamesInput" class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white" placeholder="예: ○○고등학교, ○○고">
                 <button type="button" onclick="rwSaveSchoolNames()" class="px-3 rounded-lg border border-gray-300 text-xs font-semibold bg-white">저장</button>
@@ -1655,7 +1673,11 @@ service cloud.firestore {
           <div class="border border-gray-200 rounded-lg p-3 mb-3">
             <p class="text-xs font-semibold text-gray-500 mb-1">② 학생 입력 (한 줄에 한 학생, 엑셀에서 복사해 붙여넣을 수 있어요)</p>
             <p class="text-xs text-gray-500 mb-1">열 순서: <b>학번 | 행동특성 태그 | 행동특성 사례 | 과목마다(성취수준 | 사례 | 태그)</b>. 사례가 여러 개면 ;으로 구분합니다. 첫 줄이 머리글(학번 …)이면 머리글 이름으로 열을 찾습니다.</p>
-            <button type="button" onclick="rwBatchTemplate()" class="px-3 py-1.5 rounded-lg border border-gray-300 text-xs font-semibold bg-white mb-2">머리글(입력 양식) 넣기</button>
+            <div class="flex flex-wrap items-center gap-2 mb-2">
+              <button type="button" onclick="rwBatchTemplate()" class="px-3 py-1.5 rounded-lg border border-gray-300 text-xs font-semibold bg-white">머리글(입력 양식) 넣기</button>
+              <select id="rwBatchClass" class="border border-gray-300 rounded-lg px-2 py-1.5 text-xs bg-white"></select>
+              <button type="button" onclick="rwBatchRosterFill()" class="px-3 py-1.5 rounded-lg border border-gray-300 text-xs font-semibold bg-white">명단 학번 넣기</button>
+            </div>
             <textarea id="rwBatchRows" rows="8" oninput="rwBatchSaveDraft()" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white font-mono" placeholder="2-5-01 | 성실 | 청소 당번을 빠짐없이 맡음. | A | 개항기 자료를 비교하여 발표 자료를 만들었다. | 발표"></textarea>
             <button type="button" onclick="rwBatchGenerate()" class="px-4 py-2 rounded-lg bg-forest-dark text-white text-sm font-semibold mt-2">일괄 초안 만들기</button>
           </div>
@@ -7636,6 +7658,8 @@ function rwRenderAdminFields(){
   if (sn && document.activeElement !== sn) sn.value = rwSchoolNames().join(', ');
   if (!rwBatchDraftLoaded) { rwBatchDraftLoaded = true; rwBatchLoadDraft(); }
   rwRenderBatchSubjects();
+  if (!rwRosterLoaded) { rwRosterLoaded = true; rwRosterLoad(); }
+  rwRosterRender();
 }
 
 function rwFillProfileForm(p){
@@ -7799,6 +7823,47 @@ function rwBandFill(){
   if (!Object.keys(map).length) { rwSetMsg('rwBandMsg', '상/중/하 설명을 하나 이상 입력해 주세요.'); return; }
   RW_LEVELS.forEach(k => { if (map[k]) document.getElementById('rwLv' + k).value = map[k]; });
   rwSetMsg('rwBandMsg', 'A~E 칸에 채웠습니다. 확인한 뒤 \'기본 자료 저장\'을 누르세요. (아직 저장되지 않았습니다)');
+}
+// 수업 학생 명단(과세특용). 이 컴퓨터(localStorage)에만 저장하며 서버로 보내지 않는다.
+let rwRoster = [];
+let rwRosterLoaded = false;
+function rwRosterStore(){ try { localStorage.setItem('rwRoster', JSON.stringify(rwRoster)); } catch (e) { /* 저장이 막혀 있으면 이번 화면에서만 유지 */ } }
+function rwRosterLoad(){ try { rwRoster = JSON.parse(localStorage.getItem('rwRoster') || '[]') || []; } catch (e) { rwRoster = []; } }
+function rwRosterLabel(cls){ return cls.replace('-', '학년 ') + '반'; }
+function rwRosterRender(){
+  const classes = RecordWriter.rosterClasses(rwRoster);
+  rwSetMsg('rwRosterMsg', rwRoster.length ? rwRoster.length + '명 · 학급: ' + classes.map(rwRosterLabel).join(', ') : '등록된 수업 명단이 없습니다.');
+  const pick = document.getElementById('rwRosterPick');
+  if (pick) pick.innerHTML = '<option value="">수업 명단에서 학생 고르기</option>' + rwRoster.map(s => '<option value="' + escapeHtml(s.id) + '">' + escapeHtml(s.id + ' ' + s.name) + '</option>').join('');
+  const bc = document.getElementById('rwBatchClass');
+  if (bc) bc.innerHTML = classes.map(c => '<option value="' + escapeHtml(c) + '">' + escapeHtml(rwRosterLabel(c)) + '</option>').join('');
+}
+function rwRosterSave(){
+  const list = RecordWriter.parseRoster(document.getElementById('rwRosterText').value);
+  if (!list.length) { rwSetMsg('rwRosterMsg', '학년·반·번호가 있는 줄을 찾지 못했습니다. 엑셀에서 학년, 반, 번호, 이름 순서로 복사해 주세요.'); return; }
+  rwRoster = list; rwRosterStore(); rwRosterRender();
+}
+function rwRosterClear(){
+  if (!confirm('이 컴퓨터에 저장된 수업 학생 명단을 지울까요?')) return;
+  rwRoster = []; rwRosterStore(); rwRosterRender();
+}
+// 한 명 탭: 명단에서 고른 학생의 학번을 문장 변주 키로 넣는다
+function rwRosterPickStudent(){
+  const id = document.getElementById('rwRosterPick').value;
+  if (id) document.getElementById('rwSeed').value = id;
+}
+// 일괄 탭: 고른 학급의 학번을 한 줄씩 넣는다(이미 있는 학번은 그대로 둔다)
+function rwBatchRosterFill(){
+  const cls = document.getElementById('rwBatchClass').value;
+  const students = rwRoster.filter(s => s.grade + '-' + s.cls === cls);
+  if (!students.length) { rwBatchMsg('명단에서 학급을 고르세요. 명단이 없으면 위의 수업 학생 명단에 붙여넣어 저장하세요.'); return; }
+  const box = document.getElementById('rwBatchRows');
+  const lines = box.value.split('\n').map(l => l.trim()).filter(Boolean);
+  const have = new Set(lines.map(l => rwBatchSplit(l)[0]));
+  students.forEach(s => { if (!have.has(s.id)) { lines.push(s.id); have.add(s.id); } });
+  box.value = lines.join('\n');
+  if (!lines.length || rwBatchSplit(lines[0])[0] !== '학번') rwBatchTemplate(); else rwBatchSaveDraft();
+  document.getElementById('rwBatchSummary').innerHTML = '<div class="text-green-700">' + students.length + '명의 학번을 넣었습니다. 과목·사례 칸을 채운 뒤 일괄 초안을 만드세요.</div>';
 }
 function rwSuggest(){
   const ks = RecordWriter.suggestKeywords(document.getElementById('rwStandards').value, 5);
