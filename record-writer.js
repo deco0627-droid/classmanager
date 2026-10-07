@@ -768,12 +768,20 @@
       const cols = (l.indexOf('\t') >= 0 ? l.split('\t')
         : /[|,]/.test(l) ? l.split(/[|,]/)
         : l.split(/\s+/)).map(s => s.trim()).filter(s => s !== '');
-      const grade = cols[0], cls = cols[1], num = cols[2];
+      // 학번 4자리(예: 3503 = 3학년 5반 3번)이면 앞 1자리는 학년, 다음 1자리는 반, 나머지 두 자리는 번호다
+      let grade, cls, num, rest;
+      if (/^\d{4}$/.test(cols[0] || '')) {
+        grade = cols[0][0]; cls = cols[0][1]; num = cols[0].slice(2);
+        rest = cols.slice(1);
+      } else {
+        grade = cols[0]; cls = cols[1]; num = cols[2];
+        rest = cols.slice(3);
+      }
       if (!/^\d+$/.test(grade || '') || !/^\d+$/.test(cls || '') || !/^\d+$/.test(num || '')) return;
       out.push({
         grade: +grade, cls: +cls, num: +num,
-        id: grade + '-' + cls + '-' + String(num).padStart(2, '0'),
-        name: cols.slice(3).join(' ')
+        id: grade + '-' + cls + '-' + String(+num).padStart(2, '0'),
+        name: rest.join(' ')
       });
     });
     return out;
