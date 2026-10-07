@@ -1638,14 +1638,17 @@ service cloud.firestore {
           <div class="flex flex-wrap items-end gap-3 mb-2">
             <div>
               <label class="text-xs font-semibold text-gray-500 rw-tip" data-tip="NEIS 한도(1,500바이트) 안에서 원하는 길이로 맞춥니다. 비우면 한도를 씁니다. 넘치는 문장은 우선순위가 낮은 것부터 빼고, 그래도 넘치면 교사 사례를 뒤에서부터 뺍니다. 빠진 문장은 아래에 표시됩니다. 한글 1자는 3바이트입니다.">과세특 목표 바이트</label>
-              <input id="rwTargetSubject" type="number" min="100" max="1500" placeholder="1500" class="block w-36 mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white">
+              <input id="rwTargetSubject" type="number" min="100" max="1500" placeholder="1500" class="block w-36 mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white" onchange="rwTargetChanged('rwTargetSubject')">
             </div>
             <div>
               <label class="text-xs font-semibold text-gray-500 rw-tip" data-tip="NEIS 한도(900바이트) 안에서 원하는 길이로 맞춥니다. 비우면 한도를 씁니다. 넘치는 문장은 우선순위가 낮은 것부터 뺍니다. 한글 1자는 3바이트입니다.">행동특성 목표 바이트</label>
-              <input id="rwTargetHr" type="number" min="100" max="900" placeholder="900" class="block w-36 mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white">
+              <input id="rwTargetHr" type="number" min="100" max="900" placeholder="900" class="block w-36 mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white" onchange="rwTargetChanged('rwTargetHr')">
             </div>
           </div>
-          <button onclick="rwGenerate()" class="px-4 py-2 rounded-lg bg-forest-dark text-white text-sm font-semibold mb-3">학생 초안 만들기</button>
+          <div class="flex flex-wrap gap-2 mb-3">
+            <button onclick="rwGenerate()" class="px-4 py-2 rounded-lg bg-forest-dark text-white text-sm font-semibold">학생 초안 만들기 (이 학생만)</button>
+            <button onclick="rwAllDrafts()" class="px-4 py-2 rounded-lg bg-forest-dark text-white text-sm font-semibold">명단 전체 초안 만들기</button>
+          </div>
 
           <textarea id="rwOutput" rows="6" oninput="rwEdited()" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white" placeholder="여기에 초안이 나옵니다. 직접 수정할 수 있어요."></textarea>
           <p id="rwBytes" class="text-xs text-gray-500 mt-1"></p>
@@ -1674,11 +1677,11 @@ service cloud.firestore {
             <div class="flex flex-wrap items-end gap-3 mt-2">
               <div>
                 <label class="text-xs font-semibold text-gray-500 rw-tip" data-tip="모든 학생의 과세특에 같은 목표 바이트를 씁니다. 비우면 NEIS 한도(1,500바이트)를 씁니다. 바꾼 뒤에는 일괄 초안 만들기를 다시 눌러야 적용됩니다.">과세특 목표 바이트 (모든 학생)</label>
-                <input id="rwBatchTargetSubject" type="number" min="100" max="1500" placeholder="1500" class="block w-40 mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white" onchange="rwBatchSaveDraft()">
+                <input id="rwBatchTargetSubject" type="number" min="100" max="1500" placeholder="1500" class="block w-40 mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white" onchange="rwTargetChanged('rwBatchTargetSubject')">
               </div>
               <div>
                 <label class="text-xs font-semibold text-gray-500 rw-tip" data-tip="모든 학생의 행동특성에 같은 목표 바이트를 씁니다. 비우면 NEIS 한도(900바이트)를 씁니다. 바꾼 뒤에는 일괄 초안 만들기를 다시 눌러야 적용됩니다.">행동특성 목표 바이트 (모든 학생)</label>
-                <input id="rwBatchTargetHr" type="number" min="100" max="900" placeholder="900" class="block w-40 mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white" onchange="rwBatchSaveDraft()">
+                <input id="rwBatchTargetHr" type="number" min="100" max="900" placeholder="900" class="block w-40 mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white" onchange="rwTargetChanged('rwBatchTargetHr')">
               </div>
             </div>
           </div>
@@ -7683,6 +7686,7 @@ function rwRenderAdminFields(){
   rwRenderBatchSubjects();
   if (!rwRosterLoaded) { rwRosterLoaded = true; rwRosterLoad(); }
   rwRosterRender();
+  if (!rwTargetsLoaded) { rwTargetsLoaded = true; rwTargetsLoad(); }
 }
 
 function rwFillProfileForm(p){
@@ -7906,6 +7910,37 @@ async function rwSaveSchoolNames(){
 }
 
 function rwShowWarn(text){ document.getElementById('rwWarnings').innerHTML = '<div class="text-red-600">' + escapeHtml(text) + '</div>'; }
+// 목표 바이트: 한 명 탭과 일괄 탭의 과세특·행동특성 칸은 같은 값을 쓰고, 이 컴퓨터에 저장해 새로고침 후에도 남긴다
+let rwTargetsLoaded = false;
+const RW_TARGET_PAIRS = [['rwTargetSubject', 'rwBatchTargetSubject'], ['rwTargetHr', 'rwBatchTargetHr']];
+function rwTargetsSave(){
+  try {
+    const d = {};
+    RW_TARGET_PAIRS.forEach(p => { d[p[0]] = document.getElementById(p[0]).value; });
+    localStorage.setItem('rwTargets', JSON.stringify(d));
+  } catch (e) { /* 저장이 막혀 있으면 이번 화면에서만 유지 */ }
+}
+function rwTargetsLoad(){
+  try {
+    const d = JSON.parse(localStorage.getItem('rwTargets') || '{}') || {};
+    RW_TARGET_PAIRS.forEach(p => {
+      if (d[p[0]] !== undefined) { document.getElementById(p[0]).value = d[p[0]]; document.getElementById(p[1]).value = d[p[0]]; }
+    });
+  } catch (e) { /* 저장값을 읽지 못하면 기본 한도 사용 */ }
+}
+function rwTargetChanged(id){
+  const pair = RW_TARGET_PAIRS.find(p => p.indexOf(id) >= 0);
+  if (pair) {
+    const other = pair[0] === id ? pair[1] : pair[0];
+    document.getElementById(other).value = document.getElementById(id).value;
+  }
+  rwTargetsSave();
+}
+// 명단 전체 초안: 일괄 작성 탭으로 옮겨 표의 모든 학생 초안을 한 번에 만든다
+function rwAllDrafts(){
+  rwSwitchMode('batch');
+  rwBatchGenerate();
+}
 // 일괄 작성 표에서 학번(id)의 과목 줄(성취수준·사례·태그)을 찾는다. 없으면 null.
 function rwTableRow(id, subject){
   if (!id || !subject) return null;
