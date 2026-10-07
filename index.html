@@ -1642,6 +1642,16 @@ service cloud.firestore {
             </div>
           </div>
 
+          <div class="flex flex-wrap items-end gap-3 mb-2">
+            <div>
+              <label class="text-xs font-semibold text-gray-500 rw-tip" data-tip="NEIS 한도(1,500바이트) 안에서 원하는 길이로 맞춥니다. 비우면 한도를 씁니다. 넘치는 문장은 우선순위가 낮은 것부터 빼고, 그래도 넘치면 교사 사례를 뒤에서부터 뺍니다. 빠진 문장은 아래에 표시됩니다. 한글 1자는 3바이트입니다.">과세특 목표 바이트</label>
+              <input id="rwTargetSubject" type="number" min="100" max="1500" placeholder="1500" class="block w-36 mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white">
+            </div>
+            <div>
+              <label class="text-xs font-semibold text-gray-500 rw-tip" data-tip="NEIS 한도(900바이트) 안에서 원하는 길이로 맞춥니다. 비우면 한도를 씁니다. 넘치는 문장은 우선순위가 낮은 것부터 뺍니다. 한글 1자는 3바이트입니다.">행동특성 목표 바이트</label>
+              <input id="rwTargetHr" type="number" min="100" max="900" placeholder="900" class="block w-36 mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white">
+            </div>
+          </div>
           <button onclick="rwGenerate()" class="px-4 py-2 rounded-lg bg-forest-dark text-white text-sm font-semibold mb-3">학생 초안 만들기</button>
 
           <textarea id="rwOutput" rows="6" oninput="rwEdited()" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white" placeholder="여기에 초안이 나옵니다. 직접 수정할 수 있어요."></textarea>
@@ -1668,6 +1678,16 @@ service cloud.firestore {
             <p class="text-xs font-semibold text-gray-500 mb-1">① 과목 고르기 (과목 기본 자료에 저장된 과목 중에서 여러 개를 한 번에 고를 수 있어요)</p>
             <div id="rwBatchSubjects" class="flex flex-wrap gap-2 text-sm mb-2"></div>
             <label class="flex items-center gap-2 text-sm"><input type="checkbox" id="rwBatchHr" checked onchange="rwBatchSaveDraft()"> 행동특성 및 종합의견도 함께 만들기</label>
+            <div class="flex flex-wrap items-end gap-3 mt-2">
+              <div>
+                <label class="text-xs font-semibold text-gray-500 rw-tip" data-tip="모든 학생의 과세특에 같은 목표 바이트를 씁니다. 비우면 NEIS 한도(1,500바이트)를 씁니다. 바꾼 뒤에는 일괄 초안 만들기를 다시 눌러야 적용됩니다.">과세특 목표 바이트 (모든 학생)</label>
+                <input id="rwBatchTargetSubject" type="number" min="100" max="1500" placeholder="1500" class="block w-40 mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white" onchange="rwBatchSaveDraft()">
+              </div>
+              <div>
+                <label class="text-xs font-semibold text-gray-500 rw-tip" data-tip="모든 학생의 행동특성에 같은 목표 바이트를 씁니다. 비우면 NEIS 한도(900바이트)를 씁니다. 바꾼 뒤에는 일괄 초안 만들기를 다시 눌러야 적용됩니다.">행동특성 목표 바이트 (모든 학생)</label>
+                <input id="rwBatchTargetHr" type="number" min="100" max="900" placeholder="900" class="block w-40 mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white" onchange="rwBatchSaveDraft()">
+              </div>
+            </div>
           </div>
 
           <div class="border border-gray-200 rounded-lg p-3 mb-3">
@@ -7648,7 +7668,17 @@ function rwLines(id){ return document.getElementById(id).value.split('\n').map(s
 function rwCsv(id){ return document.getElementById(id).value.split(',').map(s => s.trim()).filter(Boolean); }
 function rwSeedValue(){ return document.getElementById('rwSeed').value.trim(); }
 function rwSetMsg(id, text){ const el = document.getElementById(id); if (el) el.textContent = text; }
-function rwLimit(){ return rwMode() === 'subject' ? RecordWriter.LIMITS.subjectNote : RecordWriter.LIMITS.homeroom; }
+// 목표 바이트 입력값: 비었으면 null, 있으면 100~한도 사이로 맞춘다
+function rwTargetValue(id, max){
+  const v = parseInt(document.getElementById(id).value, 10);
+  if (!v) return null;
+  return Math.min(Math.max(v, 100), max);
+}
+// 지금 보고 있는 탭의 한도: 목표 바이트가 있으면 그 값, 없으면 NEIS 한도
+function rwLimit(){
+  if (rwMode() === 'subject') return rwTargetValue('rwTargetSubject', RecordWriter.LIMITS.subjectNote) || RecordWriter.LIMITS.subjectNote;
+  return rwTargetValue('rwTargetHr', RecordWriter.LIMITS.homeroom) || RecordWriter.LIMITS.homeroom;
+}
 
 // 관리자 화면을 그릴 때 설정값을 입력칸에 반영한다(입력 중인 칸은 건드리지 않음).
 function rwRenderAdminFields(){
@@ -7897,7 +7927,8 @@ function rwGenerate(){
       tags: rwChecked('rwSubjectTag'),
       hasGrowth: document.getElementById('rwSubjectGrowth').checked,
       seed: rwSeedValue(),
-      schoolNames: rwSchoolNames()
+      schoolNames: rwSchoolNames(),
+      maxBytes: rwLimit()
     });
   } else {
     r = RecordWriter.composeHomeroom({
@@ -7905,7 +7936,8 @@ function rwGenerate(){
       evidence: rwLines('rwHrEvidence'),
       growth: document.getElementById('rwHrGrowth').checked,
       seed: rwSeedValue(),
-      schoolNames: rwSchoolNames()
+      schoolNames: rwSchoolNames(),
+      maxBytes: rwLimit()
     });
   }
   document.getElementById('rwOutput').value = r.text;
@@ -8025,6 +8057,8 @@ function rwBatchGenerate(){
   const parsed = rwBatchParse(subjects, hrOn);
   if (!parsed.students.length) { rwBatchMsg('학생 줄을 한 줄 이상 입력해 주세요.'); return; }
   const schoolNames = rwSchoolNames();
+  const subjLimit = rwTargetValue('rwBatchTargetSubject', RecordWriter.LIMITS.subjectNote) || RecordWriter.LIMITS.subjectNote;
+  const hrLimit = rwTargetValue('rwBatchTargetHr', RecordWriter.LIMITS.homeroom) || RecordWriter.LIMITS.homeroom;
   const groups = [];
   subjects.forEach(s => {
     const rows = parsed.students.filter(st => st.subj[s].evidence.length).map(st => ({
@@ -8034,14 +8068,14 @@ function rwBatchGenerate(){
       tags: st.subj[s].tags
     }));
     if (!rows.length) return;
-    const res = RecordWriter.composeBatch('subject', rows, { profile: rwFindProfile(s), hasGrowth: document.getElementById('rwSubjectGrowth').checked, schoolNames });
-    groups.push({ label: s, limit: RecordWriter.LIMITS.subjectNote, context: undefined, sameEvidence: res.sameEvidence, items: res.items });
+    const res = RecordWriter.composeBatch('subject', rows, { profile: rwFindProfile(s), hasGrowth: document.getElementById('rwSubjectGrowth').checked, schoolNames, maxBytes: subjLimit });
+    groups.push({ label: s, limit: subjLimit, context: undefined, sameEvidence: res.sameEvidence, items: res.items });
   });
   if (hrOn) {
     const rows = parsed.students.filter(st => st.hr.evidence.length || st.hr.tags.length).map(st => ({ id: st.id, tags: st.hr.tags, evidence: st.hr.evidence }));
     if (rows.length) {
-      const res = RecordWriter.composeBatch('homeroom', rows, { growth: document.getElementById('rwHrGrowth').checked, schoolNames });
-      groups.push({ label: RW_HR_LABEL, limit: RecordWriter.LIMITS.homeroom, context: 'homeroom', sameEvidence: res.sameEvidence, items: res.items });
+      const res = RecordWriter.composeBatch('homeroom', rows, { growth: document.getElementById('rwHrGrowth').checked, schoolNames, maxBytes: hrLimit });
+      groups.push({ label: RW_HR_LABEL, limit: hrLimit, context: 'homeroom', sameEvidence: res.sameEvidence, items: res.items });
     }
   }
   if (!groups.length) { rwBatchMsg('사례가 입력된 학생이 없습니다. 열 이름과 사례 칸을 확인해 주세요.'); return; }

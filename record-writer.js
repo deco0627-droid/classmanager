@@ -368,6 +368,14 @@
       dropped.push(parts[idx].text);
       parts.splice(idx, 1);
     }
+    // 목표 바이트가 아주 작으면 교사 사례도 뒤에서부터 뺀다(첫 사례는 남긴다). 뺀 문장은 dropped로 보여 준다.
+    while (byteLen(render(parts)) > limit) {
+      const evs = parts.map((p, i) => ({ p, i })).filter(x => x.p.role === 'evidence');
+      if (evs.length <= 1) break;
+      const last = evs[evs.length - 1];
+      dropped.push(last.p.text);
+      parts.splice(last.i, 1);
+    }
     return dropped;
   }
 
@@ -506,10 +514,10 @@
     const items = (rows || []).map(row => {
       const base = { evidence: row.evidence || [], tags: row.tags || [], seed: row.id, schoolNames: c.schoolNames };
       const r = mode === 'homeroom'
-        ? composeHomeroom(Object.assign({}, base, { traits: row.tags || [], growth: c.growth }))
+        ? composeHomeroom(Object.assign({}, base, { traits: row.tags || [], growth: c.growth, maxBytes: c.maxBytes }))
         : composeSubjectNote(Object.assign({}, base, {
             profile: c.profile, level: row.level || c.level, keywords: c.keywords || [],
-            aptitude: c.aptitude, hasGrowth: c.hasGrowth
+            aptitude: c.aptitude, hasGrowth: c.hasGrowth, maxBytes: c.maxBytes
           }));
       return { id: row.id, text: r.text, bytes: r.bytes, limit: r.limit, dropped: r.dropped, warnings: r.warnings };
     });
