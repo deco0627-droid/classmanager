@@ -2081,7 +2081,7 @@ service cloud.firestore {
     <p id="examBoardFsDate" class="text-lg md:text-2xl text-gray-500 mb-2"></p>
     <p id="examBoardFsNotice" class="text-sm md:text-base text-gray-500 mb-3"></p>
     <div id="examBoardFsTrackLegend" class="flex flex-wrap justify-center gap-2 mb-8 text-xs md:text-sm"></div>
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-5 text-left items-stretch">
+    <div class="grid grid-cols-1 md:grid-cols-[0.8fr_1.3fr_1.3fr_0.8fr] gap-5 text-left items-stretch">
       <div class="bg-brick-light rounded-2xl p-6 flex flex-col items-center justify-center text-center gap-2">
         <div class="text-5xl md:text-6xl">👀🚫</div>
         <p class="font-display text-lg md:text-2xl text-brick leading-snug">컨닝은<br>절대 금지!</p>
@@ -9066,14 +9066,15 @@ function saveExamBoard(){
     subject2: document.getElementById('examBoardSubject2_' + i).value.trim(),
     subject3: document.getElementById('examBoardSubject3_' + i).value.trim(),
   }));
-  // schedule(요일별로 미리 입력해둔 과목)은 이 화면에 입력칸이 없으니 반드시 기존 값을
-  // 그대로 들고 가야 한다 — 빠뜨리면 총원·응시 같은 평범한 칸 하나만 고쳐 저장해도
-  // 미리 입력해둔 과목 전체가 통째로 사라진다(실제로 이 버그로 날아간 적이 있다).
+  // schedule·timeTable·trackLegend는 이 화면에 입력칸이 없는(또는 다른 함수가 관리하는) 값들이라,
+  // 객체를 통째로 새로 만들지 않고 기존 examBoardCache에 title/date/groups만 덮어써야 한다 —
+  // 통째로 새로 만들면 여기서 모르는 필드가 로컬 캐시에서 사라져서, 화면에 안 보이게 된다
+  // (실제로 이 버그로 schedule이 날아간 적이 있고, 이번엔 timeTable·trackLegend가 당했다).
   examBoardCache = {
+    ...(examBoardCache || {}),
     title: document.getElementById('examBoardTitleField').value.trim(),
     date: document.getElementById('examBoardDateField').value.trim(),
     groups,
-    schedule: (examBoardCache && examBoardCache.schedule) || {},
   };
   // settings/general과 분리된 examBoard 컬렉션에 쓴다 — settings는 로그인한 교사만 쓸 수 있어서,
   // 로그인 없이도 저장돼야 하는 이 게시판은 거기 넣으면 권한 오류로 조용히 저장이 안 됐었다.
