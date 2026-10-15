@@ -482,10 +482,36 @@ service cloud.firestore {
         </div>
         <div class="flex items-center justify-center gap-2 mb-5">
           <div class="relative">
-            <input id="examBoardDateField" onchange="saveExamBoard()" onkeydown="examBoardCommitOnCtrlEnter(event)" class="peer text-center text-base text-gray-500 border-none outline-none bg-transparent w-64" placeholder="예: 2026년 10월 19일 월요일">
+            <input id="examBoardDateField" onchange="examBoardApplyScheduleForDate(); saveExamBoard();" onkeydown="examBoardCommitOnCtrlEnter(event)" class="peer text-center text-base text-gray-500 border-none outline-none bg-transparent w-64" placeholder="예: 2026년 10월 19일 월요일">
             <div class="hidden peer-focus:block absolute left-1/2 -translate-x-1/2 top-full mt-1 z-20 bg-ink text-white text-xs font-semibold px-3 py-1.5 rounded-lg shadow-lg whitespace-nowrap pointer-events-none">예: 2026년 10월 19일 월요일</div>
           </div>
-          <button onclick="examBoardNextDay()" title="다음 날짜로 넘어가고, 응시·결시·결번은 비워줍니다" class="text-xs font-semibold text-forest-dark border border-forest rounded-full px-3 py-1 hover:bg-forest-light shrink-0">다음날 →</button>
+          <button onclick="examBoardNextDay()" title="다음 날짜로 넘어가고, 응시·결시·결번은 비워줍니다. 그 날짜 과목을 미리 입력해뒀으면 자동으로 불러와요." class="text-xs font-semibold text-forest-dark border border-forest rounded-full px-3 py-1 hover:bg-forest-light shrink-0">다음날 →</button>
+        </div>
+        <div class="border border-gray-200 rounded-xl p-3 mb-5">
+          <button onclick="toggleExamBoardSchedulePanel()" class="w-full flex items-center justify-between text-left">
+            <span class="text-sm font-semibold text-gray-600">📅 요일별 시험 과목 미리 입력해두기</span>
+            <span id="examBoardScheduleChevron" class="text-gray-400">▶</span>
+          </button>
+          <div id="examBoardSchedulePanel" class="hidden mt-3">
+            <p class="text-xs text-gray-400 mb-3">여러 날짜의 과목을 미리 저장해두면, 위 날짜 칸을 그 날짜로 바꾸거나 "다음날 →"을 누를 때 자동으로 불러와요. 매일 다시 입력할 필요가 없어요.</p>
+            <input id="examBoardSchedDateInput" onkeydown="examBoardCommitScheduleOnCtrlEnter(event)" placeholder="예: 2026년 10월 20일 화요일" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm mb-2">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-2">
+              <div class="space-y-1.5">
+                <p id="examBoardSchedGroupName0" class="text-xs font-semibold text-gray-500">1조</p>
+                <input id="examBoardSchedSubject1_0" onkeydown="examBoardCommitScheduleOnCtrlEnter(event)" placeholder="1교시" class="w-full border border-gray-300 rounded-lg px-2 py-1 text-sm">
+                <input id="examBoardSchedSubject2_0" onkeydown="examBoardCommitScheduleOnCtrlEnter(event)" placeholder="2교시" class="w-full border border-gray-300 rounded-lg px-2 py-1 text-sm">
+                <input id="examBoardSchedSubject3_0" onkeydown="examBoardCommitScheduleOnCtrlEnter(event)" placeholder="3교시 (없으면 비워두세요)" class="w-full border border-gray-300 rounded-lg px-2 py-1 text-sm">
+              </div>
+              <div class="space-y-1.5">
+                <p id="examBoardSchedGroupName1" class="text-xs font-semibold text-gray-500">2조</p>
+                <input id="examBoardSchedSubject1_1" onkeydown="examBoardCommitScheduleOnCtrlEnter(event)" placeholder="1교시" class="w-full border border-gray-300 rounded-lg px-2 py-1 text-sm">
+                <input id="examBoardSchedSubject2_1" onkeydown="examBoardCommitScheduleOnCtrlEnter(event)" placeholder="2교시" class="w-full border border-gray-300 rounded-lg px-2 py-1 text-sm">
+                <input id="examBoardSchedSubject3_1" onkeydown="examBoardCommitScheduleOnCtrlEnter(event)" placeholder="3교시 (없으면 비워두세요)" class="w-full border border-gray-300 rounded-lg px-2 py-1 text-sm">
+              </div>
+            </div>
+            <button onclick="saveExamBoardScheduleDay()" class="bg-forest text-white text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-forest-dark">이 날짜로 저장하고 다음 날짜 준비</button>
+            <div id="examBoardScheduleList" class="flex flex-wrap gap-1.5 mt-3"></div>
+          </div>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
           <div class="border-2 border-gray-200 rounded-xl p-5">
@@ -513,6 +539,29 @@ service cloud.firestore {
                   <div class="hidden peer-focus:block absolute right-0 top-full mt-1 z-20 bg-ink text-white text-xs font-semibold px-3 py-1.5 rounded-lg shadow-lg whitespace-nowrap pointer-events-none">예: 3, 7</div>
                 </div>
               </div>
+              <div class="border-t border-gray-200 pt-3 mt-1 space-y-2">
+                <div class="flex items-center justify-between gap-2">
+                  <label class="text-base font-semibold text-gray-600 shrink-0">1교시</label>
+                  <div class="relative flex-1">
+                    <input id="examBoardSubject1_0" onchange="saveExamBoard()" onkeydown="examBoardCommitOnCtrlEnter(event)" placeholder="예: 공통영어2" class="peer w-full text-right border border-gray-300 rounded-lg px-2 py-1.5 text-base">
+                    <div class="hidden peer-focus:block absolute right-0 top-full mt-1 z-20 bg-ink text-white text-xs font-semibold px-3 py-1.5 rounded-lg shadow-lg whitespace-nowrap pointer-events-none">예: 공통영어2</div>
+                  </div>
+                </div>
+                <div class="flex items-center justify-between gap-2">
+                  <label class="text-base font-semibold text-gray-600 shrink-0">2교시</label>
+                  <div class="relative flex-1">
+                    <input id="examBoardSubject2_0" onchange="saveExamBoard()" onkeydown="examBoardCommitOnCtrlEnter(event)" placeholder="예: 한국사2" class="peer w-full text-right border border-gray-300 rounded-lg px-2 py-1.5 text-base">
+                    <div class="hidden peer-focus:block absolute right-0 top-full mt-1 z-20 bg-ink text-white text-xs font-semibold px-3 py-1.5 rounded-lg shadow-lg whitespace-nowrap pointer-events-none">예: 한국사2</div>
+                  </div>
+                </div>
+                <div class="flex items-center justify-between gap-2">
+                  <label class="text-base font-semibold text-gray-600 shrink-0">3교시</label>
+                  <div class="relative flex-1">
+                    <input id="examBoardSubject3_0" onchange="saveExamBoard()" onkeydown="examBoardCommitOnCtrlEnter(event)" placeholder="없으면 비워두세요" class="peer w-full text-right border border-gray-300 rounded-lg px-2 py-1.5 text-base">
+                    <div class="hidden peer-focus:block absolute right-0 top-full mt-1 z-20 bg-ink text-white text-xs font-semibold px-3 py-1.5 rounded-lg shadow-lg whitespace-nowrap pointer-events-none">없는 날은 비워두면 전체화면에 안 보여요</div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
           <div class="border-2 border-gray-200 rounded-xl p-5">
@@ -538,6 +587,29 @@ service cloud.firestore {
                 <div class="relative flex-1">
                   <input id="examBoardAbsentNumbers1" onchange="saveExamBoard()" onkeydown="examBoardCommitOnCtrlEnter(event)" placeholder="예: 3, 7" class="peer w-full text-right border border-gray-300 rounded-lg px-2 py-1.5 text-base">
                   <div class="hidden peer-focus:block absolute right-0 top-full mt-1 z-20 bg-ink text-white text-xs font-semibold px-3 py-1.5 rounded-lg shadow-lg whitespace-nowrap pointer-events-none">예: 3, 7</div>
+                </div>
+              </div>
+              <div class="border-t border-gray-200 pt-3 mt-1 space-y-2">
+                <div class="flex items-center justify-between gap-2">
+                  <label class="text-base font-semibold text-gray-600 shrink-0">1교시</label>
+                  <div class="relative flex-1">
+                    <input id="examBoardSubject1_1" onchange="saveExamBoard()" onkeydown="examBoardCommitOnCtrlEnter(event)" placeholder="예: 건축일반" class="peer w-full text-right border border-gray-300 rounded-lg px-2 py-1.5 text-base">
+                    <div class="hidden peer-focus:block absolute right-0 top-full mt-1 z-20 bg-ink text-white text-xs font-semibold px-3 py-1.5 rounded-lg shadow-lg whitespace-nowrap pointer-events-none">예: 건축일반</div>
+                  </div>
+                </div>
+                <div class="flex items-center justify-between gap-2">
+                  <label class="text-base font-semibold text-gray-600 shrink-0">2교시</label>
+                  <div class="relative flex-1">
+                    <input id="examBoardSubject2_1" onchange="saveExamBoard()" onkeydown="examBoardCommitOnCtrlEnter(event)" placeholder="예: 조형" class="peer w-full text-right border border-gray-300 rounded-lg px-2 py-1.5 text-base">
+                    <div class="hidden peer-focus:block absolute right-0 top-full mt-1 z-20 bg-ink text-white text-xs font-semibold px-3 py-1.5 rounded-lg shadow-lg whitespace-nowrap pointer-events-none">예: 조형</div>
+                  </div>
+                </div>
+                <div class="flex items-center justify-between gap-2">
+                  <label class="text-base font-semibold text-gray-600 shrink-0">3교시</label>
+                  <div class="relative flex-1">
+                    <input id="examBoardSubject3_1" onchange="saveExamBoard()" onkeydown="examBoardCommitOnCtrlEnter(event)" placeholder="없으면 비워두세요" class="peer w-full text-right border border-gray-300 rounded-lg px-2 py-1.5 text-base">
+                    <div class="hidden peer-focus:block absolute right-0 top-full mt-1 z-20 bg-ink text-white text-xs font-semibold px-3 py-1.5 rounded-lg shadow-lg whitespace-nowrap pointer-events-none">없는 날은 비워두면 전체화면에 안 보여요</div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1972,10 +2044,14 @@ service cloud.firestore {
 <!-- 시험 결시현황판을 큰 화면으로 보여주는 전체화면 — "전체화면으로 보기"를 누르면 뜨고, 닫기를 누르거나 바깥을 누르면 닫힌다 -->
 <div id="examBoardFullscreen" class="hidden fixed inset-0 bg-paper z-[92] overflow-y-auto" onclick="if(event.target===this) closeExamBoardFullscreen()">
   <button onclick="closeExamBoardFullscreen()" class="fixed top-5 right-5 text-gray-400 hover:text-gray-600 text-4xl leading-none z-10">&times;</button>
-  <div class="max-w-5xl mx-auto px-6 py-14 md:py-20 text-center">
+  <div class="max-w-6xl mx-auto px-6 py-14 md:py-20 text-center">
     <h1 id="examBoardFsTitle" class="font-display text-2xl md:text-5xl text-forest-dark mb-3">시험 결시현황판</h1>
     <p id="examBoardFsDate" class="text-lg md:text-2xl text-gray-500 mb-10"></p>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 text-left">
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-5 text-left items-stretch">
+      <div class="bg-brick-light rounded-2xl p-6 flex flex-col items-center justify-center text-center gap-2">
+        <div class="text-5xl md:text-6xl">👀🚫</div>
+        <p class="font-display text-lg md:text-2xl text-brick leading-snug">컨닝은<br>절대 금지!</p>
+      </div>
       <div class="border-2 border-gray-200 rounded-2xl p-6 md:p-8">
         <h2 id="examBoardFsLabel0" class="font-display text-xl md:text-3xl text-forest-dark text-center mb-6">-</h2>
         <div class="space-y-4 text-lg md:text-2xl">
@@ -1983,6 +2059,11 @@ service cloud.firestore {
           <div class="flex justify-between items-baseline"><span class="font-semibold text-gray-600">응시</span><span><b id="examBoardFsTaken0">-</b>명</span></div>
           <div class="flex justify-between items-baseline"><span class="font-semibold text-gray-600">결시</span><span><b id="examBoardFsAbsent0">-</b>명</span></div>
           <div class="flex justify-between items-baseline gap-3"><span class="font-semibold text-gray-600 shrink-0">결번</span><span id="examBoardFsAbsentNumbers0" class="text-right break-words">-</span></div>
+          <div class="border-t border-gray-200 pt-3 space-y-1 text-base md:text-lg">
+            <div class="flex justify-between"><span class="font-semibold text-gray-600">1교시</span><span id="examBoardFsSubject1_0">-</span></div>
+            <div class="flex justify-between"><span class="font-semibold text-gray-600">2교시</span><span id="examBoardFsSubject2_0">-</span></div>
+            <div id="examBoardFsSubject3Row_0" class="hidden flex justify-between"><span class="font-semibold text-gray-600">3교시</span><span id="examBoardFsSubject3_0">-</span></div>
+          </div>
         </div>
       </div>
       <div class="border-2 border-gray-200 rounded-2xl p-6 md:p-8">
@@ -1992,7 +2073,16 @@ service cloud.firestore {
           <div class="flex justify-between items-baseline"><span class="font-semibold text-gray-600">응시</span><span><b id="examBoardFsTaken1">-</b>명</span></div>
           <div class="flex justify-between items-baseline"><span class="font-semibold text-gray-600">결시</span><span><b id="examBoardFsAbsent1">-</b>명</span></div>
           <div class="flex justify-between items-baseline gap-3"><span class="font-semibold text-gray-600 shrink-0">결번</span><span id="examBoardFsAbsentNumbers1" class="text-right break-words">-</span></div>
+          <div class="border-t border-gray-200 pt-3 space-y-1 text-base md:text-lg">
+            <div class="flex justify-between"><span class="font-semibold text-gray-600">1교시</span><span id="examBoardFsSubject1_1">-</span></div>
+            <div class="flex justify-between"><span class="font-semibold text-gray-600">2교시</span><span id="examBoardFsSubject2_1">-</span></div>
+            <div id="examBoardFsSubject3Row_1" class="hidden flex justify-between"><span class="font-semibold text-gray-600">3교시</span><span id="examBoardFsSubject3_1">-</span></div>
+          </div>
         </div>
+      </div>
+      <div class="bg-amber-light rounded-2xl p-6 flex flex-col items-center justify-center text-center gap-2">
+        <div class="text-5xl md:text-6xl">📝💯</div>
+        <p class="font-display text-lg md:text-2xl text-amber leading-snug">오늘 시험<br>다들 잘 봐요!</p>
       </div>
     </div>
   </div>
@@ -8914,7 +9004,11 @@ function renderExamBoard(){
     setVal('examBoardTaken' + i, g.taken);
     setVal('examBoardAbsent' + i, g.absent);
     setVal('examBoardAbsentNumbers' + i, g.absentNumbers);
+    setVal('examBoardSubject1_' + i, g.subject1);
+    setVal('examBoardSubject2_' + i, g.subject2);
+    setVal('examBoardSubject3_' + i, g.subject3);
   });
+  renderExamBoardScheduleList();
 }
 function saveExamBoard(){
   const groups = [0, 1].map(i => ({
@@ -8923,6 +9017,9 @@ function saveExamBoard(){
     taken: document.getElementById('examBoardTaken' + i).value.trim(),
     absent: document.getElementById('examBoardAbsent' + i).value.trim(),
     absentNumbers: document.getElementById('examBoardAbsentNumbers' + i).value.trim(),
+    subject1: document.getElementById('examBoardSubject1_' + i).value.trim(),
+    subject2: document.getElementById('examBoardSubject2_' + i).value.trim(),
+    subject3: document.getElementById('examBoardSubject3_' + i).value.trim(),
   }));
   examBoardCache = {
     title: document.getElementById('examBoardTitleField').value.trim(),
@@ -8939,8 +9036,8 @@ function saveExamBoard(){
 // 묶어서 "이 칸 입력 끝, 다음 칸으로" 의도가 분명할 때만 저장하고 다음 칸에 포커스를 준다.
 const EXAM_BOARD_FIELD_ORDER = [
   'examBoardTitleField', 'examBoardDateField',
-  'examBoardGroupLabel0', 'examBoardTotal0', 'examBoardTaken0', 'examBoardAbsent0', 'examBoardAbsentNumbers0',
-  'examBoardGroupLabel1', 'examBoardTotal1', 'examBoardTaken1', 'examBoardAbsent1', 'examBoardAbsentNumbers1',
+  'examBoardGroupLabel0', 'examBoardTotal0', 'examBoardTaken0', 'examBoardAbsent0', 'examBoardAbsentNumbers0', 'examBoardSubject1_0', 'examBoardSubject2_0', 'examBoardSubject3_0',
+  'examBoardGroupLabel1', 'examBoardTotal1', 'examBoardTaken1', 'examBoardAbsent1', 'examBoardAbsentNumbers1', 'examBoardSubject1_1', 'examBoardSubject2_1', 'examBoardSubject3_1',
 ];
 function examBoardCommitOnCtrlEnter(event){
   if (event.key !== 'Enter' || !(event.ctrlKey || event.metaKey)) return;
@@ -8950,21 +9047,44 @@ function examBoardCommitOnCtrlEnter(event){
   if (next) { next.focus(); next.select(); }
   else { event.target.blur(); }
 }
-// 날짜 칸의 "YYYY년 M월 D일 ○요일"을 읽어서 다음 평일로 넘겨준다(시험은 보통 주말을 건너뛰어서).
-// 그날의 총원은 보통 그대로지만 응시·결시·결번은 날마다 달라지니 비워서 다시 채우게 한다.
-function examBoardNextDay(){
-  const field = document.getElementById('examBoardDateField');
-  const m = field.value.trim().match(/(\d{4})\s*년\s*(\d{1,2})\s*월\s*(\d{1,2})\s*일/);
-  if (!m) { alert('먼저 날짜를 "2026년 10월 19일 월요일"처럼 입력해주세요.'); return; }
+// "YYYY년 M월 D일 ○요일" 문자열을 읽어서 다음 평일 같은 형식의 문자열로 돌려준다
+// (시험은 보통 주말을 건너뛰어서 토·일요일은 넘긴다). 형식이 안 맞으면 null.
+function examBoardNextWeekdayStr(dateStr){
+  const m = (dateStr || '').trim().match(/(\d{4})\s*년\s*(\d{1,2})\s*월\s*(\d{1,2})\s*일/);
+  if (!m) return null;
   const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
   do { d.setDate(d.getDate() + 1); } while (d.getDay() === 0 || d.getDay() === 6);
   const dow = ['일','월','화','수','목','금','토'][d.getDay()];
-  field.value = `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일 ${dow}요일`;
+  return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일 ${dow}요일`;
+}
+// 지금 날짜 칸의 값으로 "요일별 시험 과목 미리 입력"에 저장해둔 과목이 있는지 찾아서,
+// 있으면 그 날짜의 1~3교시 칸에 채워 넣는다(없으면 그대로 둔다 — 수동 입력으로 쓰면 된다).
+function examBoardApplyScheduleForDate(){
+  const dateVal = document.getElementById('examBoardDateField').value.trim();
+  const entry = ((examBoardCache && examBoardCache.schedule) || {})[dateVal];
+  if (!entry) return;
+  [0, 1].forEach(i => {
+    document.getElementById('examBoardSubject1_' + i).value = entry['subject1_' + i] || '';
+    document.getElementById('examBoardSubject2_' + i).value = entry['subject2_' + i] || '';
+    document.getElementById('examBoardSubject3_' + i).value = entry['subject3_' + i] || '';
+  });
+}
+// 다음 평일로 날짜를 넘긴다. 그날의 총원은 보통 그대로지만 응시·결시·결번·과목은 날마다
+// 달라지니 일단 비우고, 그 날짜로 미리 입력해둔 과목이 있으면 바로 다시 채워 넣는다.
+function examBoardNextDay(){
+  const field = document.getElementById('examBoardDateField');
+  const next = examBoardNextWeekdayStr(field.value);
+  if (!next) { alert('먼저 날짜를 "2026년 10월 19일 월요일"처럼 입력해주세요.'); return; }
+  field.value = next;
   [0, 1].forEach(i => {
     document.getElementById('examBoardTaken' + i).value = '';
     document.getElementById('examBoardAbsent' + i).value = '';
     document.getElementById('examBoardAbsentNumbers' + i).value = '';
+    document.getElementById('examBoardSubject1_' + i).value = '';
+    document.getElementById('examBoardSubject2_' + i).value = '';
+    document.getElementById('examBoardSubject3_' + i).value = '';
   });
+  examBoardApplyScheduleForDate();
   saveExamBoard();
 }
 // 평소엔 접어두고, 제목 버튼을 누르면 입력칸이 펼쳐진다(시험이 매일 있는 게 아니라서).
@@ -8973,6 +9093,79 @@ function toggleExamBoardPanel(){
   const willOpen = panel.classList.contains('hidden');
   panel.classList.toggle('hidden', !willOpen);
   document.getElementById('examBoardToggleChevron').textContent = willOpen ? '▼' : '▶';
+}
+// "요일별 시험 과목 미리 입력" 접기/펼치기
+function toggleExamBoardSchedulePanel(){
+  const panel = document.getElementById('examBoardSchedulePanel');
+  const willOpen = panel.classList.contains('hidden');
+  panel.classList.toggle('hidden', !willOpen);
+  document.getElementById('examBoardScheduleChevron').textContent = willOpen ? '▼' : '▶';
+  if (willOpen) renderExamBoardScheduleList();
+}
+function renderExamBoardScheduleList(){
+  const listEl = document.getElementById('examBoardScheduleList');
+  if (!listEl) return;
+  const schedule = (examBoardCache && examBoardCache.schedule) || {};
+  const keys = Object.keys(schedule).sort();
+  listEl.innerHTML = keys.length ? keys.map(k => `
+    <span class="inline-flex items-center gap-1 bg-forest-light text-forest-dark text-xs font-semibold px-2.5 py-1 rounded-full">
+      <button data-date="${escapeAttr(k)}" onclick="loadExamBoardScheduleDay(this.dataset.date)" class="hover:underline">${escapeHtml(k)}</button>
+      <button data-date="${escapeAttr(k)}" onclick="deleteExamBoardScheduleDay(this.dataset.date)" class="text-forest-dark/50 hover:text-brick ml-0.5">&times;</button>
+    </span>`).join('') : '<p class="text-xs text-gray-400">아직 미리 입력한 날짜가 없어요.</p>';
+  const g = (examBoardCache && examBoardCache.groups) || [];
+  const n0 = document.getElementById('examBoardSchedGroupName0');
+  const n1 = document.getElementById('examBoardSchedGroupName1');
+  if (n0) n0.textContent = (g[0] && g[0].label) || '1조';
+  if (n1) n1.textContent = (g[1] && g[1].label) || '2조';
+}
+function examBoardCommitScheduleOnCtrlEnter(event){
+  if (event.key !== 'Enter' || !(event.ctrlKey || event.metaKey)) return;
+  event.preventDefault();
+  saveExamBoardScheduleDay();
+  document.getElementById('examBoardSchedDateInput').focus();
+}
+// 미리 입력 칸의 날짜·과목을 schedule 맵에 저장하고, 바로 이어서 다음 평일을 입력할 수 있게
+// 날짜 칸을 다음 날짜로 미리 채워주고 과목 칸은 비운다(월요일 넣고 → 화요일 넣고 → ... 흐름).
+function saveExamBoardScheduleDay(){
+  const dateVal = document.getElementById('examBoardSchedDateInput').value.trim();
+  if (!dateVal) { alert('먼저 날짜를 "2026년 10월 20일 화요일"처럼 입력해주세요.'); return; }
+  const entry = {};
+  [0, 1].forEach(i => {
+    entry['subject1_' + i] = document.getElementById('examBoardSchedSubject1_' + i).value.trim();
+    entry['subject2_' + i] = document.getElementById('examBoardSchedSubject2_' + i).value.trim();
+    entry['subject3_' + i] = document.getElementById('examBoardSchedSubject3_' + i).value.trim();
+  });
+  examBoardCache = examBoardCache || {};
+  examBoardCache.schedule = { ...(examBoardCache.schedule || {}), [dateVal]: entry };
+  db.collection('examBoard').doc('current').set(examBoardCache)
+    .catch(err => alert('저장에 실패했어요: ' + err.message));
+  renderExamBoardScheduleList();
+  const next = examBoardNextWeekdayStr(dateVal);
+  if (next) document.getElementById('examBoardSchedDateInput').value = next;
+  [0, 1].forEach(i => {
+    document.getElementById('examBoardSchedSubject1_' + i).value = '';
+    document.getElementById('examBoardSchedSubject2_' + i).value = '';
+    document.getElementById('examBoardSchedSubject3_' + i).value = '';
+  });
+}
+function loadExamBoardScheduleDay(dateKey){
+  const entry = ((examBoardCache && examBoardCache.schedule) || {})[dateKey] || {};
+  document.getElementById('examBoardSchedDateInput').value = dateKey;
+  [0, 1].forEach(i => {
+    document.getElementById('examBoardSchedSubject1_' + i).value = entry['subject1_' + i] || '';
+    document.getElementById('examBoardSchedSubject2_' + i).value = entry['subject2_' + i] || '';
+    document.getElementById('examBoardSchedSubject3_' + i).value = entry['subject3_' + i] || '';
+  });
+}
+function deleteExamBoardScheduleDay(dateKey){
+  if (!examBoardCache || !examBoardCache.schedule || !examBoardCache.schedule[dateKey]) return;
+  if (!confirm(`"${dateKey}" 미리 입력한 과목을 삭제할까요?`)) return;
+  const schedule = { ...examBoardCache.schedule };
+  delete schedule[dateKey];
+  examBoardCache.schedule = schedule;
+  db.collection('examBoard').doc('current').set(examBoardCache)
+    .catch(err => alert('삭제에 실패했어요: ' + err.message));
+  renderExamBoardScheduleList();
 }
 // 입력칸을 다시 보여주는 게 아니라, 지금 저장된 값을 큰 글씨로 띄워서 교실 화면에 보여주기 위한 용도다.
 function openExamBoardFullscreen(){
@@ -8986,6 +9179,8 @@ function openExamBoardFullscreen(){
     document.getElementById('examBoardFsTaken' + i).textContent = g.taken || '-';
     document.getElementById('examBoardFsAbsent' + i).textContent = g.absent || '-';
     document.getElementById('examBoardFsAbsentNumbers' + i).textContent = g.absentNumbers || '-';
+    document.getElementById('examBoardFsSubject1_' + i).textContent = g.subject1 || '-';
+    document.getElementById('examBoardFsSubject2_' + i).textContent = g.subject2 || '-';
   });
   document.getElementById('examBoardFullscreen').classList.remove('hidden');
 }
