@@ -469,6 +469,87 @@ service cloud.firestore {
       <div id="dashWeeklyWeather" class="grid grid-cols-7 gap-2 min-w-[640px]"></div>
     </div>
 
+    <!-- 시험 결시현황판 — 평소엔 버튼 하나만 보이고, 눌러야 입력칸이 펼쳐진다. 로그인 없이 누구나(다른 교사 포함) 쓸 수 있는 공개 게시판 -->
+    <div class="bg-card border border-gray-200 rounded-xl p-4 mb-5">
+      <button id="examBoardToggleBtn" onclick="toggleExamBoardPanel()" class="w-full flex items-center justify-between text-left">
+        <h2 class="font-display text-base text-forest-dark">🗓 시험 결시현황판</h2>
+        <span id="examBoardToggleChevron" class="text-gray-400 transition-transform">▶</span>
+      </button>
+      <div id="examBoardPanel" class="hidden mt-4">
+        <div class="relative mb-2">
+          <input id="examBoardTitleField" onchange="saveExamBoard()" onkeydown="examBoardCommitOnCtrlEnter(event)" class="peer w-full text-center font-display text-xl md:text-2xl text-forest-dark border-none outline-none bg-transparent" placeholder="예: 2026학년도 2학기 중간(졸업)고사">
+          <div class="hidden peer-focus:block absolute left-1/2 -translate-x-1/2 top-full mt-1 z-20 bg-ink text-white text-xs font-semibold px-3 py-1.5 rounded-lg shadow-lg whitespace-nowrap pointer-events-none">예: 2026학년도 2학기 중간(졸업)고사</div>
+        </div>
+        <div class="flex items-center justify-center gap-2 mb-5">
+          <div class="relative">
+            <input id="examBoardDateField" onchange="saveExamBoard()" onkeydown="examBoardCommitOnCtrlEnter(event)" class="peer text-center text-base text-gray-500 border-none outline-none bg-transparent w-64" placeholder="예: 2026년 10월 19일 월요일">
+            <div class="hidden peer-focus:block absolute left-1/2 -translate-x-1/2 top-full mt-1 z-20 bg-ink text-white text-xs font-semibold px-3 py-1.5 rounded-lg shadow-lg whitespace-nowrap pointer-events-none">예: 2026년 10월 19일 월요일</div>
+          </div>
+          <button onclick="examBoardNextDay()" title="다음 날짜로 넘어가고, 응시·결시·결번은 비워줍니다" class="text-xs font-semibold text-forest-dark border border-forest rounded-full px-3 py-1 hover:bg-forest-light shrink-0">다음날 →</button>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div class="border-2 border-gray-200 rounded-xl p-5">
+            <div class="relative mb-4">
+              <input id="examBoardGroupLabel0" onchange="saveExamBoard()" onkeydown="examBoardCommitOnCtrlEnter(event)" class="peer w-full text-center font-display text-lg text-forest-dark border-none outline-none bg-transparent" placeholder="예: 1-5 고정반">
+              <div class="hidden peer-focus:block absolute left-1/2 -translate-x-1/2 top-full mt-1 z-20 bg-ink text-white text-xs font-semibold px-3 py-1.5 rounded-lg shadow-lg whitespace-nowrap pointer-events-none">예: 1-5 고정반</div>
+            </div>
+            <div class="space-y-3">
+              <div class="flex items-center justify-between gap-2">
+                <label class="text-base font-semibold text-gray-600 shrink-0">총원</label>
+                <div class="flex items-center gap-1.5"><input id="examBoardTotal0" onchange="saveExamBoard()" onkeydown="examBoardCommitOnCtrlEnter(event)" type="number" inputmode="numeric" class="w-20 text-right text-xl font-bold border border-gray-300 rounded-lg px-2 py-1.5"><span class="text-gray-500">명</span></div>
+              </div>
+              <div class="flex items-center justify-between gap-2">
+                <label class="text-base font-semibold text-gray-600 shrink-0">응시</label>
+                <div class="flex items-center gap-1.5"><input id="examBoardTaken0" onchange="saveExamBoard()" onkeydown="examBoardCommitOnCtrlEnter(event)" type="number" inputmode="numeric" class="w-20 text-right text-xl font-bold border border-gray-300 rounded-lg px-2 py-1.5"><span class="text-gray-500">명</span></div>
+              </div>
+              <div class="flex items-center justify-between gap-2">
+                <label class="text-base font-semibold text-gray-600 shrink-0">결시</label>
+                <div class="flex items-center gap-1.5"><input id="examBoardAbsent0" onchange="saveExamBoard()" onkeydown="examBoardCommitOnCtrlEnter(event)" type="number" inputmode="numeric" class="w-20 text-right text-xl font-bold border border-gray-300 rounded-lg px-2 py-1.5"><span class="text-gray-500">명</span></div>
+              </div>
+              <div class="flex items-center justify-between gap-2">
+                <label class="text-base font-semibold text-gray-600 shrink-0">결번</label>
+                <div class="relative flex-1">
+                  <input id="examBoardAbsentNumbers0" onchange="saveExamBoard()" onkeydown="examBoardCommitOnCtrlEnter(event)" placeholder="예: 3, 7" class="peer w-full text-right border border-gray-300 rounded-lg px-2 py-1.5 text-base">
+                  <div class="hidden peer-focus:block absolute right-0 top-full mt-1 z-20 bg-ink text-white text-xs font-semibold px-3 py-1.5 rounded-lg shadow-lg whitespace-nowrap pointer-events-none">예: 3, 7</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="border-2 border-gray-200 rounded-xl p-5">
+            <div class="relative mb-4">
+              <input id="examBoardGroupLabel1" onchange="saveExamBoard()" onkeydown="examBoardCommitOnCtrlEnter(event)" class="peer w-full text-center font-display text-lg text-forest-dark border-none outline-none bg-transparent" placeholder="예: 3-4 이동반">
+              <div class="hidden peer-focus:block absolute left-1/2 -translate-x-1/2 top-full mt-1 z-20 bg-ink text-white text-xs font-semibold px-3 py-1.5 rounded-lg shadow-lg whitespace-nowrap pointer-events-none">예: 3-4 이동반</div>
+            </div>
+            <div class="space-y-3">
+              <div class="flex items-center justify-between gap-2">
+                <label class="text-base font-semibold text-gray-600 shrink-0">총원</label>
+                <div class="flex items-center gap-1.5"><input id="examBoardTotal1" onchange="saveExamBoard()" onkeydown="examBoardCommitOnCtrlEnter(event)" type="number" inputmode="numeric" class="w-20 text-right text-xl font-bold border border-gray-300 rounded-lg px-2 py-1.5"><span class="text-gray-500">명</span></div>
+              </div>
+              <div class="flex items-center justify-between gap-2">
+                <label class="text-base font-semibold text-gray-600 shrink-0">응시</label>
+                <div class="flex items-center gap-1.5"><input id="examBoardTaken1" onchange="saveExamBoard()" onkeydown="examBoardCommitOnCtrlEnter(event)" type="number" inputmode="numeric" class="w-20 text-right text-xl font-bold border border-gray-300 rounded-lg px-2 py-1.5"><span class="text-gray-500">명</span></div>
+              </div>
+              <div class="flex items-center justify-between gap-2">
+                <label class="text-base font-semibold text-gray-600 shrink-0">결시</label>
+                <div class="flex items-center gap-1.5"><input id="examBoardAbsent1" onchange="saveExamBoard()" onkeydown="examBoardCommitOnCtrlEnter(event)" type="number" inputmode="numeric" class="w-20 text-right text-xl font-bold border border-gray-300 rounded-lg px-2 py-1.5"><span class="text-gray-500">명</span></div>
+              </div>
+              <div class="flex items-center justify-between gap-2">
+                <label class="text-base font-semibold text-gray-600 shrink-0">결번</label>
+                <div class="relative flex-1">
+                  <input id="examBoardAbsentNumbers1" onchange="saveExamBoard()" onkeydown="examBoardCommitOnCtrlEnter(event)" placeholder="예: 3, 7" class="peer w-full text-right border border-gray-300 rounded-lg px-2 py-1.5 text-base">
+                  <div class="hidden peer-focus:block absolute right-0 top-full mt-1 z-20 bg-ink text-white text-xs font-semibold px-3 py-1.5 rounded-lg shadow-lg whitespace-nowrap pointer-events-none">예: 3, 7</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p class="text-[11px] text-gray-400 text-center mt-3">로그인 없이 누구나 바로 적을 수 있어요 — 칸을 수정하고 밖을 누르면 저장되고, Ctrl+Enter를 누르면 저장하면서 다음 칸으로 넘어갑니다.</p>
+        <div class="flex justify-center mt-4">
+          <button onclick="openExamBoardFullscreen()" class="bg-forest text-white px-6 py-2.5 rounded-lg text-sm font-semibold hover:bg-forest-dark">🖥 전체화면으로 보기</button>
+        </div>
+      </div>
+    </div>
+
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
       <div class="lg:col-span-2 space-y-5">
         <div class="bg-card border border-gray-200 rounded-xl p-5">
@@ -1888,6 +1969,35 @@ service cloud.firestore {
   </div>
 </div>
 
+<!-- 시험 결시현황판을 큰 화면으로 보여주는 전체화면 — "전체화면으로 보기"를 누르면 뜨고, 닫기를 누르거나 바깥을 누르면 닫힌다 -->
+<div id="examBoardFullscreen" class="hidden fixed inset-0 bg-paper z-[92] overflow-y-auto" onclick="if(event.target===this) closeExamBoardFullscreen()">
+  <button onclick="closeExamBoardFullscreen()" class="fixed top-5 right-5 text-gray-400 hover:text-gray-600 text-4xl leading-none z-10">&times;</button>
+  <div class="max-w-5xl mx-auto px-6 py-14 md:py-20 text-center">
+    <h1 id="examBoardFsTitle" class="font-display text-2xl md:text-5xl text-forest-dark mb-3">시험 결시현황판</h1>
+    <p id="examBoardFsDate" class="text-lg md:text-2xl text-gray-500 mb-10"></p>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 text-left">
+      <div class="border-2 border-gray-200 rounded-2xl p-6 md:p-8">
+        <h2 id="examBoardFsLabel0" class="font-display text-xl md:text-3xl text-forest-dark text-center mb-6">-</h2>
+        <div class="space-y-4 text-lg md:text-2xl">
+          <div class="flex justify-between items-baseline"><span class="font-semibold text-gray-600">총원</span><span><b id="examBoardFsTotal0">-</b>명</span></div>
+          <div class="flex justify-between items-baseline"><span class="font-semibold text-gray-600">응시</span><span><b id="examBoardFsTaken0">-</b>명</span></div>
+          <div class="flex justify-between items-baseline"><span class="font-semibold text-gray-600">결시</span><span><b id="examBoardFsAbsent0">-</b>명</span></div>
+          <div class="flex justify-between items-baseline gap-3"><span class="font-semibold text-gray-600 shrink-0">결번</span><span id="examBoardFsAbsentNumbers0" class="text-right break-words">-</span></div>
+        </div>
+      </div>
+      <div class="border-2 border-gray-200 rounded-2xl p-6 md:p-8">
+        <h2 id="examBoardFsLabel1" class="font-display text-xl md:text-3xl text-forest-dark text-center mb-6">-</h2>
+        <div class="space-y-4 text-lg md:text-2xl">
+          <div class="flex justify-between items-baseline"><span class="font-semibold text-gray-600">총원</span><span><b id="examBoardFsTotal1">-</b>명</span></div>
+          <div class="flex justify-between items-baseline"><span class="font-semibold text-gray-600">응시</span><span><b id="examBoardFsTaken1">-</b>명</span></div>
+          <div class="flex justify-between items-baseline"><span class="font-semibold text-gray-600">결시</span><span><b id="examBoardFsAbsent1">-</b>명</span></div>
+          <div class="flex justify-between items-baseline gap-3"><span class="font-semibold text-gray-600 shrink-0">결번</span><span id="examBoardFsAbsentNumbers1" class="text-right break-words">-</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- 교사가 보내는 실시간 포스트잇 메시지 — 잠깐 떴다가 저절로 사라진다 -->
 <div id="liveNotePopup" class="hidden fixed inset-0 z-[90] flex items-center justify-center p-6 pointer-events-none">
   <div class="bg-amber text-ink rounded-lg shadow-2xl p-5 max-w-sm w-full pointer-events-auto" style="transform: rotate(-1.5deg);">
@@ -2454,6 +2564,7 @@ let schedulesCache = [];
 let noticesCache = [];
 let studentsCache = [];
 let settingsCache = defaultSettings();
+let examBoardCache = null; // settings 문서와 분리된 별도 컬렉션 — 로그인 없이도 읽고 쓸 수 있다
 let studentsUnsub = null;
 let counselingSlotsCache = [];
 let counselingSlotsUnsub = null;
@@ -2718,6 +2829,10 @@ function bootstrapApp(){
   });
   db.collection('settings').doc('general').get().then(doc => {
     if (!doc.exists) db.collection('settings').doc('general').set(defaultSettings());
+  });
+  db.collection('examBoard').doc('current').onSnapshot(doc => {
+    examBoardCache = doc.exists ? doc.data() : null;
+    if (currentView === 'dashboard') renderExamBoard();
   });
   let lastWeatherLocKey = null;
   let lastMealSchoolKey = null;
@@ -3792,6 +3907,7 @@ function renderDashboard(){
   renderDailyLearning();
   renderCbtQrWidget();
   renderCheckinQrBox();
+  renderExamBoard();
   applyDashCardOrder();
 
   const today = todayStr();
@@ -8777,6 +8893,104 @@ function saveClassName(){
   settingsCache.className = document.getElementById('classNameField').value.trim();
   db.collection('settings').doc('general').set({ className: settingsCache.className }, { merge: true });
   alert('학급명이 저장되었습니다.');
+}
+// 로그인 없이(다른 교사를 포함해) 누구나 적을 수 있는 공개 게시판이라, 필드 하나를 고치고
+// 밖을 누르면(onchange) 그 즉시 저장한다 — 저장 버튼이나 알림창 없이 조용히 저장되고,
+// Firestore 실시간 동기화로 다른 화면(TV로 띄운 대시보드 등)에도 바로 반영된다.
+// 지금 포커스된 입력칸은 값을 덮어쓰지 않는다 — 안 그러면 누가 입력 중일 때 다른 사람의
+// 저장이 실시간으로 반영되면서 타이핑 중이던 값이 날아갈 수 있다.
+function renderExamBoard(){
+  const eb = examBoardCache || {};
+  const groups = (eb.groups && eb.groups.length === 2) ? eb.groups : [{ label: '1-5 고정반' }, { label: '3-4 이동반' }];
+  const setVal = (id, value) => {
+    const el = document.getElementById(id);
+    if (el && document.activeElement !== el) el.value = value || '';
+  };
+  setVal('examBoardTitleField', eb.title);
+  setVal('examBoardDateField', eb.date);
+  groups.forEach((g, i) => {
+    setVal('examBoardGroupLabel' + i, g.label);
+    setVal('examBoardTotal' + i, g.total);
+    setVal('examBoardTaken' + i, g.taken);
+    setVal('examBoardAbsent' + i, g.absent);
+    setVal('examBoardAbsentNumbers' + i, g.absentNumbers);
+  });
+}
+function saveExamBoard(){
+  const groups = [0, 1].map(i => ({
+    label: document.getElementById('examBoardGroupLabel' + i).value.trim(),
+    total: document.getElementById('examBoardTotal' + i).value.trim(),
+    taken: document.getElementById('examBoardTaken' + i).value.trim(),
+    absent: document.getElementById('examBoardAbsent' + i).value.trim(),
+    absentNumbers: document.getElementById('examBoardAbsentNumbers' + i).value.trim(),
+  }));
+  examBoardCache = {
+    title: document.getElementById('examBoardTitleField').value.trim(),
+    date: document.getElementById('examBoardDateField').value.trim(),
+    groups,
+  };
+  // settings/general과 분리된 examBoard 컬렉션에 쓴다 — settings는 로그인한 교사만 쓸 수 있어서,
+  // 로그인 없이도 저장돼야 하는 이 게시판은 거기 넣으면 권한 오류로 조용히 저장이 안 됐었다.
+  db.collection('examBoard').doc('current').set(examBoardCache)
+    .catch(err => alert('저장에 실패했어요: ' + err.message));
+}
+// 한글 입력기(IME)로 글자를 조합하는 중에는 Enter가 먼저 "조합 완료" 용도로 쓰여서,
+// Enter 한 번만으로 저장을 걸면 타이핑 도중 오동작하기 쉽다. 그래서 Ctrl(또는 Cmd)+Enter로
+// 묶어서 "이 칸 입력 끝, 다음 칸으로" 의도가 분명할 때만 저장하고 다음 칸에 포커스를 준다.
+const EXAM_BOARD_FIELD_ORDER = [
+  'examBoardTitleField', 'examBoardDateField',
+  'examBoardGroupLabel0', 'examBoardTotal0', 'examBoardTaken0', 'examBoardAbsent0', 'examBoardAbsentNumbers0',
+  'examBoardGroupLabel1', 'examBoardTotal1', 'examBoardTaken1', 'examBoardAbsent1', 'examBoardAbsentNumbers1',
+];
+function examBoardCommitOnCtrlEnter(event){
+  if (event.key !== 'Enter' || !(event.ctrlKey || event.metaKey)) return;
+  event.preventDefault();
+  const idx = EXAM_BOARD_FIELD_ORDER.indexOf(event.target.id);
+  const next = (idx !== -1 && idx < EXAM_BOARD_FIELD_ORDER.length - 1) ? document.getElementById(EXAM_BOARD_FIELD_ORDER[idx + 1]) : null;
+  if (next) { next.focus(); next.select(); }
+  else { event.target.blur(); }
+}
+// 날짜 칸의 "YYYY년 M월 D일 ○요일"을 읽어서 다음 평일로 넘겨준다(시험은 보통 주말을 건너뛰어서).
+// 그날의 총원은 보통 그대로지만 응시·결시·결번은 날마다 달라지니 비워서 다시 채우게 한다.
+function examBoardNextDay(){
+  const field = document.getElementById('examBoardDateField');
+  const m = field.value.trim().match(/(\d{4})\s*년\s*(\d{1,2})\s*월\s*(\d{1,2})\s*일/);
+  if (!m) { alert('먼저 날짜를 "2026년 10월 19일 월요일"처럼 입력해주세요.'); return; }
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  do { d.setDate(d.getDate() + 1); } while (d.getDay() === 0 || d.getDay() === 6);
+  const dow = ['일','월','화','수','목','금','토'][d.getDay()];
+  field.value = `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일 ${dow}요일`;
+  [0, 1].forEach(i => {
+    document.getElementById('examBoardTaken' + i).value = '';
+    document.getElementById('examBoardAbsent' + i).value = '';
+    document.getElementById('examBoardAbsentNumbers' + i).value = '';
+  });
+  saveExamBoard();
+}
+// 평소엔 접어두고, 제목 버튼을 누르면 입력칸이 펼쳐진다(시험이 매일 있는 게 아니라서).
+function toggleExamBoardPanel(){
+  const panel = document.getElementById('examBoardPanel');
+  const willOpen = panel.classList.contains('hidden');
+  panel.classList.toggle('hidden', !willOpen);
+  document.getElementById('examBoardToggleChevron').textContent = willOpen ? '▼' : '▶';
+}
+// 입력칸을 다시 보여주는 게 아니라, 지금 저장된 값을 큰 글씨로 띄워서 교실 화면에 보여주기 위한 용도다.
+function openExamBoardFullscreen(){
+  const eb = examBoardCache || {};
+  const groups = (eb.groups && eb.groups.length === 2) ? eb.groups : [{}, {}];
+  document.getElementById('examBoardFsTitle').textContent = eb.title || '시험 결시현황판';
+  document.getElementById('examBoardFsDate').textContent = eb.date || '';
+  groups.forEach((g, i) => {
+    document.getElementById('examBoardFsLabel' + i).textContent = g.label || ('그룹 ' + (i + 1));
+    document.getElementById('examBoardFsTotal' + i).textContent = g.total || '-';
+    document.getElementById('examBoardFsTaken' + i).textContent = g.taken || '-';
+    document.getElementById('examBoardFsAbsent' + i).textContent = g.absent || '-';
+    document.getElementById('examBoardFsAbsentNumbers' + i).textContent = g.absentNumbers || '-';
+  });
+  document.getElementById('examBoardFullscreen').classList.remove('hidden');
+}
+function closeExamBoardFullscreen(){
+  document.getElementById('examBoardFullscreen').classList.add('hidden');
 }
 function saveHealthRecoveryEmail(){
   const value = document.getElementById('healthRecoveryEmailField').value.trim();

@@ -56,6 +56,13 @@ service cloud.firestore {
 
     match /tasks/{doc} { allow read, write: if isTeacher(); }
 
+    // 시험 결시현황판: 로그인 없이 누구나(다른 교사 포함) 숫자를 적을 수 있어야 해서,
+    // 비밀번호 등 민감한 값이 섞인 settings 문서와 분리된 별도 컬렉션으로 둔다.
+    match /examBoard/{doc} {
+      allow read: if true;
+      allow write: if request.resource.data.keys().hasOnly(['title', 'date', 'groups']);
+    }
+
     match /stats/{doc} {
       allow read: if true;
       allow create, update: if request.resource.data.keys().hasOnly(['total', 'dailyDate', 'dailyCount'])
