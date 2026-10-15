@@ -60,7 +60,7 @@ service cloud.firestore {
     // 비밀번호 등 민감한 값이 섞인 settings 문서와 분리된 별도 컬렉션으로 둔다.
     match /examBoard/{doc} {
       allow read: if true;
-      allow write: if request.resource.data.keys().hasOnly(['title', 'date', 'groups', 'schedule']);
+      allow write: if request.resource.data.keys().hasOnly(['title', 'date', 'groups', 'schedule', 'timeTable', 'trackLegend']);
     }
 
     match /stats/{doc} {
