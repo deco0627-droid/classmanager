@@ -1518,6 +1518,7 @@ service cloud.firestore {
               <button onclick="sendAfterschoolPush()" class="bg-amber text-white px-4 rounded-lg text-sm font-semibold hover:opacity-90 shrink-0">보내기</button>
             </div>
             <p class="text-[11px] text-gray-400 mt-1">위 명단에 등록된 이름과, 학생이 알림 켤 때 등록한 이름이 일치해야 받을 수 있어요(담임 학급 전체가 아니라 이 명단에 있는 학생에게만 가요).</p>
+            <div id="afterschoolMessagesAdminList" class="space-y-1.5 mt-2"></div>
           </div>
 
           <div class="mt-4 pt-3 border-t border-gray-100">
@@ -7241,6 +7242,7 @@ function startAfterschoolMessagesListener(){
   db.collection('afterschoolMessages').orderBy('sentAt', 'desc').limit(30).onSnapshot(snap => {
     afterschoolMessagesCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     if (currentView === 'afterschool') renderAfterschoolMessagesView();
+    renderAfterschoolMessagesAdminList();
   }, err => console.error('afterschoolMessages 컬렉션을 불러오지 못했습니다 (Firestore 보안 규칙을 확인하세요):', err));
 }
 function renderAfterschoolMessagesView(){
@@ -7254,6 +7256,38 @@ function renderAfterschoolMessagesView(){
       </div>
       ${m.content ? `<p class="text-sm text-gray-200 mt-1 whitespace-pre-line">${escapeHtml(m.content)}</p>` : ''}
     </div>`).join('') : `<p class="text-gray-400 text-sm">아직 보낸 공지가 없습니다.</p>`;
+}
+// 관리자 화면에서 보낸 공지를 고치거나 지울 수 있게 한다(시험 삼아 보낸 공지가 학생 화면에 그대로 남는 문제 해결)
+function renderAfterschoolMessagesAdminList(){
+  const el = document.getElementById('afterschoolMessagesAdminList');
+  if (!el) return;
+  el.innerHTML = afterschoolMessagesCache.length ? afterschoolMessagesCache.map(m => `
+    <div class="flex items-start justify-between gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+      <div class="min-w-0">
+        <p class="text-sm font-semibold truncate">${escapeHtml(m.title || '')}</p>
+        ${m.content ? `<p class="text-xs text-gray-500 whitespace-pre-line">${escapeHtml(m.content)}</p>` : ''}
+        <p class="text-[11px] text-gray-400 mt-0.5">${timeAgo(m.sentAt || 0)}</p>
+      </div>
+      <div class="flex gap-1 shrink-0">
+        <button onclick="editAfterschoolMessage('${m.id}')" class="text-xs border border-gray-300 bg-white px-2 py-1 rounded-lg hover:bg-gray-50">✏️</button>
+        <button onclick="deleteAfterschoolMessage('${m.id}')" class="text-xs border border-gray-300 bg-white px-2 py-1 rounded-lg hover:bg-gray-50">🗑️</button>
+      </div>
+    </div>`).join('') : `<p class="text-gray-400 text-xs">보낸 공지가 없습니다.</p>`;
+}
+function editAfterschoolMessage(id){
+  const m = afterschoolMessagesCache.find(x => x.id === id);
+  if (!m) return;
+  const title = prompt('제목을 고쳐주세요:', m.title || '');
+  if (title === null) return;
+  const content = prompt('내용을 고쳐주세요:', m.content || '');
+  if (content === null) return;
+  db.collection('afterschoolMessages').doc(id).update({ title: title.trim(), content: content.trim() })
+    .catch(err => alert('수정에 실패했습니다: ' + err.message));
+}
+function deleteAfterschoolMessage(id){
+  if (!confirm('이 공지를 삭제할까요? 학생 화면에서도 사라집니다.')) return;
+  db.collection('afterschoolMessages').doc(id).delete()
+    .catch(err => alert('삭제에 실패했습니다: ' + err.message));
 }
 // 학기 단위로 열고 닫는다. 예전에는 무료 요금제 1GB 저장 공간을 감안해 지난 학기 것을 그냥
 // 지웠지만(요청: "1기가 저장공간을 고려해서 삭제해도 되고"), 이제는 지우기 전에 명단·일정·출결을
