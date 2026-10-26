@@ -45,6 +45,13 @@ service cloud.firestore {
     function isClassAdmin() {
       return isApprovedUser() && myField('role') == 'classAdmin';
     }
+    // 관리자가 "자유 연습"을 허용해 둔 계정 — 이런 계정은 앱 자체가 문제은행 전체(정답 포함)를
+    // 미리 받아서 쓰므로, 이 계정들에게는 cbtQuestions 직접 읽기를 계속 허용해도 노출 범위가
+    // 넓어지지 않는다. 반대로 QR로 지정된 시험만 보는 일반 학생은 /api/start-exam을 거쳐야만
+    // 문제를 받아야 하므로(그래야 정답이 숨겨짐), cbtQuestions 직접 읽기를 주지 않는다.
+    function hasOpenPractice() {
+      return isApprovedUser() && myField('openPractice') == true;
+    }
 
     match /schedules/{doc} { allow read: if true; allow write: if isTeacher(); }
     match /notices/{doc}   { allow read: if true; allow write: if isTeacher(); }
@@ -164,7 +171,10 @@ service cloud.firestore {
       allow create, update, delete: if canManageBooks();
     }
     match /cbtQuestions/{doc} {
-      allow read: if isApprovedUser();
+      // 정답(answerIndex)·해설이 그대로 담긴 문서라서, 문제은행을 관리할 권한이 있는 계정이나
+      // "자유 연습"이 허용된 계정에게만 직접 읽기를 준다. QR로 지정된 시험만 보는 일반 학생은
+      // 반드시 /api/start-exam(서버가 정답을 가리고 내려줌)을 거치게 한다.
+      allow read: if canManageBooks() || hasOpenPractice();
       allow create, update, delete: if canManageBooks();
     }
     match /cbtCategories/{doc} {
@@ -176,12 +186,17 @@ service cloud.firestore {
       allow read: if isAdmin() || isCbtOwner(resource.data.ownerId) ||
         (isSchoolAdmin() && resource.data.school == mySchool()) ||
         (isClassAdmin() && resource.data.school == mySchool() && resource.data.track == myTrack());
+      // serverGraded:true는 /api/grade-exam이 서비스 계정으로만 적는다(요청 바디의 점수를
+      // 그대로 믿지 않고 서명된 answerToken을 검증한 뒤 서버가 직접 씀). 브라우저가 Firestore에
+      // 직접 쓸 때는 이 필드를 true로 못 넣게 막아서, "서버가 채점했다"고 위장한 가짜 만점을
+      // 못 집어넣게 한다(자유 연습처럼 서버 채점을 거치지 않는 기록은 이 필드 없이 그대로 허용).
       allow create: if isCbtOwner(request.resource.data.ownerId)
         && request.resource.data.school == mySchool()
         && (
           request.resource.data.track == myTrack() ||
           (request.resource.data.track == '' && myTrack() == null)
-        );
+        )
+        && request.resource.data.get('serverGraded', false) == false;
       allow update: if isAdmin();
       allow delete: if isAdmin() || isCbtOwner(resource.data.ownerId) ||
         (isSchoolAdmin() && resource.data.school == mySchool()) ||
