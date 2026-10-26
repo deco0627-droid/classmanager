@@ -1521,8 +1521,14 @@ service cloud.firestore {
           </div>
 
           <div class="mt-4 pt-3 border-t border-gray-100">
+            <p class="text-xs font-semibold text-gray-500 mb-1">📚 지난 학기 기록</p>
+            <p class="text-[11px] text-gray-400 mb-2">학기를 종료할 때마다 그 학기의 명단·일정·출결을 기록 하나로 묶어 여기에 보관해요. 나중에 언제든 다시 볼 수 있어요.</p>
+            <div id="afterschoolArchiveList" class="space-y-1.5"></div>
+          </div>
+
+          <div class="mt-4 pt-3 border-t border-gray-100">
             <p class="text-xs font-semibold text-brick mb-1">🏁 학기 종료</p>
-            <p class="text-[11px] text-gray-400 mb-2">학기가 끝나면 눌러주세요. 참여 학생 명단·수업 일정·출결 기록이 전부 삭제되고 상단 메뉴에서도 "방과후수업" 탭이 사라져요(저장공간을 아끼려고 남겨두지 않고 지워요). 다음 학기 걸 다시 등록하면 탭이 자동으로 다시 나타납니다.</p>
+            <p class="text-[11px] text-gray-400 mb-2">학기가 끝나면 눌러주세요. 참여 학생 명단·수업 일정·출결 기록을 위 "지난 학기 기록"에 통째로 보관한 뒤, 실시간 목록에서는 지우고 상단 메뉴에서도 "방과후수업" 탭이 사라져요. 다음 학기 걸 다시 등록하면 탭이 자동으로 다시 나타납니다.</p>
             <button onclick="endAfterschoolTerm()" class="w-full border border-brick/40 text-brick py-1.5 rounded-lg text-sm font-semibold hover:bg-brick/10">이번 학기 방과후수업 종료·초기화</button>
           </div>
         </div>
@@ -1712,7 +1718,7 @@ service cloud.firestore {
               <details class="mt-1"><summary class="text-xs cursor-pointer text-gray-600">읽은 원문 보기</summary><pre id="rwPlanRaw" class="text-xs whitespace-pre-wrap max-h-40 overflow-auto mt-1"></pre></details>
             </div>
             <div class="border border-gray-400 rounded-lg p-2 mb-2">
-              <p class="text-xs text-gray-600 mb-1">상/중/하 3단계로 적힌 평가계획은 PDF를 읽을 때 내용요소별로 자동으로 넣습니다. 상=A·B, 중=C·D, 하=E 칸에 채워지며, 내용요소는 아래 목록에서 바꿀 수 있습니다. 직접 입력해도 됩니다.</p>
+              <p class="text-xs text-gray-600 mb-1">상/중/하 3단계로 적힌 평가계획은 PDF를 읽을 때 내용요소별로 자동으로 넣습니다. 상=A·B, 중=C·D, 하=E 칸에 채워지며, 내용요소는 아래 목록에서 바꿀 수 있습니다. 직접 입력해도 됩니다. <b>'기본 자료 저장'을 누르면 내용요소 전체가 하나로 합쳐져 과세특에 반영됩니다</b>(목록에서 하나씩 골라 확인·수정만 하면 되고, 전부 다시 저장할 필요는 없습니다).</p>
               <select id="rwBandRow" onchange="rwBandPick()" class="hidden w-full mb-2 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"></select>
               <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 <div><label class="text-xs font-semibold text-gray-500">상 (A·B)</label><input id="rwBandHigh" class="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"></div>
@@ -1730,7 +1736,7 @@ service cloud.firestore {
               </div>
               <div>
                 <label class="text-xs font-semibold text-gray-500 rw-tip" data-tip="일반 교과, 체육·예술 실기, 전문교과 실무(능력단위) 중 고릅니다. 실무를 고르면 능력단위 문장이 과세특에 들어갑니다.">과목 유형</label>
-                <select id="rwKind" class="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white">
+                <select id="rwKind" onchange="rwRenderUnitButtons()" class="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white">
                   <option value="general">일반 교과</option>
                   <option value="arts">체육·예술 실기</option>
                   <option value="practical">전문교과 실무 (능력단위)</option>
@@ -1757,8 +1763,8 @@ service cloud.firestore {
                 </div>
               </div>
               <div>
-                <label class="text-xs font-semibold text-gray-500 rw-tip" data-tip="전문교과 실무일 때 능력단위 이름입니다(쉼표로 구분). 평가계획의 능력단위로 자동 채워집니다.">실무 능력단위 (쉼표 구분, 전문교과 실무일 때)</label>
-                <input id="rwUnits" class="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white" placeholder="예: 변전설비 운영">
+                <label class="text-xs font-semibold text-gray-500 rw-tip" data-tip="전문교과 실무일 때 능력단위 이름입니다(쉼표로 구분). 평가계획의 능력단위로 자동 채워집니다. 능력단위가 둘 이상이면 학생별 입력 아래에서 능력단위별로 따로 초안을 만들 수 있는 버튼이 나타납니다.">실무 능력단위 (쉼표 구분, 전문교과 실무일 때)</label>
+                <input id="rwUnits" oninput="rwRenderUnitButtons()" class="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white" placeholder="예: 변전설비 운영">
               </div>
             </div>
             <div class="flex items-center gap-2">
@@ -1854,10 +1860,11 @@ service cloud.firestore {
               <input id="rwTargetHr" type="number" min="100" max="900" placeholder="900" class="block w-36 mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white" onchange="rwTargetChanged('rwTargetHr')">
             </div>
           </div>
-          <div class="flex flex-wrap gap-2 mb-3">
+          <div class="flex flex-wrap gap-2 mb-2">
             <button onclick="rwGenerate()" class="px-4 py-2 rounded-lg bg-forest-dark text-white text-sm font-semibold">학생 초안 만들기 (이 학생만)</button>
             <button onclick="rwAllDrafts()" class="px-4 py-2 rounded-lg bg-forest-dark text-white text-sm font-semibold">명단 전체 초안 만들기</button>
           </div>
+          <div id="rwUnitButtons" class="flex flex-wrap gap-2 mb-3"></div>
 
           <textarea id="rwOutput" rows="6" oninput="rwEdited()" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white" placeholder="여기에 초안이 나옵니다. 직접 수정할 수 있어요."></textarea>
           <p id="rwBytes" class="text-xs text-gray-500 mt-1"></p>
@@ -2044,6 +2051,20 @@ service cloud.firestore {
     </div>
     <div id="afterschoolAttendanceList" class="space-y-2"></div>
     <button onclick="saveAfterschoolAttendance()" class="w-full mt-4 bg-forest text-white py-2 rounded-lg text-sm font-semibold hover:bg-forest-dark">저장</button>
+  </div>
+</div>
+
+<div id="afterschoolArchiveModal" class="hidden fixed inset-0 bg-ink/60 z-[70] flex items-center justify-center p-4" onclick="if(event.target===this) closeAfterschoolArchive()">
+  <div class="bg-card rounded-2xl shadow-xl w-full max-w-4xl p-5 max-h-[85vh] overflow-y-auto">
+    <div class="flex items-center justify-between mb-1">
+      <h3 id="afterschoolArchiveTitle" class="font-display text-lg text-forest-dark">지난 학기 출결</h3>
+      <button onclick="closeAfterschoolArchive()" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+    </div>
+    <p id="afterschoolArchiveMeta" class="text-xs text-gray-400 mb-3"></p>
+    <p class="text-xs font-semibold text-gray-500 mb-2">📈 출결 통계 (학생별 요약)</p>
+    <div id="afterschoolArchiveStats" class="overflow-x-auto mb-4"></div>
+    <p class="text-xs font-semibold text-gray-500 mb-2">📊 출결 현황 (학생 × 날짜 한눈에 보기)</p>
+    <div id="afterschoolArchiveTable" class="overflow-x-auto"></div>
   </div>
 </div>
 
@@ -3044,6 +3065,7 @@ function bootstrapApp(){
   startAfterschoolScheduleListener();
   startAfterschoolAttendanceListener();
   startAfterschoolMessagesListener();
+  startAfterschoolArchivesListener();
 
   auth.onAuthStateChanged(user => {
     isTeacher = !!(user && user.email === TEACHER_EMAIL);
@@ -6932,6 +6954,86 @@ function stopAfterschoolAttendanceListener(){
   if (afterschoolAttendanceUnsub) { afterschoolAttendanceUnsub(); afterschoolAttendanceUnsub = null; }
   afterschoolAttendanceCache = {};
 }
+
+// 지난 학기 방과후수업 기록 보관함 — 학기를 종료할 때 명단·일정·출결을 통째로 기록 하나에 담아
+// 저장해두고, 실시간 컬렉션(afterschoolSchedule/afterschoolAttendance)은 그대로 비운다.
+// 그래서 저장공간은 세션별로 흩어진 문서 대신 학기당 문서 1개로 줄고, 기록은 남는다.
+let afterschoolArchivesCache = [];
+let afterschoolArchivesUnsub = null;
+function startAfterschoolArchivesListener(){
+  if (afterschoolArchivesUnsub) return;
+  afterschoolArchivesUnsub = db.collection('afterschoolArchives').orderBy('archivedAt', 'desc').onSnapshot(snap => {
+    afterschoolArchivesCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    renderAfterschoolArchiveList();
+  }, err => console.error('afterschoolArchives 컬렉션을 불러오지 못했습니다 (Firestore 보안 규칙을 확인하세요):', err));
+}
+async function archiveAfterschoolTerm(label){
+  const sessions = afterschoolScheduleCache
+    .slice()
+    .sort((a,b) => (a.date||'').localeCompare(b.date||'') || (a.time||'').localeCompare(b.time||''))
+    .map(s => ({ date: s.date || '', time: s.time || '', title: s.title || '', records: afterschoolAttendanceCache[s.id] || {} }));
+  await db.collection('afterschoolArchives').add({
+    label,
+    courseTitle: settingsCache.afterschoolCourseTitle || '',
+    courseInfo: settingsCache.afterschoolCourseInfo || '',
+    students: afterschoolStudents(),
+    sessions,
+    archivedAt: Date.now(),
+  });
+}
+function afterschoolArchiveDateLabel(a){
+  if (!a.archivedAt) return '보관일 확인 중';
+  const d = new Date(a.archivedAt);
+  return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')} 보관`;
+}
+function renderAfterschoolArchiveList(){
+  const el = document.getElementById('afterschoolArchiveList');
+  if (!el) return;
+  if (!afterschoolArchivesCache.length) {
+    el.innerHTML = `<p class="text-gray-400 text-xs">보관된 지난 학기 기록이 없습니다. 학기를 종료하면 여기에 자동으로 쌓여요.</p>`;
+    return;
+  }
+  el.innerHTML = afterschoolArchivesCache.map(a => `
+    <div class="flex items-center justify-between gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+      <div class="min-w-0">
+        <p class="text-sm font-semibold truncate">${escapeHtml(a.label || '(이름 없음)')}</p>
+        <p class="text-[11px] text-gray-400">${afterschoolArchiveDateLabel(a)} · 학생 ${(a.students||[]).length}명 · 수업 ${(a.sessions||[]).length}회</p>
+      </div>
+      <div class="flex items-center gap-1 shrink-0">
+        <button onclick="openAfterschoolArchive('${a.id}')" class="text-xs bg-card border border-gray-300 px-2.5 py-1.5 rounded-lg hover:bg-gray-50">보기</button>
+        <button onclick="renameAfterschoolArchive('${a.id}')" class="text-xs bg-card border border-gray-300 px-2.5 py-1.5 rounded-lg hover:bg-gray-50" title="이름 바꾸기">✏️</button>
+        <button onclick="deleteAfterschoolArchive('${a.id}')" class="text-xs text-brick border border-brick/40 px-2.5 py-1.5 rounded-lg hover:bg-brick/10">삭제</button>
+      </div>
+    </div>`).join('');
+}
+function openAfterschoolArchive(id){
+  const a = afterschoolArchivesCache.find(x => x.id === id);
+  if (!a) return;
+  document.getElementById('afterschoolArchiveTitle').textContent = a.label || '지난 학기 출결';
+  document.getElementById('afterschoolArchiveMeta').textContent = `${afterschoolArchiveDateLabel(a)} · 학생 ${(a.students||[]).length}명 · 수업 ${(a.sessions||[]).length}회${a.courseTitle ? ' · ' + a.courseTitle : ''}`;
+  document.getElementById('afterschoolArchiveStats').innerHTML = buildAfterschoolStatsHtml(a.students||[], a.sessions||[]);
+  document.getElementById('afterschoolArchiveTable').innerHTML = buildAfterschoolTableHtml(a.students||[], a.sessions||[]);
+  document.getElementById('afterschoolArchiveModal').classList.remove('hidden');
+}
+function closeAfterschoolArchive(){
+  document.getElementById('afterschoolArchiveModal').classList.add('hidden');
+}
+function renameAfterschoolArchive(id){
+  const a = afterschoolArchivesCache.find(x => x.id === id);
+  if (!a) return;
+  const next = prompt('기록 이름을 입력하세요 (예: 2026학년도 1분기)', a.label || '');
+  if (next === null) return;
+  const trimmed = next.trim();
+  if (!trimmed) return;
+  db.collection('afterschoolArchives').doc(id).update({ label: trimmed })
+    .catch(err => alert('이름 변경에 실패했습니다: ' + err.message));
+}
+function deleteAfterschoolArchive(id){
+  const a = afterschoolArchivesCache.find(x => x.id === id);
+  if (!confirm(`"${a ? a.label : '이 기록'}"을(를) 삭제할까요? 되돌릴 수 없습니다.`)) return;
+  db.collection('afterschoolArchives').doc(id).delete()
+    .catch(err => alert('삭제에 실패했습니다: ' + err.message));
+}
 function afterschoolAttendanceSummary(scheduleId){
   const records = afterschoolAttendanceCache[scheduleId];
   if (!records || !Object.keys(records).length) return '';
@@ -6944,20 +7046,17 @@ const AFTERSCHOOL_STATUS_CELL_CLASS = { 출석: 'text-forest-dark', 지각: 'tex
 // 학생 x 날짜 표로 한눈에 볼 수 있게 — 세션이 많아지면 옆으로 길어지므로 가로 스크롤 컨테이너 안에 둔다.
 // 학생별로 전체 기간을 집계해서 출석률·유형별 횟수를 한눈에 보여준다 — 날짜별 원본 기록(표)과
 // 달리, "누가 관리가 필요한지"를 바로 짚어낼 수 있게 출석률이 낮으면 빨간 굵은 글씨로 강조한다.
-function renderAfterschoolAttendanceStats(){
-  const el = document.getElementById('afterschoolAttendanceStats');
-  if (!el) return;
-  const students = afterschoolStudents();
-  const sessions = afterschoolScheduleCache;
+// 학기 중(실시간)과 지난 학기 기록(보관함) 양쪽에서 같은 표를 그릴 수 있도록,
+// sessions는 항상 {date, time, title, records} 모양으로 통일해서 넘긴다.
+function buildAfterschoolStatsHtml(students, sessions){
   if (!students.length || !sessions.length) {
-    el.innerHTML = `<p class="text-gray-400 text-sm">학생 명단과 일정을 먼저 등록해주세요.</p>`;
-    return;
+    return `<p class="text-gray-400 text-sm">학생 명단과 일정을 먼저 등록해주세요.</p>`;
   }
   const stats = students.map(s => {
     const counts = { 출석: 0, 지각: 0, 조퇴: 0, 질병결석: 0, 무단결석: 0, 결석: 0 };
     let marked = 0;
     sessions.forEach(sess => {
-      const rec = (afterschoolAttendanceCache[sess.id] || {})[s.realName];
+      const rec = (sess.records || {})[s.realName];
       if (!rec || counts[rec.status] === undefined) return;
       marked++;
       counts[rec.status]++;
@@ -6966,7 +7065,7 @@ function renderAfterschoolAttendanceStats(){
     const rate = marked ? Math.round((counts.출석 / marked) * 100) : null;
     return { s, counts, marked, absent, rate };
   });
-  el.innerHTML = `
+  return `
     <table class="text-sm border-collapse w-full">
       <thead>
         <tr>
@@ -6993,32 +7092,32 @@ function renderAfterschoolAttendanceStats(){
       </tbody>
     </table>`;
 }
+function renderAfterschoolAttendanceStats(){
+  const el = document.getElementById('afterschoolAttendanceStats');
+  if (!el) return;
+  const sessions = afterschoolScheduleCache.map(s => ({ ...s, records: afterschoolAttendanceCache[s.id] || {} }));
+  el.innerHTML = buildAfterschoolStatsHtml(afterschoolStudents(), sessions);
+}
 // 날짜 칸에 마우스를 올리면 그날 결석·지각 등이 있었던 학생과 사유를 바로 볼 수 있게 한다
 // (한 명씩 칸을 확인하지 않아도 그날 무슨 일이 있었는지 한눈에 알 수 있음).
-function afterschoolSessionIssuesTooltip(sessionId){
-  const records = afterschoolAttendanceCache[sessionId];
+function afterschoolSessionIssuesTooltip(records){
   if (!records) return '';
   const lines = Object.entries(records)
     .filter(([, r]) => r.status && r.status !== '출석')
     .map(([name, r]) => `${AFTERSCHOOL_STATUS_ICON[r.status] || ''} ${name} - ${r.status}${r.reason ? ' (' + r.reason + ')' : ''}`);
   return lines.join('\n');
 }
-function renderAfterschoolAttendanceTable(){
-  const el = document.getElementById('afterschoolAttendanceTable');
-  if (!el) return;
-  const students = afterschoolStudents();
-  const sessions = afterschoolScheduleCache;
+function buildAfterschoolTableHtml(students, sessions){
   if (!students.length || !sessions.length) {
-    el.innerHTML = `<p class="text-gray-400 text-sm">학생 명단과 일정을 먼저 등록해주세요.</p>`;
-    return;
+    return `<p class="text-gray-400 text-sm">학생 명단과 일정을 먼저 등록해주세요.</p>`;
   }
-  el.innerHTML = `
+  return `
     <table class="text-sm border-collapse">
       <thead>
         <tr>
           <th class="sticky left-0 bg-card border border-gray-200 px-3 py-2.5 text-left whitespace-nowrap">학생</th>
           ${sessions.map(s => {
-            const tip = afterschoolSessionIssuesTooltip(s.id);
+            const tip = afterschoolSessionIssuesTooltip(s.records);
             return `<th class="border border-gray-200 px-3 py-2.5 whitespace-nowrap font-mono text-gray-500${tip ? ' cursor-help' : ''}"${tip ? ` title="${escapeAttr(tip)}"` : ''}>${afterschoolDateLabel(s.date)}</th>`;
           }).join('')}
         </tr>
@@ -7028,7 +7127,7 @@ function renderAfterschoolAttendanceTable(){
           <tr>
             <td class="sticky left-0 bg-card border border-gray-200 px-3 py-2.5 font-semibold whitespace-nowrap">${escapeHtml(st.grade || '')} ${escapeHtml(st.realName)}</td>
             ${sessions.map(s => {
-              const rec = (afterschoolAttendanceCache[s.id] || {})[st.realName];
+              const rec = (s.records || {})[st.realName];
               const cls = rec ? (AFTERSCHOOL_STATUS_CELL_CLASS[rec.status] || '') : 'text-gray-300';
               const titleAttr = rec && rec.reason ? ` title="${escapeAttr(rec.reason)}"` : '';
               const label = rec ? `${AFTERSCHOOL_STATUS_ICON[rec.status] || ''} ${rec.status}` : '-';
@@ -7037,6 +7136,12 @@ function renderAfterschoolAttendanceTable(){
           </tr>`).join('')}
       </tbody>
     </table>`;
+}
+function renderAfterschoolAttendanceTable(){
+  const el = document.getElementById('afterschoolAttendanceTable');
+  if (!el) return;
+  const sessions = afterschoolScheduleCache.map(s => ({ ...s, records: afterschoolAttendanceCache[s.id] || {} }));
+  el.innerHTML = buildAfterschoolTableHtml(afterschoolStudents(), sessions);
 }
 function openAfterschoolAttendance(scheduleId){
   openAfterschoolAttendanceScheduleId = scheduleId;
@@ -7150,12 +7255,17 @@ function renderAfterschoolMessagesView(){
       ${m.content ? `<p class="text-sm text-gray-200 mt-1 whitespace-pre-line">${escapeHtml(m.content)}</p>` : ''}
     </div>`).join('') : `<p class="text-gray-400 text-sm">아직 보낸 공지가 없습니다.</p>`;
 }
-// 학기 단위로 열고 닫는다 — 무료 요금제 1GB 저장 공간을 감안해 지난 학기 것은 남겨두지 않고
-// 지운다(요청: "1기가 저장공간을 고려해서 삭제해도 되고"). 명단·일정이 비면 방과후수업 탭도
-// 자동으로 메뉴에서 사라지고(hasActiveAfterschool 참고), 다음 학기 걸 등록하면 다시 나타난다.
+// 학기 단위로 열고 닫는다. 예전에는 무료 요금제 1GB 저장 공간을 감안해 지난 학기 것을 그냥
+// 지웠지만(요청: "1기가 저장공간을 고려해서 삭제해도 되고"), 이제는 지우기 전에 명단·일정·출결을
+// 기록 하나(afterschoolArchives)에 통째로 담아 보관해서, 세션별 문서 여러 개 대신 학기당 문서
+// 1개만 남기고 나중에도 "지난 학기 기록"에서 다시 볼 수 있게 한다. 명단·일정이 비면 방과후수업
+// 탭도 자동으로 메뉴에서 사라지고(hasActiveAfterschool 참고), 다음 학기 걸 등록하면 다시 나타난다.
 function endAfterschoolTerm(){
-  if (!confirm('이번 학기 방과후수업을 종료할까요?\n참여 학생 명단·수업 일정·출결 기록이 모두 삭제되고, 메뉴에서도 "방과후수업" 탭이 사라집니다.\n(다음 학기 걸 다시 등록하면 탭이 다시 나타나요)')) return;
-  Promise.all([
+  const defaultLabel = `${settingsCache.afterschoolCourseTitle || '방과후수업'} (${todayStr()} 종료)`;
+  const label = prompt('이번 학기 방과후수업을 종료합니다.\n참여 학생 명단·수업 일정·출결 기록은 아래 이름으로 "지난 학기 기록"에 보관되고, 실시간 목록에서는 사라집니다.\n(취소하면 종료하지 않습니다)\n\n보관할 이름:', defaultLabel);
+  if (label === null) return;
+  const savedLabel = label.trim() || defaultLabel;
+  archiveAfterschoolTerm(savedLabel).then(() => Promise.all([
     db.collection('afterschoolSchedule').get().then(snap => {
       const batch = db.batch();
       snap.docs.forEach(d => batch.delete(d.ref));
@@ -7169,14 +7279,14 @@ function endAfterschoolTerm(){
     db.collection('settings').doc('general').set({
       afterschoolStudents: [], afterschoolCourseTitle: '', afterschoolCourseInfo: '',
     }, { merge: true }),
-  ]).then(() => {
+  ])).then(() => {
     settingsCache.afterschoolStudents = [];
     settingsCache.afterschoolCourseTitle = '';
     settingsCache.afterschoolCourseInfo = '';
-    alert('종료했습니다. 다음 학기 명단·일정을 등록하면 메뉴에 다시 나타나요.');
+    alert(`"${savedLabel}" 이름으로 보관했습니다. "지난 학기 기록"에서 다시 볼 수 있어요. 다음 학기 명단·일정을 등록하면 메뉴에 다시 나타나요.`);
     renderAdmin();
     renderNav();
-  }).catch(err => alert('초기화에 실패했습니다: ' + err.message));
+  }).catch(err => alert('종료에 실패했습니다(보관은 되지 않았으니 다시 시도해주세요): ' + err.message));
 }
 function requireRosterImportPassword(onSuccess){
   openPasswordPrompt('학생 명단을 불러오려면 비밀번호를 입력하세요.', async (input) => {
@@ -7923,6 +8033,7 @@ function rwSwitchMode(mode){
   document.getElementById('rwTabHomeroom').className = isHr ? on : off;
   document.getElementById('rwTabBatch').className = isBatch ? on : off;
   if (isBatch) rwRenderBatchSubjects();
+  rwRenderUnitButtons();
   rwRecheck();
 }
 function rwChecked(name){ return [...document.querySelectorAll(`input[name="${name}"]:checked`)].map(i => i.value); }
@@ -7961,6 +8072,16 @@ function rwFillProfileForm(p){
   document.getElementById('rwStandards').value = p.standards || '';
   document.getElementById('rwProfKeywords').value = (p.keywords || []).join(', ');
   document.getElementById('rwUnits').value = (p.units || []).join(', ');
+  // 평가계획 상/중/하 표에서 읽은 내용요소를 다시 불러와 목록(드롭다운)과 저장용 rwBandRows를 맞춘다
+  rwBandRows = (p.contentElements || []).map(e => ({ label: e.label, '상': e['상'] || '', '중': e['중'] || '', '하': e['하'] || '' }));
+  const sel = document.getElementById('rwBandRow');
+  if (rwBandRows.length) {
+    sel.innerHTML = rwBandRows.map((r, i) => '<option value="' + i + '">' + (i + 1) + '. ' + escapeHtml(r.label || '(이름 없음)') + '</option>').join('');
+    sel.classList.remove('hidden');
+  } else {
+    sel.innerHTML = '';
+    sel.classList.add('hidden');
+  }
 }
 function rwLoadProfile(){
   const p = rwFindProfile(document.getElementById('rwSubject').value);
@@ -7968,18 +8089,28 @@ function rwLoadProfile(){
   rwFillProfileForm(p);
   rwSetMsg('rwProfileMsg', '등록된 기본 자료를 불러왔습니다.');
   rwRecheck();
+  rwRenderUnitButtons();
 }
 function rwProfileFromForm(){
   const levels = {};
   RW_LEVELS.forEach(k => { const v = document.getElementById('rwLv' + k).value.trim(); if (v) levels[k] = v; });
-  return {
-    subject: document.getElementById('rwSubject').value.trim(),
+  const subject = document.getElementById('rwSubject').value.trim();
+  const p = {
+    subject,
     kind: document.getElementById('rwKind').value,
     levels,
     standards: document.getElementById('rwStandards').value.trim(),
     keywords: rwCsv('rwProfKeywords'),
     units: rwCsv('rwUnits')
   };
+  // 평가계획 PDF의 상/중/하 표에서 이번에 새로 읽은 내용요소가 있으면 전부 담고(3학년형: 한 번에 전체 내용요소를 합쳐 과세특에 반영),
+  // 새로 읽은 게 없으면(예: 다시 저장만 하는 경우) 기존에 저장돼 있던 내용요소를 그대로 지키고, 둘 다 없으면 칸 자체를 넣지 않는다(Firestore는 undefined 값을 허용하지 않음).
+  const existing = rwFindProfile(subject);
+  const elements = rwBandRows.length
+    ? rwBandRows.map(r => ({ label: r.label || '', '상': r['상'] || '', '중': r['중'] || '', '하': r['하'] || '' }))
+    : (existing && existing.contentElements);
+  if (elements && elements.length) p.contentElements = elements;
+  return p;
 }
 async function rwWriteProfiles(list){
   settingsCache.recordProfiles = list;
@@ -7992,7 +8123,8 @@ async function rwSaveProfile(){
   if (errs.length) { rwSetMsg('rwProfileMsg', errs.join(' ')); return; }
   try {
     await rwWriteProfiles(rwProfiles().filter(x => x.subject !== p.subject).concat([p]));
-    rwSetMsg('rwProfileMsg', "'" + p.subject + "' 기본 자료를 저장했습니다.");
+    rwSetMsg('rwProfileMsg', "'" + p.subject + "' 기본 자료를 저장했습니다." + (p.contentElements ? ' (내용요소 ' + p.contentElements.length + '개를 모두 합쳐 과세특에 반영됩니다)' : ''));
+    rwRenderUnitButtons();
   } catch (e) {
     rwSetMsg('rwProfileMsg', '저장에 실패했습니다. 잠시 후 다시 시도해 주세요.');
   }
@@ -8108,13 +8240,20 @@ function rwBandPick(){
 }
 // 상/중/하 설명을 A~E 칸에 옮긴다(저장은 하지 않음). 상=A·B, 중=C·D, 하=E
 function rwBandFill(){
-  const map = RecordWriter.mapBandLevels({
-    '상': document.getElementById('rwBandHigh').value.trim(),
-    '중': document.getElementById('rwBandMid').value.trim(),
-    '하': document.getElementById('rwBandLow').value.trim()
-  });
+  const high = document.getElementById('rwBandHigh').value.trim();
+  const mid = document.getElementById('rwBandMid').value.trim();
+  const low = document.getElementById('rwBandLow').value.trim();
+  const map = RecordWriter.mapBandLevels({ '상': high, '중': mid, '하': low });
   if (!Object.keys(map).length) { rwSetMsg('rwBandMsg', '상/중/하 설명을 하나 이상 입력해 주세요.'); return; }
   RW_LEVELS.forEach(k => { if (map[k]) document.getElementById('rwLv' + k).value = map[k]; });
+  // 지금 고른 내용요소 칸을 직접 고쳤다면, 그 수정 내용을 이 내용요소에도 반영해서
+  // '기본 자료 저장'을 누를 때 전체 내용요소를 합칠 때도 고친 문장이 쓰이게 한다.
+  const rowIdx = +document.getElementById('rwBandRow').value;
+  if (rwBandRows[rowIdx]) {
+    rwBandRows[rowIdx]['상'] = high;
+    rwBandRows[rowIdx]['중'] = mid;
+    rwBandRows[rowIdx]['하'] = low;
+  }
   rwSetMsg('rwBandMsg', 'A~E 칸에 채웠습니다. 확인한 뒤 \'기본 자료 저장\'을 누르세요. (아직 저장되지 않았습니다)');
 }
 // 수업 학생 명단(과세특용). 이 컴퓨터(localStorage)에만 저장하며 서버로 보내지 않는다.
@@ -8219,28 +8358,56 @@ function rwTableRow(id, subject){
   const st = rwBatchParse([subject], false).students.find(s => s.id === id);
   return st ? st.subj[subject] : null;
 }
+// 과목 모드 초안 만들기 공통 로직. unitsOverride를 주면(능력단위별 버튼) 그 능력단위 하나만 써서 만든다.
+function rwGenerateSubjectDraft(unitsOverride){
+  const subject = document.getElementById('rwSubject').value.trim();
+  if (!subject) { rwShowWarn('과목명을 입력해 주세요.'); return null; }
+  // 성취수준·사례·태그는 일괄 작성 표에서 학번(문장 변주 키)에 맞는 줄을 가져온다. 칸에 직접 적은 사례·태그가 있으면 그것을 쓴다.
+  const sid = rwSeedValue();
+  const row = rwTableRow(sid, subject);
+  const level = row && ['A', 'B', 'C', 'D', 'E'].includes(row.level) ? row.level : '';
+  if (!level) { rwShowWarn('일괄 작성 표에서 학번 ' + (sid || '(없음)') + '의 ' + subject + ' 성취수준을 찾지 못했습니다. 학번(문장 변주 키)과 표의 성취수준 열을 확인하세요.'); return null; }
+  let profile = rwFindProfile(subject) || rwProfileFromForm();
+  if (unitsOverride) profile = Object.assign({}, profile, { units: unitsOverride });
+  return RecordWriter.composeSubjectNote({
+    profile: profile,
+    level: level,
+    keywords: rwCsv('rwKeywords'),
+    evidence: rwLines('rwEvidence').length ? rwLines('rwEvidence') : (row.evidence || []),
+    tags: rwChecked('rwSubjectTag').length ? rwChecked('rwSubjectTag') : (row.tags || []),
+    hasGrowth: document.getElementById('rwSubjectGrowth').checked,
+    seed: rwSeedValue(),
+    schoolNames: rwSchoolNames(),
+    maxBytes: rwLimit()
+  });
+}
+// 능력단위별로 따로 초안을 만든다(예: 2학년 전문교과 실무처럼 능력단위가 여러 개일 때, 능력단위 하나만 골라 그 내용으로만 초안을 만듦)
+function rwGenerateUnit(i){
+  if (!window.RecordWriter) { alert('초안 엔진을 불러오지 못했습니다. 새로고침 후 다시 시도해 주세요.'); return; }
+  const unit = rwCsv('rwUnits')[i];
+  if (!unit) return;
+  const r = rwGenerateSubjectDraft([unit]);
+  if (!r) return;
+  document.getElementById('rwOutput').value = r.text;
+  rwLastDropped = r.dropped;
+  rwRecheck();
+}
+// 과목 유형이 '전문교과 실무'이고 능력단위가 둘 이상이면, 능력단위마다 따로 초안을 만들 수 있는 버튼을 보여준다.
+function rwRenderUnitButtons(){
+  const el = document.getElementById('rwUnitButtons');
+  if (!el) return;
+  const kind = document.getElementById('rwKind').value;
+  const units = rwCsv('rwUnits');
+  if (rwMode() !== 'subject' || kind !== 'practical' || units.length < 2) { el.innerHTML = ''; return; }
+  el.innerHTML = '<p class="text-xs text-gray-500 w-full mb-1">능력단위별로 따로 초안을 만들 수 있어요:</p>'
+    + units.map((u, i) => '<button type="button" onclick="rwGenerateUnit(' + i + ')" class="px-3 py-1.5 rounded-lg border border-forest-dark text-forest-dark text-xs font-semibold bg-white">' + escapeHtml(u) + '만 초안 만들기</button>').join('');
+}
 function rwGenerate(){
   if (!window.RecordWriter) { alert('초안 엔진을 불러오지 못했습니다. 새로고침 후 다시 시도해 주세요.'); return; }
   let r;
   if (rwMode() === 'subject') {
-    const subject = document.getElementById('rwSubject').value.trim();
-    if (!subject) { rwShowWarn('과목명을 입력해 주세요.'); return; }
-    // 성취수준·사례·태그는 일괄 작성 표에서 학번(문장 변주 키)에 맞는 줄을 가져온다. 칸에 직접 적은 사례·태그가 있으면 그것을 쓴다.
-    const sid = rwSeedValue();
-    const row = rwTableRow(sid, subject);
-    const level = row && ['A', 'B', 'C', 'D', 'E'].includes(row.level) ? row.level : '';
-    if (!level) { rwShowWarn('일괄 작성 표에서 학번 ' + (sid || '(없음)') + '의 ' + subject + ' 성취수준을 찾지 못했습니다. 학번(문장 변주 키)과 표의 성취수준 열을 확인하세요.'); return; }
-    r = RecordWriter.composeSubjectNote({
-      profile: rwFindProfile(subject) || rwProfileFromForm(),
-      level: level,
-      keywords: rwCsv('rwKeywords'),
-      evidence: rwLines('rwEvidence').length ? rwLines('rwEvidence') : (row.evidence || []),
-      tags: rwChecked('rwSubjectTag').length ? rwChecked('rwSubjectTag') : (row.tags || []),
-      hasGrowth: document.getElementById('rwSubjectGrowth').checked,
-      seed: rwSeedValue(),
-      schoolNames: rwSchoolNames(),
-      maxBytes: rwLimit()
-    });
+    r = rwGenerateSubjectDraft();
+    if (!r) return;
   } else {
     r = RecordWriter.composeHomeroom({
       traits: rwChecked('rwTrait'),

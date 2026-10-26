@@ -428,7 +428,22 @@
     return prefix + String(body).replace(/\.+$/, '') + '.';
   }
 
-  // profile: { subject, kind, levels: {A..E: 교사가 쓴 성취수준 기술}, keywords, units }
+  // 평가계획 상/중/하 표에서 내용요소별로 읽어온 문장들(profile.contentElements, [{label,상,중,하}])이 있으면
+  // 내용요소 하나당 문장을 하나씩 만든다(단일 teacherLevel 대신 전체 내용요소를 합쳐 과세특에 반영).
+  function contentElementParts(p, level, prefix, key) {
+    const list = (p && p.contentElements) || [];
+    if (!list.length) return null;
+    const col = (level === 'A' || level === 'B') ? '상' : (level === 'C' || level === 'D') ? '중' : '하';
+    const out = [];
+    list.forEach(ce => {
+      const raw = String((ce && ce[col]) || '').trim();
+      if (!raw) return;
+      out.push({ role: 'level', prio: out.length === 0 ? 1 : 2, text: sentenceOf(prefix, toNominal(raw).text) });
+    });
+    return out.length ? out : null;
+  }
+
+  // profile: { subject, kind, levels: {A..E: 교사가 쓴 성취수준 기술}, keywords, units, contentElements }
   // 과목명·기본 자료는 프로필에서 가져오고, 프로필이 없으면 입력값을 그대로 쓴다.
   function composeSubjectNote(input) {
     const o0 = input || {};
@@ -449,10 +464,15 @@
     const maxTags = o.maxTags || (hasText(o.evidence) ? 1 : 2);
 
     if (kind === 'practical') {
-      const intro = teacherLevel
-        ? sentenceOf('실무 학습에서 ', teacherLevel)
-        : sentenceOf('', PRACTICAL_INTRO[level]);
-      parts.push({ role: 'level', prio: 1, text: intro });
+      const ceParts = contentElementParts(p, level, '실무 학습에서 ', key);
+      if (ceParts) {
+        parts.push(...ceParts);
+      } else {
+        const intro = teacherLevel
+          ? sentenceOf('실무 학습에서 ', teacherLevel)
+          : sentenceOf('', PRACTICAL_INTRO[level]);
+        parts.push({ role: 'level', prio: 1, text: intro });
+      }
       (o.units || []).map(u => String(u).trim()).filter(Boolean).forEach((u, i) => {
         parts.push({ role: 'unit', prio: 1, text: u + josa(u, '을/를') + ' 능력단위로 한 학습활동에 참여하며 ' + pick(UNIT_TAILS, key + 'U' + i) + '.' });
       });
@@ -466,7 +486,9 @@
 
     if (kind === 'arts') {
       const lv = ARTS_LEVEL[o.level] ? o.level : 'B';
-      parts.push({ role: 'level', prio: 1, text: teacherLevel ? sentenceOf('교과 실기에서 ', teacherLevel) : sentenceOf('교과 실기에서 ', pick(ARTS_LEVEL[lv], key + 'A')) });
+      const ceParts = contentElementParts(p, level, '교과 실기에서 ', key);
+      if (ceParts) parts.push(...ceParts);
+      else parts.push({ role: 'level', prio: 1, text: teacherLevel ? sentenceOf('교과 실기에서 ', teacherLevel) : sentenceOf('교과 실기에서 ', pick(ARTS_LEVEL[lv], key + 'A')) });
       if (o.aptitude) parts.push({ role: 'aptitude', prio: 2, text: pick(APTITUDE_SENTENCES, key + 'P') + '.' });
       parts.push(...evidenceParts(o.evidence, key, 1));
       parts.push(...tagParts(o.tags, maxTags, key));
@@ -476,7 +498,9 @@
       return finish(parts, limit, o);
     }
 
-    parts.push({ role: 'level', prio: 1, text: teacherLevel ? sentenceOf('교과 학습에서 ', teacherLevel) : sentenceOf('교과 학습에서 ', pick(LEVEL_SENTENCES[level], key + 'L')) });
+    const ceParts = contentElementParts(p, level, '교과 학습에서 ', key);
+    if (ceParts) parts.push(...ceParts);
+    else parts.push({ role: 'level', prio: 1, text: teacherLevel ? sentenceOf('교과 학습에서 ', teacherLevel) : sentenceOf('교과 학습에서 ', pick(LEVEL_SENTENCES[level], key + 'L')) });
     const focus = buildFocus(o.keywords || [], key + 'F');
     if (focus) parts.push({ role: 'focus', prio: 2, text: focus });
     parts.push(...evidenceParts(o.evidence, key, 1));

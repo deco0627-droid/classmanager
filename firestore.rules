@@ -121,6 +121,7 @@ service cloud.firestore {
     match /afterschoolSchedule/{doc} { allow read: if true; allow write: if isTeacher(); }
     match /afterschoolAttendance/{doc} { allow read: if true; allow write: if isTeacher(); }
     match /afterschoolMessages/{doc} { allow read: if true; allow write: if isTeacher(); }
+    match /afterschoolArchives/{doc} { allow read: if true; allow write: if isTeacher(); }
 
     match /cbtUsers/{uid} {
       allow get: if request.auth != null && (
