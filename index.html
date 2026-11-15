@@ -8896,7 +8896,7 @@ function taskItemHtml(t){
     <input type="checkbox" ${t.done ? 'checked' : ''} onchange="toggleTask('${t.id}', ${!!t.done})" class="w-4 h-4 accent-forest shrink-0">
     <span class="font-mono text-xs text-gray-400 shrink-0">${dateLabel}</span>
     ${imageHtml}
-    <span class="flex-1 ${t.done ? 'line-through text-gray-400' : 'text-ink'}">${escapeHtml(t.text || '')}</span>
+    <span class="flex-1 whitespace-pre-line ${t.done ? 'line-through text-gray-400' : 'text-ink'}">${escapeHtml(t.text || '')}</span>
     <button onclick="startEditTask('${t.id}')" class="text-gray-300 hover:text-forest-dark text-xs shrink-0">수정</button>
     <button onclick="deleteTask('${t.id}')" class="text-gray-300 hover:text-brick text-lg leading-none shrink-0">&times;</button>
   </div>`;
