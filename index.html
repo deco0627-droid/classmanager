@@ -2524,7 +2524,10 @@ function renderWall(){
       .sort((a,b) => (b.pinned?1:0) - (a.pinned?1:0) || (b.createdAt||0) - (a.createdAt||0));
     return `
     <div class="bg-card border border-gray-200 rounded-xl p-4 flex flex-col w-[270px] shrink-0">
-      <h2 class="font-display text-base mb-3 text-forest-dark">${escapeHtml(col)}</h2>
+      <div class="flex items-center justify-between mb-3 gap-2">
+        <h2 class="font-display text-base text-forest-dark">${escapeHtml(col)}</h2>
+        ${isTeacher ? `<button onclick="exportWallColumn('${escapeAttr(col)}', this)" class="text-[11px] border border-gray-300 rounded-md px-2 py-1 text-gray-500 hover:border-forest hover:text-forest-dark shrink-0" title="사진과 제목을 합친 이미지를 ZIP으로 내려받기 (교사 전용)">⬇️ 내보내기</button>` : ''}
+      </div>
       <button onclick="openWallPostForm('${escapeAttr(col)}')" class="mb-3 w-full border-2 border-dashed border-gray-300 rounded-lg py-2 text-xs text-gray-400 hover:border-forest hover:text-forest-dark transition-colors">+ 새 글 작성</button>
       <div class="space-y-3 max-h-[520px] overflow-y-auto pr-1 pt-1">
         ${posts.length ? posts.map((p,idx) => {
@@ -2633,6 +2636,131 @@ function submitWallPost(){
     content, image: wallPostImageData || null, createdAt: Date.now(), isPrivate,
   }).then(() => closeWallPostForm())
     .catch(() => alert('게시 중 문제가 발생했습니다. Firestore 규칙에 wallPosts create 권한이 설정되어 있는지 확인해주세요.'));
+}
+/* 담벼락 내보내기 (교사 전용): 게시판의 사진 글마다 사진 + 제목(글 내용)을 1920×1080 한 장으로
+   합쳐서, 올린 순서(오래된 것 → 최신)대로 번호를 붙여 ZIP으로 내려받는다. 이미지가 16:9라서
+   CapCut 등 영상 편집기에 그대로 넣으면 바로 슬라이드쇼 영상이 된다. 비밀글은 넣지 않고,
+   이미지에는 학생 이름을 넣지 않는다(이름은 교사용 목록.csv에만 기록). */
+let jszipLoading = null;
+function loadJSZip(){
+  if (window.JSZip) return Promise.resolve(window.JSZip);
+  if (!jszipLoading) jszipLoading = new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+    s.onload = () => resolve(window.JSZip);
+    s.onerror = () => { jszipLoading = null; reject(new Error('JSZip 로드 실패')); };
+    document.head.appendChild(s);
+  });
+  return jszipLoading;
+}
+function loadImageEl(src){
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    if (!src.startsWith('data:')) img.crossOrigin = 'anonymous';
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = src;
+  });
+}
+function wrapCanvasText(ctx, text, maxWidth, maxLines){
+  const lines = [];
+  for (const para of String(text).split('\n')) {
+    let line = '';
+    for (const ch of para) {  // 한글은 띄어쓰기가 적어도 자연스럽게 줄바꿈되도록 글자 단위로 자른다
+      if (ctx.measureText(line + ch).width > maxWidth && line) { lines.push(line); line = ch.trimStart(); }
+      else line += ch;
+    }
+    lines.push(line);
+  }
+  if (lines.length > maxLines) {
+    lines.length = maxLines;
+    let last = lines[maxLines - 1];
+    while (last && ctx.measureText(last + '…').width > maxWidth) last = last.slice(0, -1);
+    lines[maxLines - 1] = last + '…';
+  }
+  return lines;
+}
+async function renderWallSlide(img, caption){
+  const W = 1920, H = 1080, CAP_H = caption ? 230 : 0, PAD = 40;
+  const c = document.createElement('canvas'); c.width = W; c.height = H;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#16302A'; ctx.fillRect(0, 0, W, H);
+  // 사진: 위쪽 영역에 비율 유지하며 꽉 차게(잘리지 않게) 배치
+  const areaW = W - PAD * 2, areaH = H - CAP_H - PAD * 2;
+  const s = Math.min(areaW / img.width, areaH / img.height);
+  const dw = img.width * s, dh = img.height * s;
+  ctx.drawImage(img, (W - dw) / 2, PAD + (areaH - dh) / 2, dw, dh);
+  if (caption) {
+    ctx.fillStyle = '#FFF6D8'; ctx.fillRect(0, H - CAP_H, W, CAP_H);
+    ctx.fillStyle = '#16302A'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    let size = 64, lines;
+    do {  // 길면 글씨를 줄여서 최대 3줄 안에 넣는다
+      ctx.font = `bold ${size}px 'ElectricalSafety', 'Malgun Gothic', sans-serif`;
+      lines = wrapCanvasText(ctx, caption, W - 160, 3);
+      if (lines.length * size * 1.25 <= CAP_H - 40) break;
+      size -= 6;
+    } while (size > 34);
+    const lh = size * 1.25, top = H - CAP_H / 2 - (lines.length - 1) * lh / 2;
+    lines.forEach((l, i) => ctx.fillText(l, W / 2, top + i * lh));
+  }
+  return new Promise(res => c.toBlob(res, 'image/jpeg', 0.92));
+}
+function csvCell(v){ return `"${String(v ?? '').replace(/"/g, '""')}"`; }
+async function exportWallColumn(col, btn){
+  if (!isTeacher) return;
+  // 화면 캐시는 최대 300개라서, 내보낼 때는 이 게시판 글을 서버에서 다시 전부 읽는다
+  let posts;
+  const label = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = '준비 중…'; }
+  try {
+    const snap = await db.collection('wallPosts').where('column', '==', col).get();
+    posts = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch (e) {
+    console.warn('담벼락 전체 조회 실패, 화면에 불러온 글로 내보냅니다:', e);
+    posts = wallPostsPublicCache.filter(p => p.column === col);
+  }
+  const photoPosts = posts.filter(p => p.image && !p.isPrivate).sort((a,b) => (a.createdAt||0) - (b.createdAt||0));
+  if (!photoPosts.length) {
+    if (btn) { btn.disabled = false; btn.textContent = label; }
+    alert(`"${col}"에 사진이 있는 공개 글이 없습니다.`);
+    return;
+  }
+  try {
+    const JSZip = await loadJSZip();
+    try { await document.fonts.ready; } catch (e) {}
+    const zip = new JSZip();
+    const folder = zip.folder(col);
+    const rows = [['번호', '파일명', '제목', '작성자', '올린 날짜'].map(csvCell).join(',')];
+    let ok = 0, failed = 0;
+    for (let i = 0; i < photoPosts.length; i++) {
+      const p = photoPosts[i];
+      if (btn) btn.textContent = `${i + 1}/${photoPosts.length}`;
+      try {
+        const img = await loadImageEl(p.image);
+        const blob = await renderWallSlide(img, (p.content || '').trim());
+        ok++;
+        const name = `${String(ok).padStart(3, '0')}.jpg`;
+        folder.file(name, blob);
+        const date = p.createdAt ? new Date(p.createdAt).toLocaleString('ko-KR') : '';
+        rows.push([ok, name, p.content || '', p.author || '', date].map(csvCell).join(','));
+      } catch (e) { failed++; console.warn('사진 처리 실패:', p.id, e); }
+    }
+    folder.file('목록.csv', '﻿' + rows.join('\r\n'));  // BOM: 엑셀에서 한글이 깨지지 않게
+    if (btn) btn.textContent = '압축 중…';
+    const zipBlob = await zip.generateAsync({ type: 'blob' });
+    const today = new Date().toISOString().slice(0, 10);
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(zipBlob);
+    a.download = `담벼락_${col}_${today}.zip`.replace(/[\\/:*?"<>|]/g, '_');
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+    if (failed) alert(`사진 ${ok}장을 내보냈습니다. (${failed}장은 불러오지 못해 빠졌습니다)`);
+  } catch (e) {
+    console.error(e);
+    alert('내보내기 중 문제가 발생했습니다. 인터넷 연결을 확인하고 다시 시도해주세요.');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = label; }
+  }
 }
 function deleteWallPost(id){
   if (!confirm('이 게시물을 삭제하시겠습니까?')) return;
